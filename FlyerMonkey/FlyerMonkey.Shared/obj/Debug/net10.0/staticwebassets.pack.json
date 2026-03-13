@@ -1,0 +1,49 @@
+{
+  "Files": [
+    {
+      "Id": "C:\\Users\\richa\\source\\repos\\FlyerMonkey\\FlyerMonkey\\FlyerMonkey.Shared\\obj\\Debug\\net10.0\\scopedcss\\projectbundle\\FlyerMonkey.Shared.bundle.scp.css",
+      "PackagePath": "staticwebassets\\FlyerMonkey.Shared.awg2vxawko.bundle.scp.css"
+    },
+    {
+      "Id": "C:\\Users\\richa\\source\\repos\\FlyerMonkey\\FlyerMonkey\\FlyerMonkey.Shared\\wwwroot\\app.css",
+      "PackagePath": "staticwebassets\\app.css"
+    },
+    {
+      "Id": "C:\\Users\\richa\\source\\repos\\FlyerMonkey\\FlyerMonkey\\FlyerMonkey.Shared\\wwwroot\\favicon.png",
+      "PackagePath": "staticwebassets\\favicon.png"
+    },
+    {
+      "Id": "C:\\Users\\richa\\source\\repos\\FlyerMonkey\\FlyerMonkey\\FlyerMonkey.Shared\\wwwroot\\lib\\bootstrap\\dist\\css\\bootstrap.min.css",
+      "PackagePath": "staticwebassets\\lib\\bootstrap\\dist\\css\\bootstrap.min.css"
+    },
+    {
+      "Id": "C:\\Users\\richa\\source\\repos\\FlyerMonkey\\FlyerMonkey\\FlyerMonkey.Shared\\wwwroot\\lib\\bootstrap\\dist\\css\\bootstrap.min.css.map",
+      "PackagePath": "staticwebassets\\lib\\bootstrap\\dist\\css\\bootstrap.min.css.map"
+    },
+    {
+      "Id": "C:\\Users\\richa\\source\\repos\\FlyerMonkey\\FlyerMonkey\\FlyerMonkey.Shared\\wwwroot\\monkeys.json",
+      "PackagePath": "staticwebassets\\monkeys.json"
+    },
+    {
+      "Id": "obj\\Debug\\net10.0\\staticwebassets\\msbuild.FlyerMonkey.Shared.Microsoft.AspNetCore.StaticWebAssetEndpoints.props",
+      "PackagePath": "build\\Microsoft.AspNetCore.StaticWebAssetEndpoints.props"
+    },
+    {
+      "Id": "obj\\Debug\\net10.0\\staticwebassets\\msbuild.FlyerMonkey.Shared.Microsoft.AspNetCore.StaticWebAssets.props",
+      "PackagePath": "build\\Microsoft.AspNetCore.StaticWebAssets.props"
+    },
+    {
+      "Id": "obj\\Debug\\net10.0\\staticwebassets\\msbuild.build.FlyerMonkey.Shared.props",
+      "PackagePath": "build\\FlyerMonkey.Shared.props"
+    },
+    {
+      "Id": "obj\\Debug\\net10.0\\staticwebassets\\msbuild.buildMultiTargeting.FlyerMonkey.Shared.props",
+      "PackagePath": "buildMultiTargeting\\FlyerMonkey.Shared.props"
+    },
+    {
+      "Id": "obj\\Debug\\net10.0\\staticwebassets\\msbuild.buildTransitive.FlyerMonkey.Shared.props",
+      "PackagePath": "buildTransitive\\FlyerMonkey.Shared.props"
+    }
+  ],
+  "ElementsToRemove": []
+}

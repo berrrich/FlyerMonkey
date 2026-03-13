@@ -1,0 +1,100 @@
+{
+  "Version": 1,
+  "WorkspaceRootPath": "C:\\Users\\richa\\source\\repos\\FlyerMonkey\\",
+  "Documents": [
+    {
+      "AbsoluteMoniker": "D:0:0:{19251EC5-DB7B-47AF-A8AB-B7C230EC991E}|SQLServerConnection\\SQLServerConnection.csproj|c:\\users\\richa\\source\\repos\\flyermonkey\\sqlserverconnection\\sqlserverconnection.csproj||{FA3CD31E-987B-443A-9B81-186104E8DAC1}|",
+      "RelativeMoniker": "D:0:0:{19251EC5-DB7B-47AF-A8AB-B7C230EC991E}|SQLServerConnection\\SQLServerConnection.csproj|solutionrelative:sqlserverconnection\\sqlserverconnection.csproj||{FA3CD31E-987B-443A-9B81-186104E8DAC1}|"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{66670DFF-B5B6-D069-DFAC-25ADE10CAC90}|FlyerMonkey\\FlyerMonkey.Web\\FlyerMonkey.Web.csproj|c:\\users\\richa\\source\\repos\\flyermonkey\\flyermonkey\\flyermonkey.web\\flyermonkey.web.csproj||{FA3CD31E-987B-443A-9B81-186104E8DAC1}|",
+      "RelativeMoniker": "D:0:0:{66670DFF-B5B6-D069-DFAC-25ADE10CAC90}|FlyerMonkey\\FlyerMonkey.Web\\FlyerMonkey.Web.csproj|solutionrelative:flyermonkey\\flyermonkey.web\\flyermonkey.web.csproj||{FA3CD31E-987B-443A-9B81-186104E8DAC1}|"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{66670DFF-B5B6-D069-DFAC-25ADE10CAC90}|FlyerMonkey\\FlyerMonkey.Web\\FlyerMonkey.Web.csproj|c:\\users\\richa\\source\\repos\\flyermonkey\\flyermonkey\\flyermonkey.web\\program.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{66670DFF-B5B6-D069-DFAC-25ADE10CAC90}|FlyerMonkey\\FlyerMonkey.Web\\FlyerMonkey.Web.csproj|solutionrelative:flyermonkey\\flyermonkey.web\\program.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{0A7A77CA-963C-5227-8684-575D569D5A69}|FlyerMonkey\\FlyerMonkey.Shared\\FlyerMonkey.Shared.csproj|c:\\users\\richa\\source\\repos\\flyermonkey\\flyermonkey\\flyermonkey.shared\\data\\applicationdbcontext.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{0A7A77CA-963C-5227-8684-575D569D5A69}|FlyerMonkey\\FlyerMonkey.Shared\\FlyerMonkey.Shared.csproj|solutionrelative:flyermonkey\\flyermonkey.shared\\data\\applicationdbcontext.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    }
+  ],
+  "DocumentGroupContainers": [
+    {
+      "Orientation": 0,
+      "VerticalTabListWidth": 256,
+      "DocumentGroups": [
+        {
+          "DockedWidth": 128,
+          "SelectedChildIndex": 1,
+          "Children": [
+            {
+              "$type": "Document",
+              "DocumentIndex": 2,
+              "Title": "Program.cs",
+              "DocumentMoniker": "C:\\Users\\richa\\source\\repos\\FlyerMonkey\\FlyerMonkey\\FlyerMonkey.Web\\Program.cs",
+              "RelativeDocumentMoniker": "FlyerMonkey\\FlyerMonkey.Web\\Program.cs",
+              "ToolTip": "C:\\Users\\richa\\source\\repos\\FlyerMonkey\\FlyerMonkey\\FlyerMonkey.Web\\Program.cs",
+              "RelativeToolTip": "FlyerMonkey\\FlyerMonkey.Web\\Program.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAQAAAARAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-03-12T17:26:08.545Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "SQLServerConnection.csproj",
+              "DocumentMoniker": "C:\\Users\\richa\\source\\repos\\FlyerMonkey\\SQLServerConnection\\SQLServerConnection.csproj",
+              "RelativeDocumentMoniker": "SQLServerConnection\\SQLServerConnection.csproj",
+              "ToolTip": "C:\\Users\\richa\\source\\repos\\FlyerMonkey\\SQLServerConnection\\SQLServerConnection.csproj",
+              "RelativeToolTip": "SQLServerConnection\\SQLServerConnection.csproj",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000758|",
+              "WhenOpened": "2026-03-12T16:38:27.839Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 1,
+              "Title": "FlyerMonkey.Web.csproj",
+              "DocumentMoniker": "C:\\Users\\richa\\source\\repos\\FlyerMonkey\\FlyerMonkey\\FlyerMonkey.Web\\FlyerMonkey.Web.csproj",
+              "RelativeDocumentMoniker": "FlyerMonkey\\FlyerMonkey.Web\\FlyerMonkey.Web.csproj",
+              "ToolTip": "C:\\Users\\richa\\source\\repos\\FlyerMonkey\\FlyerMonkey\\FlyerMonkey.Web\\FlyerMonkey.Web.csproj",
+              "RelativeToolTip": "FlyerMonkey\\FlyerMonkey.Web\\FlyerMonkey.Web.csproj",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAABIAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000758|",
+              "WhenOpened": "2026-03-12T16:37:30.414Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 3,
+              "Title": "ApplicationDbContext.cs",
+              "DocumentMoniker": "C:\\Users\\richa\\source\\repos\\FlyerMonkey\\FlyerMonkey\\FlyerMonkey.Shared\\Data\\ApplicationDbContext.cs",
+              "RelativeDocumentMoniker": "FlyerMonkey\\FlyerMonkey.Shared\\Data\\ApplicationDbContext.cs",
+              "ToolTip": "C:\\Users\\richa\\source\\repos\\FlyerMonkey\\FlyerMonkey\\FlyerMonkey.Shared\\Data\\ApplicationDbContext.cs",
+              "RelativeToolTip": "FlyerMonkey\\FlyerMonkey.Shared\\Data\\ApplicationDbContext.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAIAAAASAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-03-12T16:35:27.908Z"
+            }
+          ]
+        },
+        {
+          "DockedWidth": 261,
+          "SelectedChildIndex": -1,
+          "Children": [
+            {
+              "$type": "Bookmark",
+              "Name": "ST:0:0:{d78612c7-9962-4b83-95d9-268046dad23a}"
+            },
+            {
+              "$type": "Bookmark",
+              "Name": "ST:0:0:{34e76e81-ee4a-11d0-ae2e-00a0c90fffc3}"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

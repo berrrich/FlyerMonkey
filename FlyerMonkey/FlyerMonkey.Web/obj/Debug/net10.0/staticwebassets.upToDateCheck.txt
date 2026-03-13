@@ -1,0 +1,6 @@
+Components\Layout\ReconnectModal.razor.js
+C:\Users\richa\.nuget\packages\microsoft.aspnetcore.app.internal.assets\10.0.3\build\..\_framework\blazor.web.js
+C:\Users\richa\.nuget\packages\microsoft.aspnetcore.app.internal.assets\10.0.3\build\..\_framework\blazor.server.js
+C:\Users\richa\source\repos\FlyerMonkey\FlyerMonkey\FlyerMonkey.Web\Components\Layout\ReconnectModal.razor.js
+C:\Users\richa\.nuget\packages\microsoft.aspnetcore.app.internal.assets\10.0.3\_framework\blazor.server.js
+C:\Users\richa\.nuget\packages\microsoft.aspnetcore.app.internal.assets\10.0.3\_framework\blazor.web.js

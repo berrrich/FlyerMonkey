@@ -1,0 +1,8 @@
+<Solution>
+  <Project Path="FlyerMonkey/FlyerMonkey.Shared/FlyerMonkey.Shared.csproj" />
+  <Project Path="FlyerMonkey/FlyerMonkey.Web/FlyerMonkey.Web.csproj" />
+  <Project Path="FlyerMonkey/FlyerMonkey/FlyerMonkey.csproj">
+    <Deploy Solution="Debug|*" />
+  </Project>
+  <Project Path="SQLServerConnection/SQLServerConnection.csproj" Id="19251ec5-db7b-47af-a8ab-b7c230ec991e" />
+</Solution>

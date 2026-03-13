@@ -1,0 +1,41 @@
+﻿@page "/halfpricesales"
+@using System.Text.Json.Serialization;
+@using System.Text.Json
+@using System.Text.Json.Serialization.Metadata
+@using FlyerMonkey.Shared.Model;
+@using FlyerMonkey.Shared.Services;
+
+@inject PricelineService pricelineService
+
+<h3>Half Price Sales</h3>
+
+<div>
+    <table>
+        <thead>
+            <tr>
+                <th>Image</th>
+                <th>Name</th>
+                <th>Location</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var priceline in pricelines)
+            {
+                <tr>
+                    <td><img src="@priceline.description" alt="@priceline.Position" width="100" /></td>
+                    <td>@priceline.description</td>
+                    <td>@priceline.description</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+@code {
+    private List<Priceline> pricelines = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        pricelines = await pricelineService.GetPriceline();
+    }
+}

@@ -1,0 +1,14 @@
+C:\Users\richa\source\repos\FlyerMonkey\SQLServerConnection\bin\Debug\net10.0\SQLServerConnection.deps.json
+C:\Users\richa\source\repos\FlyerMonkey\SQLServerConnection\bin\Debug\net10.0\SQLServerConnection.runtimeconfig.json
+C:\Users\richa\source\repos\FlyerMonkey\SQLServerConnection\bin\Debug\net10.0\SQLServerConnection.dll
+C:\Users\richa\source\repos\FlyerMonkey\SQLServerConnection\bin\Debug\net10.0\SQLServerConnection.pdb
+C:\Users\richa\source\repos\FlyerMonkey\SQLServerConnection\obj\Debug\net10.0\SQLServerConnection.csproj.AssemblyReference.cache
+C:\Users\richa\source\repos\FlyerMonkey\SQLServerConnection\obj\Debug\net10.0\SQLServerConnection.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\richa\source\repos\FlyerMonkey\SQLServerConnection\obj\Debug\net10.0\SQLServerConnection.AssemblyInfoInputs.cache
+C:\Users\richa\source\repos\FlyerMonkey\SQLServerConnection\obj\Debug\net10.0\SQLServerConnection.AssemblyInfo.cs
+C:\Users\richa\source\repos\FlyerMonkey\SQLServerConnection\obj\Debug\net10.0\SQLServerConnection.csproj.CoreCompileInputs.cache
+C:\Users\richa\source\repos\FlyerMonkey\SQLServerConnection\obj\Debug\net10.0\SQLServerConnection.dll
+C:\Users\richa\source\repos\FlyerMonkey\SQLServerConnection\obj\Debug\net10.0\refint\SQLServerConnection.dll
+C:\Users\richa\source\repos\FlyerMonkey\SQLServerConnection\obj\Debug\net10.0\SQLServerConnection.pdb
+C:\Users\richa\source\repos\FlyerMonkey\SQLServerConnection\obj\Debug\net10.0\SQLServerConnection.genruntimeconfig.cache
+C:\Users\richa\source\repos\FlyerMonkey\SQLServerConnection\obj\Debug\net10.0\ref\SQLServerConnection.dll

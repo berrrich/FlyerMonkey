@@ -1,0 +1,15 @@
+<api>
+  <jcw-types>
+    <type name="MainActivity" package="crc64ab0f3c30a57a54f4" application_java_class="android.app.Application" mono_runtime_initialization="mono.MonoPackageManager.LoadApplication (context);" extends_type="crc6488302ad6e9e4df1a.MauiAppCompatActivity" partial_assembly_qualified_name="FlyerMonkey.MainActivity, FlyerMonkey">
+      <constructors>
+        <constructor name="MainActivity" method="n_.ctor:()V:" jni_signature="()V" managed_parameters="" retval="void" is_dynamically_registered="True" />
+        <constructor name="MainActivity" method="n_.ctor:(I)V:" jni_signature="(I)V" managed_parameters="System.Int32, System.Private.CoreLib" params="int p0" retval="void" is_dynamically_registered="True" super_call="p0" activate_call="p0" />
+      </constructors>
+    </type>
+    <type name="MainApplication" package="crc64ab0f3c30a57a54f4" application_java_class="android.app.Application" mono_runtime_initialization="mono.MonoPackageManager.LoadApplication (context);" extends_type="crc6488302ad6e9e4df1a.MauiApplication" is_application="True" partial_assembly_qualified_name="FlyerMonkey.MainApplication, FlyerMonkey" application_constructor="MainApplication" />
+  </jcw-types>
+  <acw-types partial-assembly-name="FlyerMonkey" module-name="FlyerMonkey.dll">
+    <type assembly-qualified-name="FlyerMonkey.MainActivity, FlyerMonkey, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null" compat-jni-name="flyermonkey.MainActivity" java-key="crc64ab0f3c30a57a54f4.MainActivity" managed-key="FlyerMonkey.MainActivity" partial-assembly-qualified-name="FlyerMonkey.MainActivity, FlyerMonkey" />
+    <type assembly-qualified-name="FlyerMonkey.MainApplication, FlyerMonkey, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null" compat-jni-name="flyermonkey.MainApplication" java-key="crc64ab0f3c30a57a54f4.MainApplication" managed-key="FlyerMonkey.MainApplication" partial-assembly-qualified-name="FlyerMonkey.MainApplication, FlyerMonkey" />
+  </acw-types>
+</api>

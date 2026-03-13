@@ -1,0 +1,4 @@
+C:\Users\richa\source\repos\FlyerMonkey\FlyerMonkey\FlyerMonkey.Shared\obj\Release\net10.0\staticwebassets.build.json
+C:\Users\richa\source\repos\FlyerMonkey\FlyerMonkey\FlyerMonkey.Shared\obj\Release\net10.0\staticwebassets.build.json
+C:\Users\richa\source\repos\FlyerMonkey\FlyerMonkey\FlyerMonkey.Shared\obj\Release\net10.0\staticwebassets.build.json
+C:\Users\richa\source\repos\FlyerMonkey\FlyerMonkey\FlyerMonkey.Shared\obj\Release\net10.0\staticwebassets.build.json

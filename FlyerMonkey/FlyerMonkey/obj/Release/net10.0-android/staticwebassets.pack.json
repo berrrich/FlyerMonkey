@@ -1,0 +1,45 @@
+{
+  "Files": [
+    {
+      "Id": "C:\\Users\\richa\\.nuget\\packages\\microsoft.aspnetcore.components.webview\\10.0.0\\staticwebassets\\blazor.modules.json",
+      "PackagePath": "staticwebassets\\_framework\\blazor.modules.json"
+    },
+    {
+      "Id": "C:\\Users\\richa\\.nuget\\packages\\microsoft.aspnetcore.components.webview\\10.0.0\\staticwebassets\\blazor.webview.js",
+      "PackagePath": "staticwebassets\\_framework\\blazor.webview.js"
+    },
+    {
+      "Id": "C:\\Users\\richa\\source\\repos\\FlyerMonkey\\FlyerMonkey\\FlyerMonkey\\obj\\Release\\net10.0-android\\scopedcss\\bundle\\FlyerMonkey.styles.css",
+      "PackagePath": "staticwebassets\\FlyerMonkey.styles.css"
+    },
+    {
+      "Id": "C:\\Users\\richa\\source\\repos\\FlyerMonkey\\FlyerMonkey\\FlyerMonkey\\wwwroot\\app.css",
+      "PackagePath": "staticwebassets\\app.css"
+    },
+    {
+      "Id": "C:\\Users\\richa\\source\\repos\\FlyerMonkey\\FlyerMonkey\\FlyerMonkey\\wwwroot\\index.html",
+      "PackagePath": "staticwebassets\\index.html"
+    },
+    {
+      "Id": "obj\\Release\\net10.0-android\\staticwebassets\\msbuild.FlyerMonkey.Microsoft.AspNetCore.StaticWebAssetEndpoints.props",
+      "PackagePath": "build\\Microsoft.AspNetCore.StaticWebAssetEndpoints.props"
+    },
+    {
+      "Id": "obj\\Release\\net10.0-android\\staticwebassets\\msbuild.FlyerMonkey.Microsoft.AspNetCore.StaticWebAssets.props",
+      "PackagePath": "build\\Microsoft.AspNetCore.StaticWebAssets.props"
+    },
+    {
+      "Id": "obj\\Release\\net10.0-android\\staticwebassets\\msbuild.build.FlyerMonkey.props",
+      "PackagePath": "build\\FlyerMonkey.props"
+    },
+    {
+      "Id": "obj\\Release\\net10.0-android\\staticwebassets\\msbuild.buildMultiTargeting.FlyerMonkey.props",
+      "PackagePath": "buildMultiTargeting\\FlyerMonkey.props"
+    },
+    {
+      "Id": "obj\\Release\\net10.0-android\\staticwebassets\\msbuild.buildTransitive.FlyerMonkey.props",
+      "PackagePath": "buildTransitive\\FlyerMonkey.props"
+    }
+  ],
+  "ElementsToRemove": []
+}

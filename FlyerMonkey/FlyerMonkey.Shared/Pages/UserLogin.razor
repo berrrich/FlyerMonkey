@@ -1,0 +1,25 @@
+﻿@page "/userlogin"
+@using FlyerMonkey.Shared.Model
+
+<div class="flex-column modal-fullscreen-lg-down align-items-center h-screen justify-center">
+    <div class=""rounded-md p-5 shadow>
+        <EditForm Model="_loginModel">
+            <div class="w-25">
+                <h3>User Login</h3>
+                <div class="mb-3">
+                    <label for="email" class="form-label">Email address</label>
+                    <input type="email" class="form-control" id="email" placeholder="Enter email">
+                </div>
+                <div class="mb-3">
+                    <label for="password" class="form-label">Password</label>
+                    <input type="password" class="form-control" id="password" placeholder="Password">
+                </div>
+                <button type="submit" class="btn btn-primary">Login</button>
+            </div>
+        </EditForm>
+    </div>
+</div>
+
+@code {
+    private LoginModel _loginModel = new();
+}

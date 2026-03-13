@@ -1,0 +1,61 @@
+﻿@page "/monkeys"
+@using System.Text.Json.Serialization;
+@using System.Text.Json
+@using System.Text.Json.Serialization.Metadata
+@using FlyerMonkey.Shared.Model;
+@using FlyerMonkey.Shared.Services;
+@inject MonkeyService monkeyService
+
+<PageTitle>Monkeys</PageTitle>
+
+<h1>Monkeys</h1>
+<div>
+    <table>
+        <thead>
+            <tr>
+                <th>Image4</th>
+                <th>Name</th>
+                <th>Location</th>
+            </tr>
+        </thead>
+        <tbody>
+            @if (monkeys is not null)
+            {
+                foreach (var monkey in monkeys)
+                {
+                    @* <tr>
+                        <td><a href="@monkey.url"><img src="@monkey.imageURL" alt="@monkey.description" width="100" /></a></td>
+                        <td><a href="@monkey.url">@monkey.description</a></td>
+                        <td>@monkey.salePrice</td>
+                </tr> *@
+                    <tr>
+                        <td><img src="@monkey.Image" alt="@monkey.Name" width="100" /></td>
+                        <td>@monkey.Name</td>
+                        <td>@monkey.Location</td>
+                    </tr>
+                }
+            }
+            else
+            {
+                <tr>
+                    <td>null</td>
+                    <td></td>
+                    <td></td>
+                </tr>
+            }
+            @* <tr>
+                <td>null</td>
+                <td></td>
+                <td></td></tr> *@
+        </tbody>
+    </table>
+</div>
+
+@code {
+    private List<Monkey>? monkeys = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        monkeys = await monkeyService.GetMonkeys();
+    }
+}
