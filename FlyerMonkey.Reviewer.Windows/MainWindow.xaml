@@ -1,0 +1,212 @@
+﻿<Window x:Class="FlyerMonkey.Reviewer.Windows.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Flyer Monkey Reviewer"
+        Height="800"
+        Width="1400"
+        WindowStartupLocation="CenterScreen">
+
+    <Grid Background="#F3F3F3">
+
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="300"/>
+            <ColumnDefinition Width="220"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- Left flyer column -->
+        <Border Grid.Column="0"
+                Background="White"
+                BorderBrush="#D0D0D0"
+                BorderThickness="0,0,1,0">
+
+            <DockPanel>
+
+                <Border DockPanel.Dock="Top"
+                        Padding="16"
+                        BorderBrush="#E0E0E0"
+                        BorderThickness="0,0,0,1">
+
+                    <TextBlock Text="FLYERS"
+                               FontSize="18"
+                               FontWeight="SemiBold"/>
+                </Border>
+
+                <ListBox x:Name="FlyerList"
+                         Margin="10"
+                         BorderThickness="0"
+                         Background="Transparent"                         
+                         SelectionChanged="FlyerList_SelectionChanged">
+
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+
+                            <Border Margin="0,0,0,10"
+                                    Padding="12"
+                                    BorderBrush="#D8D8D8"
+                                    BorderThickness="1"
+                                    CornerRadius="6"
+                                    Background="White">
+
+                                <StackPanel>
+
+                                    <TextBlock Text="{Binding Retailer}"
+                                               FontSize="16"
+                                               FontWeight="SemiBold"/>
+
+                                    <TextBlock Text="{Binding FlyerDate}"
+                                               Margin="0,4,0,0"
+                                               Foreground="#555555"/>
+
+                                    <TextBlock Text="{Binding PageDescription}"
+                                               Margin="0,3,0,0"
+                                               Foreground="#777777"/>
+
+                                    <TextBlock Text="{Binding FileName}"
+                                               Margin="0,8,0,0"
+                                               FontSize="11"
+                                               Foreground="#999999"
+                                               TextWrapping="Wrap"/>
+
+                                </StackPanel>
+
+                            </Border>
+
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+
+                </ListBox>
+
+            </DockPanel>
+
+        </Border>
+
+        <!-- Selected flyer column pages -->
+        <Border Grid.Column="1"
+        Background="White"
+        BorderBrush="#D0D0D0"
+        BorderThickness="0,0,1,0">
+
+            <DockPanel>
+
+                <Border DockPanel.Dock="Top"
+                Padding="16"
+                BorderBrush="#E0E0E0"
+                BorderThickness="0,0,0,1">
+
+                    <TextBlock Text="PAGES"
+                       FontSize="18"
+                       FontWeight="SemiBold"/>
+                </Border>
+
+                <ListBox x:Name="PageList"
+                 Margin="10"
+                 BorderThickness="0"
+                 Background="Transparent">
+
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+
+                            <Border Margin="0,0,0,8"
+                            Padding="12"
+                            BorderBrush="#D8D8D8"
+                            BorderThickness="1"
+                            CornerRadius="6"
+                            Background="White">
+
+                                <StackPanel>
+
+                                    <TextBlock Text="{Binding DisplayName}"
+                                       FontSize="16"
+                                       FontWeight="SemiBold"/>
+
+                                    <TextBlock Text="{Binding FileName}"
+                                       Margin="0,5,0,0"
+                                       FontSize="11"
+                                       Foreground="#999999"
+                                       TextWrapping="Wrap"/>
+
+                                </StackPanel>
+
+                            </Border>
+
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+
+                </ListBox>
+
+            </DockPanel>
+
+        </Border>
+        <!-- EXISTING ACTIVE FLYER AREA -->
+        <Grid Grid.Column="2"
+      Margin="40">
+
+            <StackPanel x:Name="FlyerFocusPanel"
+                Width="600"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                Visibility="Collapsed">
+
+                <TextBlock Text="ACTIVE FLYER"
+                   FontSize="14"
+                   Foreground="#777777"
+                   Margin="0,0,0,15"/>
+
+                <Border Background="White"
+                BorderBrush="#D0D0D0"
+                BorderThickness="1"
+                CornerRadius="8"
+                Padding="30">
+
+                    <StackPanel>
+
+                        <TextBlock x:Name="SelectedRetailer"
+                           FontSize="30"
+                           FontWeight="SemiBold"/>
+
+                        <TextBlock x:Name="SelectedDate"
+                           FontSize="18"
+                           Margin="0,8,0,0"
+                           Foreground="#555555"/>
+
+                        <TextBlock x:Name="SelectedPages"
+                           FontSize="16"
+                           Margin="0,4,0,0"
+                           Foreground="#777777"/>
+
+                        <TextBlock x:Name="SelectedFileName"
+                           FontSize="13"
+                           Margin="0,18,0,0"
+                           Foreground="#999999"
+                           TextWrapping="Wrap"/>
+
+                        <TextBlock Text="Ready to prepare this flyer for page review."
+                           Margin="0,30,0,20"
+                           FontSize="16"/>
+
+                        <Button x:Name="SplitFlyerButton"
+                        Content="Split Flyer"
+                        Width="160"
+                        Height="45"
+                        HorizontalAlignment="Left"
+                        FontSize="16"
+                        Click="SplitFlyerButton_Click"/>
+
+                    </StackPanel>
+
+                </Border>
+
+            </StackPanel>
+
+            <TextBlock x:Name="NoFlyerSelectedText"
+               Text="Select a flyer to begin"
+               HorizontalAlignment="Center"
+               VerticalAlignment="Center"
+               Foreground="#AAAAAA"
+               FontSize="24"/>
+
+        </Grid>
+
+    </Grid>
+</Window>

@@ -1,4 +1,10 @@
 <Solution>
+  <Folder Name="/Solution Items/">
+    <File Path=".gitignore" />
+  </Folder>
+  <Project Path="FlyerMonkey.Importer/FlyerMonkey.Importer.csproj" Id="3448926e-b9db-4fda-ad48-b586bab2cb36" />
+  <Project Path="FlyerMonkey.Reviewer.Windows/FlyerMonkey.Reviewer.Windows.csproj" Id="03fb8089-7bb7-43a7-935d-606e2eb3fa0e" />
+  <Project Path="FlyerMonkey.Reviewer/FlyerMonkey.Reviewer.csproj" Id="3bf1ba4d-44fc-41c3-88dc-ba01530afd28" />
   <Project Path="FlyerMonkey/FlyerMonkey.Shared/FlyerMonkey.Shared.csproj" />
   <Project Path="FlyerMonkey/FlyerMonkey.Web/FlyerMonkey.Web.csproj" />
   <Project Path="FlyerMonkey/FlyerMonkey/FlyerMonkey.csproj">
