@@ -116,15 +116,26 @@
 
                                 <StackPanel>
 
+                                    <Border Width="160"
+            Height="200"
+            Margin="0,0,0,10"
+            Background="#F2F2F2"
+            BorderBrush="#DDDDDD"
+            BorderThickness="1">
+
+                                        <Image Source="{Binding Thumbnail}"
+               Stretch="Uniform"/>
+                                    </Border>
+
                                     <TextBlock Text="{Binding DisplayName}"
-                                       FontSize="16"
-                                       FontWeight="SemiBold"/>
+               FontSize="16"
+               FontWeight="SemiBold"/>
 
                                     <TextBlock Text="{Binding FileName}"
-                                       Margin="0,5,0,0"
-                                       FontSize="11"
-                                       Foreground="#999999"
-                                       TextWrapping="Wrap"/>
+               Margin="0,5,0,0"
+               FontSize="11"
+               Foreground="#999999"
+               TextWrapping="Wrap"/>
 
                                 </StackPanel>
 

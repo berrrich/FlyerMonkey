@@ -3,6 +3,9 @@ using System.Diagnostics;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
+using PDFtoImage;
+using System.Windows.Media.Imaging;
 
 namespace FlyerMonkey.Reviewer.Windows
 {
@@ -13,6 +16,8 @@ namespace FlyerMonkey.Reviewer.Windows
         public string FullPath { get; set; } = "";
 
         public string DisplayName => $"Page {PageNumber}";
+
+        public ImageSource? Thumbnail { get; set; }
     }
 
     public class FlyerFile
@@ -30,6 +35,28 @@ namespace FlyerMonkey.Reviewer.Windows
     {
         private FlyerFile? _selectedFlyer;
 
+        private BitmapImage CreateThumbnail(string pdfPath)
+        {
+            using var pdfStream = File.OpenRead(pdfPath);
+            using var imageStream = new MemoryStream();
+
+            Conversion.SavePng(
+                imageStream,
+                pdfStream,
+                page: 0);
+
+            imageStream.Position = 0;
+
+            var bitmap = new BitmapImage();
+
+            bitmap.BeginInit();
+            bitmap.CacheOption = BitmapCacheOption.OnLoad;
+            bitmap.StreamSource = imageStream;
+            bitmap.EndInit();
+            bitmap.Freeze();
+
+            return bitmap;
+        }
 
         private void FlyerList_SelectionChanged(
             object sender,
@@ -74,7 +101,8 @@ namespace FlyerMonkey.Reviewer.Windows
                 {
                     PageNumber = i + 1,
                     FileName = Path.GetFileName(pageFiles[i]),
-                    FullPath = pageFiles[i]
+                    FullPath = pageFiles[i],
+                    Thumbnail = CreateThumbnail(pageFiles[i])
                 });
             }
         }
