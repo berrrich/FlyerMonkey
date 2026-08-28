@@ -6,9 +6,26 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using PDFtoImage;
 using System.Windows.Media.Imaging;
+using FlyerMonkey.Reviewer.Windows.Models;
 
 namespace FlyerMonkey.Reviewer.Windows
 {
+    public class SavedExtraction
+    {
+        public long Id { get; set; }
+
+        public string Retailer { get; set; } = "";
+
+        public string FlyerFileName { get; set; } = "";
+
+        public string PageFileName { get; set; } = "";
+
+        public string Json { get; set; } = "";
+
+        public DateTime SavedAt { get; set; }
+
+        public int ProductCount { get; set; }
+    }
     public class FlyerPage
     {
         public int PageNumber { get; set; }
@@ -34,7 +51,7 @@ namespace FlyerMonkey.Reviewer.Windows
     public partial class MainWindow : Window
     {
         private FlyerFile? _selectedFlyer;
-
+        private FlyerPage? _selectedPage;
         private BitmapImage CreateThumbnail(string pdfPath)
         {
             using var pdfStream = File.OpenRead(pdfPath);
@@ -67,14 +84,29 @@ namespace FlyerMonkey.Reviewer.Windows
 
             _selectedFlyer = flyer;
 
-            SelectedRetailer.Text = flyer.Retailer;
-            SelectedDate.Text = flyer.FlyerDate;
-            SelectedPages.Text = flyer.PageDescription;
-            SelectedFileName.Text = flyer.FileName;
+            //SelectedRetailer.Text = flyer.Retailer;
+            //SelectedDate.Text = flyer.FlyerDate;
+            //SelectedPages.Text = flyer.PageDescription;
+            //SelectedFileName.Text = flyer.FileName;
 
-            NoFlyerSelectedText.Visibility = Visibility.Collapsed;
-            FlyerFocusPanel.Visibility = Visibility.Visible;
+            //NoFlyerSelectedText.Visibility = Visibility.Collapsed;
+            //FlyerFocusPanel.Visibility = Visibility.Visible;
             LoadSplitPages(flyer);
+        }
+
+        private void PageList_SelectionChanged(
+            object sender,
+            SelectionChangedEventArgs e)
+        {
+            if (PageList.SelectedItem is not FlyerPage page)
+                return;
+
+            _selectedPage = page;
+
+            SelectedPageImage.Source = page.Thumbnail;
+            SelectedPageImage.Visibility = Visibility.Visible;
+
+            GetDataButton.Visibility = Visibility.Visible;
         }
         private void LoadSplitPages(FlyerFile flyer)
         {
@@ -133,6 +165,49 @@ namespace FlyerMonkey.Reviewer.Windows
                 File.WriteAllBytes(outputPath, pages[i]);
             }
         }
+
+        private void CommitButton_Click(object sender,
+            RoutedEventArgs e)
+        {
+            MessageBox.Show(
+                "SQLite now to be sent to SQL.");
+        }
+
+
+        private async void GetDataButton_Click(
+            object sender,
+            RoutedEventArgs e)
+        {
+            if (_selectedPage == null)
+                return;
+
+            try
+            {
+                GetDataButton.IsEnabled = false;
+                GetDataButton.Content = "Getting Data...";
+
+                var extractor = new ProductExtractorService();
+
+                var products =
+                    await extractor.ExtractProductsAsync(
+                        _selectedPage.FullPath);
+
+                ProductList.ItemsSource = products;
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    ex.Message,
+                    "Get Data failed",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
+            }
+            finally
+            {
+                GetDataButton.Content = "Get Data";
+                GetDataButton.IsEnabled = true;
+            }
+        }
         private void SplitFlyerButton_Click(
     object sender,
     RoutedEventArgs e)
@@ -169,11 +244,91 @@ namespace FlyerMonkey.Reviewer.Windows
                     MessageBoxImage.Error);
             }
         }
+        private async void SaveDataButton_Click(
+    object sender,
+    RoutedEventArgs e)
+        {
+            if (_selectedFlyer == null ||
+                _selectedPage == null)
+            {
+                return;
+            }
+
+            if (ProductList.ItemsSource
+                is not IEnumerable<ExtractedProduct> products)
+            {
+                return;
+            }
+
+            var productList = products.ToList();
+
+            if (productList.Count == 0)
+            {
+                MessageBox.Show(
+                    "There is no extracted data to save.");
+
+                return;
+            }
+
+            try
+            {
+                SaveDataButton.IsEnabled = false;
+                SaveDataButton.Content = "Saving...";
+
+                string databasePath =
+                    @"C:\Users\richa\source\repos\FlyerMonkey\DATA\FlyerMonkey.db";
+
+                var saver =
+                    new ExtractionSaveService(databasePath);
+
+                await saver.SaveAsync(
+    _selectedFlyer,
+    _selectedPage,
+    productList);
+
+                MessageBox.Show(
+                    $"Saved {productList.Count} products from {_selectedPage.FileName}.",
+                    "Save complete",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+
+                await LoadSavedExtractionsAsync();
+
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    ex.Message,
+                    "Save failed",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
+            }
+            finally
+            {
+                SaveDataButton.Content = "Save";
+                SaveDataButton.IsEnabled = true;
+            }
+        }
+        private async Task LoadSavedExtractionsAsync()
+        {
+            string databasePath =
+                @"C:\Users\richa\source\repos\FlyerMonkey\DATA\FlyerMonkey.db";
+
+            var reader =
+                new ExtractionReadService(databasePath);
+
+            var saved =
+                await reader.GetSavedAsync();
+
+            SavedExtractionList.ItemsSource = saved;
+        }
         public MainWindow()
         {
             InitializeComponent();
 
             LoadFlyers();
+
+            _ = LoadSavedExtractionsAsync();
         }
 
         private void LoadFlyers()

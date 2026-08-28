@@ -10,8 +10,15 @@
 
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="300"/>
-            <ColumnDefinition Width="220"/>
+            <!-- Flyers -->
+            <ColumnDefinition Width="240"/>
+            <!-- Pages -->
+            <ColumnDefinition Width="300"/>
+            <!-- Extracted Products -->
             <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="230"/>
+            <!-- Saved -->
+            <!-- Big page preview -->
         </Grid.ColumnDefinitions>
 
         <!-- Left flyer column -->
@@ -102,7 +109,8 @@
                 <ListBox x:Name="PageList"
                  Margin="10"
                  BorderThickness="0"
-                 Background="Transparent">
+                 Background="Transparent"                         
+         SelectionChanged="PageList_SelectionChanged">
 
                     <ListBox.ItemTemplate>
                         <DataTemplate>
@@ -149,75 +157,204 @@
             </DockPanel>
 
         </Border>
-        <!-- EXISTING ACTIVE FLYER AREA -->
-        <Grid Grid.Column="2"
-      Margin="40">
+        <!-- Extracted product data -->
+        <Border Grid.Column="2"
+        Background="White"
+        BorderBrush="#D0D0D0"
+        BorderThickness="0,0,1,0"
+        Padding="10">
 
-            <StackPanel x:Name="FlyerFocusPanel"
-                Width="600"
-                HorizontalAlignment="Center"
-                VerticalAlignment="Center"
-                Visibility="Collapsed">
+            <DockPanel>
+                <StackPanel DockPanel.Dock="Bottom"
+            Orientation="Horizontal"
+            HorizontalAlignment="Center"
+            Margin="0,10,0,0">
 
-                <TextBlock Text="ACTIVE FLYER"
-                   FontSize="14"
-                   Foreground="#777777"
+                    <Button x:Name="SaveDataButton"
+            Content="Save"
+            Width="120"
+            Height="38"
+            Margin="5"
+            Click="SaveDataButton_Click"/>
+                </StackPanel>
+                <TextBlock DockPanel.Dock="Top"
+                   Text="EXTRACTED PRODUCTS"
+                   FontSize="18"
+                   FontWeight="SemiBold"
+                   Margin="5,5,5,15"/>
+
+                <ListBox x:Name="ProductList"
+         BorderThickness="0"
+         Background="Transparent"
+         HorizontalContentAlignment="Stretch"
+         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+         ScrollViewer.VerticalScrollBarVisibility="Auto">
+
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+
+                            <Border BorderBrush="#DDD"
+                    BorderThickness="1"
+                    Padding="10"
+                    Margin="0,0,0,8">
+
+                                <StackPanel>
+
+                                    <TextBlock Text="{Binding ProductName}"
+                               FontWeight="Bold"
+                               FontSize="16"
+                               TextWrapping="Wrap"/>
+
+                                    <TextBlock Text="{Binding Price}"
+                               FontSize="18"/>
+
+                                    <TextBlock Text="{Binding UnitPrice}"
+                               Foreground="Gray"
+                               TextWrapping="Wrap"/>
+
+                                    <TextBlock Text="{Binding Promotion}"
+                               Foreground="Gray"
+                               TextWrapping="Wrap"/>
+
+                                </StackPanel>
+
+                            </Border>
+
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+
+                </ListBox>
+
+            </DockPanel>
+        </Border>
+
+        <!-- Page preview -->
+        <Border Grid.Column="3"
+        Margin="10"
+        Padding="15"
+        BorderBrush="#DDD"
+        BorderThickness="1"
+        CornerRadius="8">
+
+            <DockPanel>
+
+                <TextBlock DockPanel.Dock="Top"
+                   Text="PAGE REVIEW"
+                   FontSize="20"
+                   FontWeight="Bold"
                    Margin="0,0,0,15"/>
 
-                <Border Background="White"
-                BorderBrush="#D0D0D0"
-                BorderThickness="1"
-                CornerRadius="8"
-                Padding="30">
+                <StackPanel DockPanel.Dock="Bottom"
+                    Orientation="Horizontal"
+                    HorizontalAlignment="Center"
+                    Margin="0,15,0,0">
 
-                    <StackPanel>
+                    <Button x:Name="SplitFlyerButton"
+                    Content="Split Flyer"
+                    Width="140"
+                    Height="42"
+                    Margin="5"
+                    Click="SplitFlyerButton_Click"/>
 
-                        <TextBlock x:Name="SelectedRetailer"
-                           FontSize="30"
-                           FontWeight="SemiBold"/>
+                    <Button x:Name="GetDataButton"
+                    Content="Get Data"
+                    Width="140"
+                    Height="42"
+                    Margin="5"
+                    Visibility="Collapsed"
+                    Click="GetDataButton_Click"/>
 
-                        <TextBlock x:Name="SelectedDate"
-                           FontSize="18"
-                           Margin="0,8,0,0"
-                           Foreground="#555555"/>
+                </StackPanel>
 
-                        <TextBlock x:Name="SelectedPages"
-                           FontSize="16"
-                           Margin="0,4,0,0"
-                           Foreground="#777777"/>
+                <ScrollViewer VerticalScrollBarVisibility="Auto"
+              HorizontalScrollBarVisibility="Disabled">
 
-                        <TextBlock x:Name="SelectedFileName"
-                           FontSize="13"
-                           Margin="0,18,0,0"
-                           Foreground="#999999"
-                           TextWrapping="Wrap"/>
+                    <Grid>
 
-                        <TextBlock Text="Ready to prepare this flyer for page review."
-                           Margin="0,30,0,20"
-                           FontSize="16"/>
+                        <Image x:Name="SelectedPageImage"
+               Stretch="Uniform"
+               HorizontalAlignment="Stretch"
+               VerticalAlignment="Top"
+               Margin="10"
+               Visibility="Collapsed"/>
 
-                        <Button x:Name="SplitFlyerButton"
-                        Content="Split Flyer"
-                        Width="160"
-                        Height="45"
-                        HorizontalAlignment="Left"
-                        FontSize="16"
-                        Click="SplitFlyerButton_Click"/>
+                    </Grid>
 
-                    </StackPanel>
+                </ScrollViewer>
 
-                </Border>
+            </DockPanel>
+        </Border>
+        <!-- Saved Extraction Runs -->
+        <Border Grid.Column="4"
+        Background="White"
+        BorderBrush="#D0D0D0"
+        BorderThickness="1,0,0,0">
 
-            </StackPanel>
+            <DockPanel>
 
-            <TextBlock x:Name="NoFlyerSelectedText"
-               Text="Select a flyer to begin"
-               HorizontalAlignment="Center"
-               VerticalAlignment="Center"
-               Foreground="#AAAAAA"
-               FontSize="24"/>
+                <!-- Commit button stays at bottom -->
+                <StackPanel DockPanel.Dock="Bottom"
+                    Margin="10">
 
-        </Grid>
+                    <Button x:Name="CommitButton"
+                    Content="Commit"
+                    Height="38"
+                    Click="CommitButton_Click"/>
+                </StackPanel>
+
+                <!-- Heading -->
+                <TextBlock DockPanel.Dock="Top"
+                   Text="LOCALLY SAVED"
+                   FontSize="18"
+                   FontWeight="SemiBold"
+                   Margin="15"/>
+
+                <!-- SQLite contents -->
+                <ListBox x:Name="SavedExtractionList"
+                 Margin="10,0,10,10"
+                 BorderThickness="0"
+                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                 ScrollViewer.VerticalScrollBarVisibility="Auto">
+
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+
+                            <Border BorderBrush="#DDD"
+                            BorderThickness="1"
+                            Padding="10"
+                            Margin="0,0,0,8">
+
+                                <StackPanel>
+
+                                    <TextBlock Text="{Binding Retailer}"
+                                       FontWeight="Bold"
+                                       FontSize="15"/>
+
+                                    <TextBlock Text="{Binding PageFileName}"
+                                       Margin="0,3,0,0"/>
+
+                                    <TextBlock Text="{Binding ProductCount, StringFormat={}{0} products}"
+                                       Foreground="Gray"/>
+
+                                    <TextBlock Text="{Binding SavedAt}"
+                                       FontSize="11"
+                                       Foreground="#999999"
+                                       Margin="0,4,0,0"/>
+                                    <TextBlock Text="{Binding SavedUtc}"
+           FontSize="11"
+           Foreground="#999999"/>
+
+                                </StackPanel>
+
+                            </Border>
+
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+
+                </ListBox>
+
+            </DockPanel>
+        </Border>
 
     </Grid>
 </Window>
