@@ -311,10 +311,10 @@
 
                 <!-- SQLite contents -->
                 <ListBox x:Name="SavedExtractionList"
-                 Margin="10,0,10,10"
-                 BorderThickness="0"
-                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                 ScrollViewer.VerticalScrollBarVisibility="Auto">
+                     BorderThickness="0"
+                     Background="Transparent"
+                     HorizontalContentAlignment="Stretch"
+                     SelectionMode="Single">
 
                     <ListBox.ItemTemplate>
                         <DataTemplate>

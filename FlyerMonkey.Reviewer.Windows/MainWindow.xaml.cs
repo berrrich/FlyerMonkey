@@ -7,25 +7,12 @@ using System.Windows.Media;
 using PDFtoImage;
 using System.Windows.Media.Imaging;
 using FlyerMonkey.Reviewer.Windows.Models;
+using FlyerMonkey.Shared.Model;
+using SQLServerConnection.Data;
 
 namespace FlyerMonkey.Reviewer.Windows
 {
-    public class SavedExtraction
-    {
-        public long Id { get; set; }
 
-        public string Retailer { get; set; } = "";
-
-        public string FlyerFileName { get; set; } = "";
-
-        public string PageFileName { get; set; } = "";
-
-        public string Json { get; set; } = "";
-
-        public DateTime SavedAt { get; set; }
-
-        public int ProductCount { get; set; }
-    }
     public class FlyerPage
     {
         public int PageNumber { get; set; }
@@ -166,11 +153,76 @@ namespace FlyerMonkey.Reviewer.Windows
             }
         }
 
-        private void CommitButton_Click(object sender,
-            RoutedEventArgs e)
+        private async void CommitButton_Click(
+    object sender,
+    RoutedEventArgs e)
         {
-            MessageBox.Show(
-                "SQLite now to be sent to SQL.");
+            if (SavedExtractionList.SelectedItem is not SavedExtraction saved)
+            {
+                MessageBox.Show(
+                    "Select a locally saved extraction first.",
+                    "Commit",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+
+                return;
+            }
+
+            var confirm = MessageBox.Show(
+                $"Commit {saved.ProductCount} products from {saved.PageFileName} to SQL?",
+                "Commit to SQL",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning);
+
+            if (confirm != MessageBoxResult.Yes)
+                return;
+
+            try
+            {
+                string sqlitePath =
+                    @"C:\Users\richa\source\repos\FlyerMonkey\DATA\FlyerMonkey.db";
+
+                var commitService =
+                    new SqlCommitService(sqlitePath);
+
+                var products =
+                    await commitService.LoadProductsAsync(saved);
+
+                var first = products.First();
+
+                var product = new Product
+                {
+                    Name = first.ProductName
+                };
+
+                // Use your existing SQL connection string here
+
+                var sqlConnectionString =
+    Environment.GetEnvironmentVariable(
+        "FLYERMONKEY_SQL_CONNECTION")
+    ?? throw new InvalidOperationException(
+        "FLYERMONKEY_SQL_CONNECTION is not set.");
+
+                var repository =
+                    new ProductRepository(sqlConnectionString);
+
+                var id =
+                    await repository.AddProductAsync(product);
+
+                MessageBox.Show(
+                    $"SQL write succeeded.\n\nID: {id}\nProduct: {product.Name}",
+                    "Commit complete",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    ex.Message,
+                    "SQL commit failed",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
+            }
         }
 
 
@@ -282,9 +334,9 @@ namespace FlyerMonkey.Reviewer.Windows
                     new ExtractionSaveService(databasePath);
 
                 await saver.SaveAsync(
-    _selectedFlyer,
-    _selectedPage,
-    productList);
+                _selectedFlyer,
+                _selectedPage,
+                productList);
 
                 MessageBox.Show(
                     $"Saved {productList.Count} products from {_selectedPage.FileName}.",
