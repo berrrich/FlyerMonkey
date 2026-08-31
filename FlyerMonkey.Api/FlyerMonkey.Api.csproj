@@ -10,4 +10,9 @@
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.11" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\FlyerMonkey\FlyerMonkey.Shared\FlyerMonkey.Shared.csproj" />
+    <ProjectReference Include="..\SQLServerConnection\SQLServerConnection.csproj" />
+  </ItemGroup>
+
 </Project>

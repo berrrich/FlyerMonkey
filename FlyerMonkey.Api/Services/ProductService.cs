@@ -1,42 +1,39 @@
-﻿using FlyerMonkey.Api.Models;
+﻿using FlyerMonkey.Shared.Model;
+using SQLServerConnection.Data;
 
-namespace FlyerMonkey.Api.Services
+namespace FlyerMonkey.Api.Services;
+
+public sealed class ProductService
 {
-    public static class ProductService
+    private readonly IProductRepository _repository;
+
+    public ProductService(IProductRepository repository)
     {
-        static List<Product> Products { get; }
+        _repository = repository;
+    }
 
-        static ProductService()
-        {
-            Products = new List<Product>
-            {
-                new Product
-                {
-                    Id = 1,
-                    Name = "Tim Tam Original",
-                    Price = 4.50m
-                },
-                new Product
-                {
-                    Id = 2,
-                    Name = "Vegemite",
-                    Price = 6.00m
-                },
-                new Product
-                {
-                    Id = 3,
-                    Name = "Bananas",
-                    Price = 1.50m
-                }
-            };
-        }
+    public async Task<List<Product>> GetAllAsync(
+        CancellationToken cancellationToken = default)
+    {
+        return await _repository.GetProductsAsync(cancellationToken);
+    }
 
-        public static List<Product> GetAll() => Products;
+    public async Task<Product?> GetAsync(
+        int id,
+        CancellationToken cancellationToken = default)
+    {
+        var products =
+            await _repository.GetProductsAsync(cancellationToken);
 
-        public static Product? Get(int id)
-        {
-            return Products.FirstOrDefault(p => p.Id == id);
-        }
+        return products.FirstOrDefault(product => product.ID == id);
+    }
 
+    public async Task<int> AddAsync(
+        Product product,
+        CancellationToken cancellationToken = default)
+    {
+        return await _repository.AddProductAsync(
+            product,
+            cancellationToken);
     }
 }

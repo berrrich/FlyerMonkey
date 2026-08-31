@@ -13,4 +13,12 @@ Accept: application/json
 GET {{FlyerMonkey.Api_HostAddress}}/api/products/3
 Accept: application/json
 
+###
 
+POST {{FlyerMonkey.Api_HostAddress}}/api/products
+Content-Type: application/json
+
+{
+  "name": "Pepsi Max",
+  "price": 3.50
+}

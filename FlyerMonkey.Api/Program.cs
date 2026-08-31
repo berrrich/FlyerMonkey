@@ -1,9 +1,23 @@
+using FlyerMonkey.Api.Services;
+using SQLServerConnection.Data;
+
 var builder = WebApplication.CreateBuilder(args);
+
+var sqlConnectionString =
+    Environment.GetEnvironmentVariable(
+        "FLYERMONKEY_SQL_CONNECTION")
+    ?? throw new InvalidOperationException(
+        "FLYERMONKEY_SQL_CONNECTION is not set.");
+
+builder.Services.AddSingleton<IProductRepository>(
+    new ProductRepository(sqlConnectionString));
+
+builder.Services.AddScoped<ProductService>();
 
 // Add services to the container.
 
 builder.Services.AddControllers();
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
+
 builder.Services.AddOpenApi();
 
 var app = builder.Build();
