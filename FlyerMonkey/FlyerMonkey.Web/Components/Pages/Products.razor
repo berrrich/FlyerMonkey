@@ -1,0 +1,50 @@
+﻿<h3>Products</h3>
+
+@page "/products"
+
+@using FlyerMonkey.Shared.Model
+@using FlyerMonkey.Shared.Services
+
+@inject IProductService ProductService
+
+<PageTitle>Products</PageTitle>
+
+<h1>Products</h1>
+
+@if (_products is null)
+{
+    <p>Loading...</p>
+}
+else if (_products.Count == 0)
+{
+    <p>No products found.</p>
+}
+else
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Name</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var product in _products)
+            {
+                <tr>
+                    <td>@product.ID</td>
+                    <td>@product.Name</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private List<Product>? _products;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _products = await ProductService.GetProductsAsync();
+    }
+}

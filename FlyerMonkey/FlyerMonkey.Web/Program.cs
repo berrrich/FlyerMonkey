@@ -1,17 +1,24 @@
+//using FlyerMonkey.Services;
 using FlyerMonkey.Shared.Services;
 using FlyerMonkey.Web.Components;
 using FlyerMonkey.Web.Services;
+//using FlyerMonkey.Server.Data;
+using SQLServerConnection.Data;
 using Syncfusion.Blazor;
-using SQLServerConnection;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.SqlServer.Storage.Internal;
+using AppProductService =
+    FlyerMonkey.Shared.Services.IProductService;
+
+using WebProductApiService =
+    FlyerMonkey.Web.Services.ProductApiService;
 
 var builder = WebApplication.CreateBuilder(args);
 // Add database contact
 
-var connection = builder.Configuration.GetConnectionString("AZURE_SQL_CONNECTIONSTRING");
-builder.Services.AddDbContext<SqlServerConnection>(options =>
-    options.UseSqlServer(connection));
+var connectionString =
+    builder.Configuration.GetConnectionString(
+        "AZURE_SQL_CONNECTIONSTRING")
+    ?? throw new InvalidOperationException(
+        "Connection string 'AZURE_SQL_CONNECTIONSTRING' was not found.");
 
 // Add services to the container.
 builder.Services.AddRazorComponents()
@@ -21,7 +28,19 @@ builder.Services.AddRazorComponents()
 builder.Services.AddSingleton<IFormFactor, FormFactor>();
 builder.Services.AddScoped<MonkeyService>();
 builder.Services.AddScoped<PricelineService>();
+builder.Services.AddScoped<IProductRepository>(_ =>
+    new ProductRepository(connectionString));
 builder.Services.AddSyncfusionBlazor();
+
+builder.Services.AddHttpClient<
+    AppProductService,
+    WebProductApiService>(client =>
+    {
+        client.BaseAddress = new Uri("https://localhost:7094/");
+    });
+
+builder.Services.AddScoped<IProductRepository>(_ =>
+    new ProductRepository(connectionString));
 
 var app = builder.Build();
 
@@ -43,5 +62,13 @@ app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode()
     .AddAdditionalAssemblies(
         typeof(FlyerMonkey.Shared._Imports).Assembly);
+
+app.MapGet("/api/products", async (
+    IProductRepository repository,
+    CancellationToken cancellationToken) =>
+{
+    var products = await repository.GetProductsAsync(cancellationToken);
+    return Results.Ok(products);
+});
 
 app.Run();
