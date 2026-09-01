@@ -1,0 +1,62 @@
+﻿@page "/products"
+@using FlyerMonkey.Shared.Model
+@using FlyerMonkey.Shared.Services
+@inject IProductService ProductService
+
+<h3>Products</h3>
+
+@if (isLoading)
+{
+    <p>Loading...</p>
+}
+else if (loadError is not null)
+{
+    <p class="text-danger">@loadError</p>
+}
+else if (products?.Any() != true)
+{
+    <p>No products found.</p>
+}
+else
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Name</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var p in products)
+            {
+                <tr>
+                    <td>@p.ID</td>
+                    <td>@p.Name</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private List<Product> products = new();
+    private bool isLoading;
+    private string? loadError;
+
+    protected override async Task OnInitializedAsync()
+    {
+        isLoading = true;
+        try
+        {
+            products = await ProductService.GetProductsAsync();
+        }
+        catch (Exception ex)
+        {
+            loadError = "Failed to load products here: " + ex.Message;
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+}
