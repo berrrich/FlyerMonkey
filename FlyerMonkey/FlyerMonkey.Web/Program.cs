@@ -9,7 +9,7 @@ using AppProductService =
     FlyerMonkey.Shared.Services.IProductService;
 
 using WebProductApiService =
-    FlyerMonkey.Web.Services.ProductApiService;
+    FlyerMonkey.Shared.Services.ProductApiService;
 
 var builder = WebApplication.CreateBuilder(args);
 // Add database contact

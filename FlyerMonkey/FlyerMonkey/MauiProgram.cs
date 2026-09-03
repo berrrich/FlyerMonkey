@@ -5,7 +5,6 @@ using Syncfusion.Blazor;
 using Microsoft.Extensions.DependencyInjection;
 using AppProductService = FlyerMonkey.Shared.Services.IProductService;
 
-
 namespace FlyerMonkey
 {
     public static class MauiProgram
@@ -13,6 +12,7 @@ namespace FlyerMonkey
         public static MauiApp CreateMauiApp()
         {
             var builder = MauiApp.CreateBuilder();
+
             builder
                 .UseMauiApp<App>()
                 .ConfigureFonts(fonts =>
@@ -20,24 +20,23 @@ namespace FlyerMonkey
                     fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
                 });
 
-            // Add device-specific services used by the FlyerMonkey.Shared project
             builder.Services.AddSingleton<IFormFactor, FormFactor>();
-
-           builder.Services.AddSingleton<MonkeyService>();
+            builder.Services.AddSingleton<MonkeyService>();
             builder.Services.AddSingleton<PricelineService>();
-            builder.Services.AddSingleton<HttpClient>();
             builder.Services.AddSyncfusionBlazor();
-            // inside CreateMauiApp builder setup
+
+#if ANDROID
+            var apiBaseUrl = DeviceInfo.DeviceType == DeviceType.Virtual
+                ? "http://10.0.2.2:5053/"
+                : "http://192.168.4.95:5053/";
+#else
+var apiBaseUrl = "https://localhost:7094/";
+#endif
+
             builder.Services.AddHttpClient<AppProductService, ProductApiService>(client =>
             {
-#if ANDROID
-                client.BaseAddress = new Uri("http://10.0.2.2:5053/");
-#else
-    client.BaseAddress = new Uri("https://localhost:7094/");
-#endif
+                client.BaseAddress = new Uri(apiBaseUrl);
             });
-            //builder.Services.AddSingleton<IMongoClient, MongoClient>(sp =>
-            //new MongoClient("mongodb+srv://richardberriman:T7dFV6OotJ0L1hUv@shopamon.itfqzhv.mongodb.net/?appName=Shopamon"));
 
             builder.Services.AddMauiBlazorWebView();
 
