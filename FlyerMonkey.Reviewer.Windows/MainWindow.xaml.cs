@@ -188,15 +188,6 @@ namespace FlyerMonkey.Reviewer.Windows
                 var products =
                     await commitService.LoadProductsAsync(saved);
 
-                var first = products.First();
-
-                var product = new Product
-                {
-                    Name = first.ProductName
-                };
-
-                // Use your existing SQL connection string here
-
                 var sqlConnectionString =
     Environment.GetEnvironmentVariable(
         "FLYERMONKEY_SQL_CONNECTION")
@@ -206,14 +197,25 @@ namespace FlyerMonkey.Reviewer.Windows
                 var repository =
                     new ProductRepository(sqlConnectionString);
 
-                var id =
+                var addedCount = 0;
+
+                foreach (var extractedProduct in products)
+                {
+                    var product = new Product
+                    {
+                        Name = extractedProduct.ProductName
+                    };
+
                     await repository.AddProductAsync(product);
+                    addedCount++;
+                }
 
                 MessageBox.Show(
-                    $"SQL write succeeded.\n\nID: {id}\nProduct: {product.Name}",
+                    $"SQL write succeeded.\n\nProducts added: {addedCount}",
                     "Commit complete",
                     MessageBoxButton.OK,
                     MessageBoxImage.Information);
+
             }
             catch (Exception ex)
             {

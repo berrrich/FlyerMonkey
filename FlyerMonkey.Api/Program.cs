@@ -1,13 +1,23 @@
 using FlyerMonkey.Api.Services;
 using SQLServerConnection.Data;
+using Microsoft.Data.SqlClient;
 
 var builder = WebApplication.CreateBuilder(args);
 
-var sqlConnectionString =
+var rawConnectionString =
     Environment.GetEnvironmentVariable(
         "FLYERMONKEY_SQL_CONNECTION")
     ?? throw new InvalidOperationException(
         "FLYERMONKEY_SQL_CONNECTION is not set.");
+
+var connectionStringBuilder =
+    new SqlConnectionStringBuilder(rawConnectionString)
+    {
+        ConnectTimeout = 5
+    };
+
+var sqlConnectionString =
+    connectionStringBuilder.ConnectionString;
 
 builder.Services.AddSingleton<IProductRepository>(
     new ProductRepository(sqlConnectionString));
