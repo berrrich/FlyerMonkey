@@ -12,9 +12,25 @@ public sealed class ProductRepository : IProductRepository
     CancellationToken cancellationToken = default)
     {
         const string sql = """
-        INSERT INTO Products (Name)
+        INSERT INTO Products
+        (
+            Name,
+            Brand,
+            Variant,
+            PackSizeText,
+            Barcode,
+            Category
+        )
         OUTPUT INSERTED.ID
-        VALUES (@Name);
+        VALUES
+        (
+            @Name,
+            @Brand,
+            @Variant,
+            @PackSizeText,
+            @Barcode,
+            @Category
+        );
         """;
 
         await using var connection =
@@ -29,6 +45,26 @@ public sealed class ProductRepository : IProductRepository
         command.Parameters.AddWithValue(
             "@Name",
             product.Name);
+
+        command.Parameters.AddWithValue(
+            "@Brand",
+            (object?)product.Brand ?? DBNull.Value);
+
+        command.Parameters.AddWithValue(
+            "@Variant",
+            (object?)product.Variant ?? DBNull.Value);
+
+        command.Parameters.AddWithValue(
+            "@PackSizeText",
+            (object?)product.PackSizeText ?? DBNull.Value);
+
+        command.Parameters.AddWithValue(
+            "@Barcode",
+            (object?)product.Barcode ?? DBNull.Value);
+
+        command.Parameters.AddWithValue(
+            "@Category",
+            (object?)product.Category ?? DBNull.Value);
 
         var result =
             await command.ExecuteScalarAsync(cancellationToken);

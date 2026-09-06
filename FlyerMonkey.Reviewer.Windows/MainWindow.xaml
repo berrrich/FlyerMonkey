@@ -199,23 +199,15 @@
                     Margin="0,0,0,8">
 
                                 <StackPanel>
+                                    <TextBlock
+        Text="{Binding ProductName}"
+        FontWeight="Bold"
+        FontSize="16" />
 
-                                    <TextBlock Text="{Binding ProductName}"
-                               FontWeight="Bold"
-                               FontSize="16"
-                               TextWrapping="Wrap"/>
-
-                                    <TextBlock Text="{Binding Price}"
-                               FontSize="18"/>
-
-                                    <TextBlock Text="{Binding UnitPrice}"
-                               Foreground="Gray"
-                               TextWrapping="Wrap"/>
-
-                                    <TextBlock Text="{Binding Promotion}"
-                               Foreground="Gray"
-                               TextWrapping="Wrap"/>
-
+                                    <TextBlock Text="{Binding Brand}" />
+                                    <TextBlock Text="{Binding Variant}" />
+                                    <TextBlock Text="{Binding PackSizeText}" />
+                                    <TextBlock Text="{Binding Category}" />
                                 </StackPanel>
 
                             </Border>

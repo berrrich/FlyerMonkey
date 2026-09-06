@@ -45,23 +45,30 @@ public class ProductExtractorService
             new UserChatMessage(
                 ChatMessageContentPart.CreateTextPart(
                     """
-                    Extract every advertised product visible on this supermarket flyer page.
+Extract every advertised product visible on this supermarket flyer page.
 
-                    Return ONLY valid JSON in this exact shape:
+Return ONLY valid JSON in this exact shape:
 
-                    [
-                      {
-                        "productName": "string",
-                        "brand": "string",
-                        "price": "string",
-                        "unitPrice": "string",
-                        "promotion": "string"
-                      }
-                    ]
+[
+  {
+    "productName": "string",
+    "brand": "string",
+    "variant": "string",
+    "packSizeText": "string",
+    "category": "string",
+    "barcode": "string"
+  }
+]
 
-                    Do not invent values.
-                    Use an empty string if a field is not visible.
-                    """),
+Rules:
+- Do not invent values.
+- Use an empty string if a field is not visible.
+- Keep productName focused on the core product name, not the full advertisement sentence.
+- Put flavour/type/style information in variant where possible.
+- Put visible size or quantity information in packSizeText, for example "200g", "2 Litre", "30 Pack".
+- Use a simple grocery category such as Biscuits, Soft Drinks, Laundry, Produce, Meat, Dairy, Frozen, Snacks, Baby, Pantry, or similar.
+- Only include barcode if it is actually visible.
+"""),
 
                 ChatMessageContentPart.CreateImagePart(
                     BinaryData.FromBytes(imageBytes),

@@ -203,7 +203,12 @@ namespace FlyerMonkey.Reviewer.Windows
                 {
                     var product = new Product
                     {
-                        Name = extractedProduct.ProductName
+                        Name = extractedProduct.ProductName,
+                        Brand = extractedProduct.Brand,
+                        Variant = extractedProduct.Variant,
+                        PackSizeText = extractedProduct.PackSizeText,
+                        Category = extractedProduct.Category,
+                        Barcode = extractedProduct.Barcode
                     };
 
                     await repository.AddProductAsync(product);
