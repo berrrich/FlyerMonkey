@@ -56,7 +56,12 @@ Return ONLY valid JSON in this exact shape:
     "variant": "string",
     "packSizeText": "string",
     "category": "string",
-    "barcode": "string"
+    "barcode": "string",
+    "price": "string",
+    "regularPrice": "string",
+    "saving": "string",
+    "unitPrice": "string",
+    "promotion": "string"
   }
 ]
 

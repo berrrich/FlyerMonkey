@@ -70,14 +70,6 @@ namespace FlyerMonkey.Reviewer.Windows
                 return;
 
             _selectedFlyer = flyer;
-
-            //SelectedRetailer.Text = flyer.Retailer;
-            //SelectedDate.Text = flyer.FlyerDate;
-            //SelectedPages.Text = flyer.PageDescription;
-            //SelectedFileName.Text = flyer.FileName;
-
-            //NoFlyerSelectedText.Visibility = Visibility.Collapsed;
-            //FlyerFocusPanel.Visibility = Visibility.Visible;
             LoadSplitPages(flyer);
         }
 
@@ -152,6 +144,25 @@ namespace FlyerMonkey.Reviewer.Windows
                 File.WriteAllBytes(outputPath, pages[i]);
             }
         }
+        private static decimal? ParseMoney(string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                return null;
+
+            var cleaned = value
+                .Replace("$", "")
+                .Replace(",", "")
+                .Replace("SAVE", "", StringComparison.OrdinalIgnoreCase)
+                .Trim();
+
+            return decimal.TryParse(
+                cleaned,
+                System.Globalization.NumberStyles.Number,
+                System.Globalization.CultureInfo.InvariantCulture,
+                out var amount)
+                    ? amount
+                    : null;
+        }
 
         private async void CommitButton_Click(
     object sender,
@@ -197,6 +208,21 @@ namespace FlyerMonkey.Reviewer.Windows
                 var repository =
                     new ProductRepository(sqlConnectionString);
 
+                var offerRepository =
+    new OfferRepository(sqlConnectionString);
+
+                var retailerRepository =
+    new RetailerRepository(sqlConnectionString);
+
+                var retailerId =
+    await retailerRepository.GetRetailerIdByNameAsync(
+        saved.Retailer);
+
+                if (retailerId == null)
+                {
+                    throw new InvalidOperationException(
+                        $"Retailer '{saved.Retailer}' was not found.");
+                }
                 var addedCount = 0;
 
                 foreach (var extractedProduct in products)
@@ -211,7 +237,31 @@ namespace FlyerMonkey.Reviewer.Windows
                         Barcode = extractedProduct.Barcode
                     };
 
-                    await repository.AddProductAsync(product);
+                    var productId =
+    await repository.AddProductAsync(product);
+
+                    var offer = new Offer
+                    {
+                        ProductID = productId,
+                        RetailerID = retailerId.Value,
+
+                        AdvertisedPrice = ParseMoney(extractedProduct.Price),
+                        RegularPrice = ParseMoney(extractedProduct.RegularPrice),
+                        AdvertisedSaving = ParseMoney(extractedProduct.Saving),
+
+                        ValidFrom = DateTime.UtcNow,
+                        ValidTo = DateTime.UtcNow.AddDays(7),
+
+                        SourceType = "Flyer",
+                        SourceDescription = saved.PageFileName,
+                        FlyerPageNumber = saved.PageNumber,
+
+                        PromoText = extractedProduct.Promotion,
+                        UnitPriceText = extractedProduct.UnitPrice
+                    };
+
+                    await offerRepository.AddOfferAsync(offer);
+
                     addedCount++;
                 }
 

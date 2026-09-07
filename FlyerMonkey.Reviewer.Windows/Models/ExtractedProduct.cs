@@ -13,4 +13,14 @@ public class ExtractedProduct
     public string? Category { get; set; }
 
     public string? Barcode { get; set; }
+
+    public string? Price { get; set; }
+
+    public string? RegularPrice { get; set; }
+
+    public string? Saving { get; set; }
+
+    public string? UnitPrice { get; set; }
+
+    public string? Promotion { get; set; }
 }

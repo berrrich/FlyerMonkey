@@ -4,4 +4,4 @@
 *.user
 *.csproj.user
 
-DATA/
+/DATA/
