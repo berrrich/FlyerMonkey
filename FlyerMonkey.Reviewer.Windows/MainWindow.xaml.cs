@@ -223,6 +223,15 @@ namespace FlyerMonkey.Reviewer.Windows
                     throw new InvalidOperationException(
                         $"Retailer '{saved.Retailer}' was not found.");
                 }
+
+                var retailerLocationRepository =
+    new RetailerLocationRepository(sqlConnectionString);
+
+                var retailerLocationId =
+                    await retailerLocationRepository.GetLocationIdAsync(
+                        retailerId.Value,
+                        "Butler");
+
                 var addedCount = 0;
 
                 foreach (var extractedProduct in products)
@@ -244,6 +253,7 @@ namespace FlyerMonkey.Reviewer.Windows
                     {
                         ProductID = productId,
                         RetailerID = retailerId.Value,
+                        RetailerLocationID = retailerLocationId,
 
                         AdvertisedPrice = ParseMoney(extractedProduct.Price),
                         RegularPrice = ParseMoney(extractedProduct.RegularPrice),
