@@ -25,13 +25,8 @@ namespace FlyerMonkey
             builder.Services.AddSingleton<PricelineService>();
             builder.Services.AddSyncfusionBlazor();
 
-#if ANDROID
-            var apiBaseUrl = DeviceInfo.DeviceType == DeviceType.Virtual
-                ? "http://10.0.2.2:5053/"
-                : "http://192.168.4.95:5053/";
-#else
-var apiBaseUrl = "https://localhost:7094/";
-#endif
+            var apiBaseUrl =
+                "https://flyermonkeyapi-g7htasdacxfzgbcd.australiaeast-01.azurewebsites.net/";
 
             builder.Services.AddHttpClient<AppProductService, ProductApiService>(client =>
             {
