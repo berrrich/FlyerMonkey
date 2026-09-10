@@ -33,6 +33,10 @@ namespace FlyerMonkey
                 client.BaseAddress = new Uri(apiBaseUrl);
             });
 
+            builder.Services.AddHttpClient<IOfferService, OfferApiService>(client =>
+            {
+                client.BaseAddress = new Uri(apiBaseUrl);
+            });
             builder.Services.AddMauiBlazorWebView();
 
 #if DEBUG

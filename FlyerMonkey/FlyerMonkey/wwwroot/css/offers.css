@@ -55,3 +55,15 @@
         padding: 0 1rem;
     }
 
+.offer-price-area {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.5rem;
+}
+
+.offer-price {
+    font-size: 1.5rem;
+    font-weight: 800;
+}
+

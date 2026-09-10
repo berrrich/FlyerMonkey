@@ -1,0 +1,95 @@
+﻿@page "/offers"
+
+@using FlyerMonkey.Shared.Model
+@using FlyerMonkey.Shared.Services
+@inject IOfferService OfferService
+
+<h1 class="offers-title">Offers</h1>
+
+@if (isLoading)
+{
+    <p>Loading offers...</p>
+}
+else if (loadError is not null)
+{
+    <p class="text-danger">@loadError</p>
+}
+else if (offers.Count == 0)
+{
+    <p>No offers found.</p>
+}
+else
+{
+    <div class="offers-list">
+        @foreach (var offer in offers)
+        {
+            <div class="offer-card">
+                <div class="offer-thumb">
+                    🛒
+                </div>
+
+                <div class="offer-main">
+                    <div class="offer-name">@offer.ProductName</div>
+
+                    <div class="offer-meta">
+                        @offer.RetailerName
+                        @if (!string.IsNullOrWhiteSpace(offer.StoreName))
+                        {
+                            <span> · @offer.StoreName</span>
+                        }
+                    </div>
+
+                    <div class="offer-meta">
+                        @offer.PackSizeText
+                        @if (!string.IsNullOrWhiteSpace(offer.Category))
+                        {
+                            <span> · @offer.Category</span>
+                        }
+                    </div>
+
+                    @if (!string.IsNullOrWhiteSpace(offer.UnitPriceText))
+                    {
+                        <div class="offer-meta">@offer.UnitPriceText</div>
+                    }
+                </div>
+
+                <div class="offer-price-area">
+                    @if (offer.AdvertisedPrice.HasValue)
+                    {
+                        <div class="offer-price">
+                            @offer.AdvertisedPrice.Value.ToString("C")
+                        </div>
+                    }
+
+                    <button class="offer-button">
+                        View
+                    </button>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private List<OfferSummary> offers = new();
+    private bool isLoading;
+    private string? loadError;
+
+    protected override async Task OnInitializedAsync()
+    {
+        isLoading = true;
+
+        try
+        {
+            offers = await OfferService.GetOffersAsync();
+        }
+        catch (Exception ex)
+        {
+            loadError = "Failed to load offers: " + ex.Message;
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+}
