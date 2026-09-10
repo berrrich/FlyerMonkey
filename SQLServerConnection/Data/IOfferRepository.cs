@@ -10,4 +10,7 @@ public interface IOfferRepository
 
     Task<List<Offer>> GetOffersAsync(
         CancellationToken cancellationToken = default);
+
+    Task<List<OfferSummary>> GetOfferSummariesAsync(
+    CancellationToken cancellationToken = default);
 }

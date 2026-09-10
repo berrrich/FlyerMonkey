@@ -5,6 +5,10 @@ Accept: application/json
 
 ###
 
+GET {{FlyerMonkey.Api_HostAddress}}/api/offers
+Accept: application/json
+###
+
 GET {{FlyerMonkey.Api_HostAddress}}/api/products
 Accept: application/json
 

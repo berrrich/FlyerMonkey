@@ -30,6 +30,9 @@ builder.Services.AddControllers();
 
 builder.Services.AddOpenApi();
 
+builder.Services.AddScoped<IOfferRepository>(sp =>
+    new OfferRepository(sqlConnectionString));
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.

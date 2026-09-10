@@ -193,6 +193,144 @@ public sealed class OfferRepository : IOfferRepository
         return Convert.ToInt32(result);
     }
 
+    public async Task<List<OfferSummary>> GetOfferSummariesAsync(
+    CancellationToken cancellationToken = default)
+    {
+        var offers = new List<OfferSummary>();
+
+        const string sql = """
+        SELECT
+            o.ID AS OfferID,
+            p.ID AS ProductID,
+            p.Name AS ProductName,
+            p.Brand,
+            p.Variant,
+            p.PackSizeText,
+            p.Category,
+
+            r.ID AS RetailerID,
+            r.Name AS RetailerName,
+
+            rl.StoreName,
+            rl.Suburb,
+
+            o.AdvertisedPrice,
+            o.RegularPrice,
+            o.AdvertisedSaving,
+            o.PromoText,
+            o.UnitPriceText,
+            o.ValidFrom,
+            o.ValidTo
+
+        FROM dbo.Offers o
+
+        INNER JOIN dbo.Products p
+            ON p.ID = o.ProductID
+
+        INNER JOIN dbo.Retailers r
+            ON r.ID = o.RetailerID
+
+        LEFT JOIN dbo.RetailerLocations rl
+            ON rl.ID = o.RetailerLocationID
+
+        ORDER BY
+            o.AdvertisedPrice,
+            p.Name;
+        """;
+
+        await using var connection =
+            await OpenConnectionWithRetryAsync(cancellationToken);
+
+        await using var command =
+            new SqlCommand(sql, connection);
+
+        await using var reader =
+            await command.ExecuteReaderAsync(cancellationToken);
+
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            offers.Add(new OfferSummary
+            {
+                OfferID = Convert.ToInt32(reader["OfferID"]),
+                ProductID = Convert.ToInt32(reader["ProductID"]),
+
+                ProductName =
+                    reader["ProductName"]?.ToString() ?? string.Empty,
+
+                Brand =
+                    reader["Brand"] == DBNull.Value
+                        ? null
+                        : reader["Brand"]?.ToString(),
+
+                Variant =
+                    reader["Variant"] == DBNull.Value
+                        ? null
+                        : reader["Variant"]?.ToString(),
+
+                PackSizeText =
+                    reader["PackSizeText"] == DBNull.Value
+                        ? null
+                        : reader["PackSizeText"]?.ToString(),
+
+                Category =
+                    reader["Category"] == DBNull.Value
+                        ? null
+                        : reader["Category"]?.ToString(),
+
+                RetailerID = Convert.ToInt32(reader["RetailerID"]),
+
+                RetailerName =
+                    reader["RetailerName"]?.ToString() ?? string.Empty,
+
+                StoreName =
+                    reader["StoreName"] == DBNull.Value
+                        ? null
+                        : reader["StoreName"]?.ToString(),
+
+                Suburb =
+                    reader["Suburb"] == DBNull.Value
+                        ? null
+                        : reader["Suburb"]?.ToString(),
+
+                AdvertisedPrice =
+                    reader["AdvertisedPrice"] == DBNull.Value
+                        ? null
+                        : Convert.ToDecimal(reader["AdvertisedPrice"]),
+
+                RegularPrice =
+                    reader["RegularPrice"] == DBNull.Value
+                        ? null
+                        : Convert.ToDecimal(reader["RegularPrice"]),
+
+                AdvertisedSaving =
+                    reader["AdvertisedSaving"] == DBNull.Value
+                        ? null
+                        : Convert.ToDecimal(reader["AdvertisedSaving"]),
+
+                PromoText =
+                    reader["PromoText"] == DBNull.Value
+                        ? null
+                        : reader["PromoText"]?.ToString(),
+
+                UnitPriceText =
+                    reader["UnitPriceText"] == DBNull.Value
+                        ? null
+                        : reader["UnitPriceText"]?.ToString(),
+
+                ValidFrom =
+                    reader["ValidFrom"] == DBNull.Value
+                        ? null
+                        : Convert.ToDateTime(reader["ValidFrom"]),
+
+                ValidTo =
+                    reader["ValidTo"] == DBNull.Value
+                        ? null
+                        : Convert.ToDateTime(reader["ValidTo"])
+            });
+        }
+
+        return offers;
+    }
     public Task<List<Offer>> GetOffersAsync(
         CancellationToken cancellationToken = default)
     {
