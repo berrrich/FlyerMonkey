@@ -5,4 +5,13 @@
 *.csproj.user
 
 /DATA/
-/FlyerMonkey/FlyerMonkey/FlyerMonkey.Server
+
+# Retired projects
+/FlyerMonkey.Importer/
+/FlyerMonkey.Reviewer/
+**/FlyerMonkey.Server/
+
+# Local diagnostic files
+/git-status-*.txt
+/ignored-tracked.txt
+/sql-search.txt
