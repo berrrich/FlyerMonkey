@@ -80,4 +80,8 @@
     <ProjectReference Include="..\FlyerMonkey.Shared\FlyerMonkey.Shared.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Services\" />
+  </ItemGroup>
+
 </Project>

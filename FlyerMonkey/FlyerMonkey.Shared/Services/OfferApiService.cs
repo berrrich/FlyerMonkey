@@ -13,11 +13,25 @@ public class OfferApiService : IOfferService
     }
 
     public async Task<List<OfferSummary>> GetOffersAsync(
-        CancellationToken cancellationToken = default)
+    CancellationToken cancellationToken = default)
     {
-        return await _httpClient.GetFromJsonAsync<List<OfferSummary>>(
-                   "api/offers",
-                   cancellationToken)
-               ?? new List<OfferSummary>();
+        const int maxAttempts = 3;
+
+        for (int attempt = 1; attempt <= maxAttempts; attempt++)
+        {
+            try
+            {
+                return await _httpClient.GetFromJsonAsync<List<OfferSummary>>(
+                    "api/offers",
+                    cancellationToken)
+                    ?? new List<OfferSummary>();
+            }
+            catch (HttpRequestException) when (attempt < maxAttempts)
+            {
+                await Task.Delay(attempt * 1000, cancellationToken);
+            }
+        }
+
+        throw new HttpRequestException("Offers service unavailable.");
     }
 }

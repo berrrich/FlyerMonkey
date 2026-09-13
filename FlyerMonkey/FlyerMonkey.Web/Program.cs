@@ -1,7 +1,6 @@
 //using FlyerMonkey.Services;
 using FlyerMonkey.Shared.Services;
 using FlyerMonkey.Web.Components;
-using FlyerMonkey.Web.Services;
 //using FlyerMonkey.Server.Data;
 using SQLServerConnection.Data;
 using Syncfusion.Blazor;
@@ -25,9 +24,6 @@ builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
 // Add device-specific services used by the FlyerMonkey.Shared project
-builder.Services.AddSingleton<IFormFactor, FormFactor>();
-builder.Services.AddScoped<MonkeyService>();
-builder.Services.AddScoped<PricelineService>();
 builder.Services.AddScoped<IProductRepository>(_ =>
     new ProductRepository(connectionString));
 builder.Services.AddSyncfusionBlazor();

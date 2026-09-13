@@ -1,5 +1,4 @@
-﻿using FlyerMonkey.Services;
-using FlyerMonkey.Shared.Services;
+﻿using FlyerMonkey.Shared.Services;
 using Microsoft.Extensions.Logging;
 using Syncfusion.Blazor;
 using Microsoft.Extensions.DependencyInjection;
@@ -20,9 +19,7 @@ namespace FlyerMonkey
                     fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
                 });
 
-            builder.Services.AddSingleton<IFormFactor, FormFactor>();
-            builder.Services.AddSingleton<MonkeyService>();
-            builder.Services.AddSingleton<PricelineService>();
+            
             builder.Services.AddSyncfusionBlazor();
 
             var apiBaseUrl =

@@ -78,14 +78,15 @@ else
     protected override async Task OnInitializedAsync()
     {
         isLoading = true;
+        loadError = null;
 
         try
         {
             offers = await OfferService.GetOffersAsync();
         }
-        catch (Exception ex)
+        catch
         {
-            loadError = "Failed to load offers: " + ex.Message;
+            loadError = "Offers are temporarily unavailable. Please try again.";
         }
         finally
         {
