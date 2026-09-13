@@ -12,6 +12,7 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="10.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Http" Version="11.0.0-preview.6.26359.118" />
     <PackageReference Include="Syncfusion.Blazor.SfPdfViewer" Version="32.2.4" />
     <PackageReference Include="Syncfusion.Blazor.Themes" Version="32.2.4" />
   </ItemGroup>
