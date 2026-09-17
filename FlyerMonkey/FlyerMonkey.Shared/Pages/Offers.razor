@@ -1,27 +1,51 @@
-﻿@page "/offers"
+﻿@page "/"
 
 @using FlyerMonkey.Shared.Model
 @using FlyerMonkey.Shared.Services
+@using FlyerMonkey.Shared.UI.Offers
 @inject IOfferService OfferService
 
-<h1 class="offers-title">Offers</h1>
+<div class="offers-heading">
+    <h1 class="offers-title">This Week's Offers</h1>
 
-@if (isLoading)
+    <button class="offer-refresh-button"
+            @onclick="RefreshOffersAsync"
+            title="Refresh offers">
+        ↻
+    </button>
+</div>
+
+<div class="offer-stats">
+    @offersUI.Offers.Count offers
+</div>
+
+@if (offersUI.IsLoading)
 {
     <p>Loading offers...</p>
 }
-else if (loadError is not null)
+else if (offersUI.LoadError is not null)
 {
-    <p class="text-danger">@loadError</p>
+    <p class="text-danger">@offersUI.LoadError</p>
 }
-else if (offers.Count == 0)
+else if (offersUI.Offers.Count == 0)
 {
     <p>No offers found.</p>
 }
 else
 {
+    @if (!string.IsNullOrWhiteSpace(offersUI.LoadError))
+    {
+        <div class="offer-error">
+            <p>@offersUI.LoadError</p>
+
+            <button class="offer-button"
+                    @onclick="offersUI.LoadOffersAsync">
+                Retry
+            </button>
+        </div>
+    }
     <div class="offers-list">
-        @foreach (var offer in offers)
+        @foreach (var offer in offersUI.Offers)
         {
             <div class="offer-card">
                 <div class="offer-thumb">
@@ -74,23 +98,18 @@ else
     private List<OfferSummary> offers = new();
     private bool isLoading;
     private string? loadError;
+    private OffersUI offersUI = null!;
+    private int refreshCount;
 
+    private async Task RefreshOffersAsync()
+    {
+        refreshCount++;
+        await offersUI.LoadOffersAsync();
+
+    }
     protected override async Task OnInitializedAsync()
     {
-        isLoading = true;
-        loadError = null;
-
-        try
-        {
-            offers = await OfferService.GetOffersAsync();
-        }
-        catch
-        {
-            loadError = "Offers are temporarily unavailable. Please try again.";
-        }
-        finally
-        {
-            isLoading = false;
-        }
+        offersUI = new OffersUI(OfferService);
+        await offersUI.LoadOffersAsync();
     }
 }

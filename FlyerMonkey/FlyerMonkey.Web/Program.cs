@@ -34,7 +34,13 @@ builder.Services.AddHttpClient<
     {
         client.BaseAddress = new Uri("https://localhost:7094/");
     });
-
+builder.Services.AddHttpClient<
+    IOfferService,
+    OfferApiService>(client =>
+    {
+        client.BaseAddress = new Uri(
+            "https://flyermonkeyapi-g7htasdacxfzgbcd.australiaeast-01.azurewebsites.net/");
+    });
 builder.Services.AddScoped<IProductRepository>(_ =>
     new ProductRepository(connectionString));
 

@@ -31,9 +31,9 @@ namespace SQLServerConnection
         {
             var results = new List<ProductDto>();
 
-            const int maxAttempts = 3;
+            const int maxAttempts = 1;
             var baseDelay = TimeSpan.FromSeconds(2);
-            const int commandTimeoutSeconds = 60; // per-command timeout
+            const int commandTimeoutSeconds = 30; // per-command timeout
 
             for (int attempt = 1; attempt <= maxAttempts; attempt++)
             {

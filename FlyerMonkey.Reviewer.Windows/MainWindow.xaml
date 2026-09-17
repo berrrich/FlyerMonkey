@@ -30,13 +30,33 @@
             <DockPanel>
 
                 <Border DockPanel.Dock="Top"
-                        Padding="16"
-                        BorderBrush="#E0E0E0"
-                        BorderThickness="0,0,0,1">
+        Padding="16"
+        BorderBrush="#E0E0E0"
+        BorderThickness="0,0,0,1">
 
-                    <TextBlock Text="FLYERS"
-                               FontSize="18"
-                               FontWeight="SemiBold"/>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <TextBlock Grid.Column="0"
+                   Text="FLYERS"
+                   FontSize="18"
+                   FontWeight="SemiBold"
+                   VerticalAlignment="Center"/>
+
+                        <Button Grid.Column="1"
+                Content="↻"
+                FontFamily="Segoe UI Symbol"
+                FontSize="20"
+                Width="32"
+                Height="32"
+                Padding="0"
+                ToolTip="Refresh flyers"
+                Click="RefreshFlyers_Click"/>
+                    </Grid>
+
                 </Border>
 
                 <ListBox x:Name="FlyerList"

@@ -26,4 +26,14 @@
         padding-left: env(safe-area-inset-left);
     }
 }
+
+@media (min-width: 641px) {
+    .sidebar {
+        display: none;
+    }
+
+    main {
+        margin-left: 0;
+    }
+}
 /*  "top-row navbar navbar-dark ps-3 */

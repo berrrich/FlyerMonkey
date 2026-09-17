@@ -9,6 +9,7 @@ using System.Windows.Media.Imaging;
 using FlyerMonkey.Reviewer.Windows.Models;
 using FlyerMonkey.Shared.Model;
 using SQLServerConnection.Data;
+using Syncfusion.Pdf.Parsing;
 
 namespace FlyerMonkey.Reviewer.Windows
 {
@@ -106,15 +107,20 @@ namespace FlyerMonkey.Reviewer.Windows
                 .OrderBy(x => x)
                 .ToList();
 
-            for (int i = 0; i < pageFiles.Count; i++)
+            if (pageFiles.Count > 0)
             {
-                PageList.Items.Add(new FlyerPage
+                var firstPage = new FlyerPage
                 {
-                    PageNumber = i + 1,
-                    FileName = Path.GetFileName(pageFiles[i]),
-                    FullPath = pageFiles[i],
-                    Thumbnail = CreateThumbnail(pageFiles[i])
-                });
+                    PageNumber = 1,
+                    FileName = Path.GetFileName(pageFiles[0]),
+                    FullPath = pageFiles[0],
+                    Thumbnail = CreateThumbnail(pageFiles[0])
+                };
+
+                PageList.Items.Add(firstPage);
+
+                // Automatically select page 1.
+                PageList.SelectedItem = firstPage;
             }
         }
         private void SplitPdf(string sourcePdf)
@@ -449,9 +455,14 @@ namespace FlyerMonkey.Reviewer.Windows
 
             _ = LoadSavedExtractionsAsync();
         }
-
+        private void RefreshFlyers_Click(object sender, RoutedEventArgs e)
+        {
+            LoadFlyers();
+        }
         private void LoadFlyers()
         {
+            FlyerList.Items.Clear(); 
+            
             string incomingFolder =
                 @"C:\Users\richa\source\repos\FlyerMonkey\DATA\Flyers\Incoming";
 
@@ -461,7 +472,10 @@ namespace FlyerMonkey.Reviewer.Windows
                 return;
             }
 
-            var pdfFiles = Directory.GetFiles(incomingFolder, "*.pdf");
+            var pdfFiles = Directory.GetFiles(
+    incomingFolder,
+    "*.pdf",
+    SearchOption.AllDirectories);
 
             foreach (var pdfPath in pdfFiles.OrderByDescending(x => x))
             {
@@ -479,49 +493,57 @@ namespace FlyerMonkey.Reviewer.Windows
             string fileName = Path.GetFileName(pdfPath);
             string nameWithoutExtension = Path.GetFileNameWithoutExtension(pdfPath);
 
-            // Defaults: every PDF gets displayed,
-            // even if we can't understand its filename.
+            // Parent folder now tells us the retailer.
+            string retailerFolder =
+                Directory.GetParent(pdfPath)?.Name ?? "Unknown";
+
             var flyer = new FlyerFile
             {
-                Retailer = "Unknown",
+                Retailer = retailerFolder switch
+                {
+                    "Woolworths" => "Woolworths",
+                    "Coles" => "Coles",
+                    _ => retailerFolder
+                },
                 FlyerDate = "Date unknown",
                 PageDescription = "Pages unknown",
                 FileName = fileName,
                 FullPath = pdfPath
             };
+            try
+            {
+                using var document = new PdfLoadedDocument(pdfPath);
 
-            // Expected example:
-            // 20260114_Woolies_p1-3
+                int pageCount = document.Pages.Count;
+
+                flyer.PageDescription =
+                    pageCount == 1
+                        ? "1 page"
+                        : $"{pageCount} pages";
+            }
+            catch
+            {
+                flyer.PageDescription = "Pages unknown";
+            }
             string[] parts = nameWithoutExtension.Split('_');
 
-            if (parts.Length < 3)
-                return flyer;
+            // Current retailer filenames both contain ddMMyy.
+            // Woolworths: WW_WA_160926_6R9PARNL4
+            // Coles:      COLWAMETRO_160926_WCNU2SU7
+            string? datePart = parts
+                .FirstOrDefault(p =>
+                    p.Length == 6 &&
+                    p.All(char.IsDigit));
 
-            string datePart = parts[0];
-            string retailerPart = parts[1];
-            string pagesPart = parts[2];
-
-            if (DateTime.TryParseExact(
+            if (datePart != null &&
+                DateTime.TryParseExact(
                     datePart,
-                    "yyyyMMdd",
-                    null,
+                    "ddMMyy",
+                    System.Globalization.CultureInfo.InvariantCulture,
                     System.Globalization.DateTimeStyles.None,
                     out DateTime flyerDate))
             {
                 flyer.FlyerDate = flyerDate.ToString("dd MMM yyyy");
-            }
-
-            flyer.Retailer = retailerPart switch
-            {
-                "Woolies" => "Woolworths",
-                "Coles" => "Coles",
-                _ => retailerPart
-            };
-
-            if (pagesPart.StartsWith("p"))
-            {
-                flyer.PageDescription =
-                    $"Pages {pagesPart[1..].Replace("-", "–")}";
             }
 
             return flyer;

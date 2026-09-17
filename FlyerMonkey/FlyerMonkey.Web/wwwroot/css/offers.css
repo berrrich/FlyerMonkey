@@ -1,0 +1,116 @@
+﻿.offers-title {
+    font-size: 2rem;
+    margin-bottom: 1rem;
+}
+
+.offers-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 18px;
+    width: 100%;
+}
+
+.offers-page-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 300px;
+    gap: 28px;
+}
+
+.offer-card {
+    display: grid;
+    grid-template-columns: 64px 1fr auto;
+    gap: 1rem;
+    align-items: center;
+    padding: 1rem;
+    border: 1px solid #ddd;
+    border-radius: 18px;
+    background: white;
+}
+
+.offer-thumb {
+    width: 64px;
+    height: 64px;
+    border-radius: 16px;
+    background: #f3f3f3;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+}
+
+.offer-name {
+    font-size: 1.25rem;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+.offer-meta {
+    font-size: 1rem;
+    margin-top: 0.25rem;
+}
+
+.offer-button {
+    min-width: 78px;
+    min-height: 48px;
+    border: none;
+    border-radius: 24px;
+    background-color: limegreen !important;
+    color: white !important;
+    font-size: 1rem;
+    font-weight: 700;
+    padding: 0 1rem;
+}
+
+.offer-price-area {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.5rem;
+}
+
+.offer-price {
+    font-size: 1.5rem;
+    font-weight: 800;
+}
+
+.offers-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+}
+
+.offer-stats {
+    margin-top: 4px;
+    font-size: 0.9rem;
+}
+
+.offer-refresh-button {
+    margin-left: auto;
+    border: none;
+    background: transparent;
+    color: limegreen;
+    font-size: 42px;
+    cursor: pointer;
+    position: relative;
+    top: -12px;
+    padding: 4px 12px;
+}
+
+    .offer-refresh-button:hover {
+        transform: rotate(30deg) scale(1.15);
+    }
+
+    .offer-refresh-button:disabled {
+        opacity: 0.5;
+        cursor: default;
+    }
+
+@media (min-width: 641px) {
+    .offers-list {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(240px, 1fr));
+        gap: 18px;
+    }
+
+}
