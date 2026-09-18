@@ -1,0 +1,120 @@
+﻿@page "/previous"
+
+@using FlyerMonkey.Shared.Model
+@using FlyerMonkey.Shared.Services
+@using FlyerMonkey.Shared.UI.Offers
+@inject IOfferService OfferService
+
+<div class="offers-heading">
+    <h1 class="offers-title">Previous Offers</h1>
+
+    <button class="offer-refresh-button"
+            @onclick="RefreshPreviousOffersAsync"
+            title="Refresh previous offers">
+        ↻
+    </button>
+</div>
+
+<div class="offer-stats">
+    @previousOffers.Count previous offers
+</div>
+
+@if (isLoading)
+{
+    <p>Loading previous offers...</p>
+}
+else if (loadError is not null)
+{
+    <p class="text-danger">@loadError</p>
+}
+else if (previousOffers.Count == 0)
+{
+    <p>No previous offers found.</p>
+}
+else
+{
+    <div class="offers-list">
+        @foreach (var offer in previousOffers)
+        {
+            <div class="offer-card">
+                <div class="offer-thumb">
+                    🛒
+                </div>
+
+                <div class="offer-main">
+                    <div class="offer-name">@offer.ProductName</div>
+
+                    <div class="offer-meta">
+                        @offer.RetailerName
+                        @if (!string.IsNullOrWhiteSpace(offer.StoreName))
+                        {
+                            <span> · @offer.StoreName</span>
+                        }
+                    </div>
+
+                    <div class="offer-meta">
+                        @offer.PackSizeText
+                        @if (!string.IsNullOrWhiteSpace(offer.Category))
+                        {
+                            <span> · @offer.Category</span>
+                        }
+                    </div>
+
+                    @if (!string.IsNullOrWhiteSpace(offer.UnitPriceText))
+                    {
+                        <div class="offer-meta">@offer.UnitPriceText</div>
+                    }
+                </div>
+
+                <div class="offer-price-area">
+                    @if (offer.AdvertisedPrice.HasValue)
+                    {
+                        <div class="offer-price">
+                            @offer.AdvertisedPrice.Value.ToString("C")
+                        </div>
+                    }
+
+                    <button class="offer-button">
+                        View
+                    </button>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private List<OfferSummary> previousOffers = new();
+    private bool isLoading;
+    private string? loadError;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadPreviousOffersAsync();
+    }
+
+    private async Task LoadPreviousOffersAsync()
+    {
+        try
+        {
+            isLoading = true;
+            loadError = null;
+
+            previousOffers =
+                await OfferService.GetPreviousOffersAsync();
+        }
+        catch (Exception ex)
+        {
+            loadError = ex.Message;
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task RefreshPreviousOffersAsync()
+    {
+        await LoadPreviousOffersAsync();
+    }
+}

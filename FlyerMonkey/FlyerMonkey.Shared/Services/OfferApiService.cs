@@ -12,8 +12,33 @@ public class OfferApiService : IOfferService
         _httpClient = httpClient;
     }
 
-    public async Task<List<OfferSummary>> GetOffersAsync(
-    CancellationToken cancellationToken = default)
+    public Task<List<OfferSummary>> GetOffersAsync(
+        CancellationToken cancellationToken = default)
+    {
+        return GetOffersInternalAsync(
+            "api/offers",
+            cancellationToken);
+    }
+
+    public Task<List<OfferSummary>> GetCurrentOffersAsync(
+        CancellationToken cancellationToken = default)
+    {
+        return GetOffersInternalAsync(
+            "api/offers/current",
+            cancellationToken);
+    }
+
+    public Task<List<OfferSummary>> GetPreviousOffersAsync(
+        CancellationToken cancellationToken = default)
+    {
+        return GetOffersInternalAsync(
+            "api/offers/previous",
+            cancellationToken);
+    }
+
+    private async Task<List<OfferSummary>> GetOffersInternalAsync(
+        string endpoint,
+        CancellationToken cancellationToken)
     {
         const int maxAttempts = 3;
 
@@ -22,7 +47,7 @@ public class OfferApiService : IOfferService
             try
             {
                 return await _httpClient.GetFromJsonAsync<List<OfferSummary>>(
-                    "api/offers",
+                    endpoint,
                     cancellationToken)
                     ?? new List<OfferSummary>();
             }
