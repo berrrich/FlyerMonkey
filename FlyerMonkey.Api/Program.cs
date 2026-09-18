@@ -1,4 +1,5 @@
 using FlyerMonkey.Api.Services;
+using FlyerMonkey.Shared.Services;
 using SQLServerConnection.Data;
 using Microsoft.Data.SqlClient;
 
@@ -30,8 +31,9 @@ builder.Services.AddControllers();
 
 builder.Services.AddOpenApi();
 
-builder.Services.AddScoped<IOfferRepository>(sp =>
-    new OfferRepository(sqlConnectionString));
+builder.Services.AddScoped<
+    FlyerMonkey.Shared.Services.IOfferRepository>(sp =>
+        new SQLServerConnection.Data.OfferRepository(sqlConnectionString));
 
 var app = builder.Build();
 

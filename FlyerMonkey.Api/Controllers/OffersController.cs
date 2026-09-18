@@ -1,6 +1,6 @@
 ﻿using FlyerMonkey.Shared.Model;
 using Microsoft.AspNetCore.Mvc;
-using SQLServerConnection.Data;
+using FlyerMonkey.Shared.Services;
 
 namespace FlyerMonkey.Api.Controllers;
 
@@ -21,6 +21,26 @@ public class OffersController : ControllerBase
     {
         var offers =
             await _offerRepository.GetOfferSummariesAsync(cancellationToken);
+
+        return Ok(offers);
+    }
+
+    [HttpGet("current")]
+    public async Task<ActionResult<List<OfferSummary>>> GetCurrentOffers(
+        CancellationToken cancellationToken)
+    {
+        var offers =
+            await _offerRepository.GetCurrentOfferSummariesAsync(cancellationToken);
+
+        return Ok(offers);
+    }
+
+    [HttpGet("previous")]
+    public async Task<ActionResult<List<OfferSummary>>> GetPreviousOffers(
+        CancellationToken cancellationToken)
+    {
+        var offers =
+            await _offerRepository.GetPreviousOfferSummariesAsync(cancellationToken);
 
         return Ok(offers);
     }

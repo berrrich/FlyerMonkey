@@ -1,9 +1,11 @@
 ﻿using FlyerMonkey.Shared.Model;
 using Microsoft.Data.SqlClient;
+using FlyerMonkey.Shared.Services;
 
 namespace SQLServerConnection.Data;
 
-public sealed class OfferRepository : IOfferRepository
+public sealed class OfferRepository
+    : FlyerMonkey.Shared.Services.IOfferRepository
 {
     private readonly string _connectionString;
 
@@ -196,9 +198,35 @@ public sealed class OfferRepository : IOfferRepository
     public async Task<List<OfferSummary>> GetOfferSummariesAsync(
     CancellationToken cancellationToken = default)
     {
+        return await GetOfferSummariesInternalAsync(
+            null,
+            cancellationToken);
+    }
+
+    public async Task<List<OfferSummary>> GetCurrentOfferSummariesAsync(
+        CancellationToken cancellationToken = default)
+    {
+        return await GetOfferSummariesInternalAsync(
+            "current",
+            cancellationToken);
+    }
+
+    public async Task<List<OfferSummary>> GetPreviousOfferSummariesAsync(
+        CancellationToken cancellationToken = default)
+    {
+        return await GetOfferSummariesInternalAsync(
+            "previous",
+            cancellationToken);
+    }
+
+    private async Task<List<OfferSummary>> GetOfferSummariesInternalAsync(
+        string? filter,
+        CancellationToken cancellationToken)
+    {
+
         var offers = new List<OfferSummary>();
 
-        const string sql = """
+        var sql = """
         SELECT
             o.ID AS OfferID,
             p.ID AS ProductID,
@@ -233,17 +261,39 @@ public sealed class OfferRepository : IOfferRepository
         LEFT JOIN dbo.RetailerLocations rl
             ON rl.ID = o.RetailerLocationID
 
-        ORDER BY
-            o.AdvertisedPrice,
-            p.Name;
         """;
+        if (filter == "current")
+        {
+            sql += """
+        
+        WHERE
+            o.ValidFrom <= @Today
+            AND o.ValidTo >= @Today
+        """;
+        }
+        else if (filter == "previous")
+        {
+            sql += """
+        
+        WHERE
+            o.ValidTo < @Today
+        """;
+        }
 
+        sql += """
+    
+    ORDER BY
+        o.AdvertisedPrice,
+        p.Name;
+    """;
         await using var connection =
             await OpenConnectionWithRetryAsync(cancellationToken);
 
         await using var command =
             new SqlCommand(sql, connection);
-
+        command.Parameters.AddWithValue(
+    "@Today",
+    DateTime.Today);
         await using var reader =
             await command.ExecuteReaderAsync(cancellationToken);
 
