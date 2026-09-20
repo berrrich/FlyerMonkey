@@ -1,8 +1,5 @@
-//using FlyerMonkey.Services;
 using FlyerMonkey.Shared.Services;
 using FlyerMonkey.Web.Components;
-//using FlyerMonkey.Server.Data;
-using SQLServerConnection.Data;
 using Syncfusion.Blazor;
 using AppProductService =
     FlyerMonkey.Shared.Services.IProductService;
@@ -11,28 +8,19 @@ using WebProductApiService =
     FlyerMonkey.Shared.Services.ProductApiService;
 
 var builder = WebApplication.CreateBuilder(args);
-// Add database contact
-
-var connectionString =
-    builder.Configuration.GetConnectionString(
-        "AZURE_SQL_CONNECTIONSTRING")
-    ?? throw new InvalidOperationException(
-        "Connection string 'AZURE_SQL_CONNECTIONSTRING' was not found.");
 
 // Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
-// Add device-specific services used by the FlyerMonkey.Shared project
-builder.Services.AddScoped<IProductRepository>(_ =>
-    new ProductRepository(connectionString));
 builder.Services.AddSyncfusionBlazor();
 
 builder.Services.AddHttpClient<
     AppProductService,
     WebProductApiService>(client =>
     {
-        client.BaseAddress = new Uri("https://localhost:7094/");
+        client.BaseAddress = new Uri(
+    "https://flyermonkeyapi-g7htasdacxfzgbcd.australiaeast-01.azurewebsites.net/");
     });
 builder.Services.AddHttpClient<
     IOfferService,
@@ -41,8 +29,6 @@ builder.Services.AddHttpClient<
         client.BaseAddress = new Uri(
             "https://flyermonkeyapi-g7htasdacxfzgbcd.australiaeast-01.azurewebsites.net/");
     });
-builder.Services.AddScoped<IProductRepository>(_ =>
-    new ProductRepository(connectionString));
 
 var app = builder.Build();
 
@@ -67,13 +53,5 @@ app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode()
     .AddAdditionalAssemblies(
         typeof(FlyerMonkey.Shared._Imports).Assembly);
-
-app.MapGet("/api/products", async (
-    IProductRepository repository,
-    CancellationToken cancellationToken) =>
-{
-    var products = await repository.GetProductsAsync(cancellationToken);
-    return Results.Ok(products);
-});
 
 app.Run();

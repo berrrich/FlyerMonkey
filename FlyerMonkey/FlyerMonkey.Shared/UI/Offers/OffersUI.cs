@@ -25,7 +25,7 @@ public class OffersUI
 
         try
         {
-            Offers = await _offerService.GetOffersAsync();
+            Offers = await _offerService.GetCurrentOffersAsync();
         }
         catch
         {
