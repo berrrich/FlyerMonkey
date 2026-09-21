@@ -45,6 +45,10 @@ public class ExtractionSaveService
             PageNumber      INTEGER,
             ProductCount    INTEGER,
             ExtractedJson   TEXT NOT NULL,
+            ValidFrom     TEXT,
+            ValidTo       TEXT,
+            Status        TEXT NOT NULL DEFAULT 'Saved',
+            CommittedUtc  TEXT,
             SavedUtc        TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         );
         """;
