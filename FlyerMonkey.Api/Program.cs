@@ -25,6 +25,8 @@ builder.Services.AddSingleton<IProductRepository>(
 
 builder.Services.AddScoped<ProductService>();
 
+builder.Services.AddScoped<ProductImageService>();
+
 // Add services to the container.
 
 builder.Services.AddControllers();
