@@ -109,18 +109,21 @@ namespace FlyerMonkey.Reviewer.Windows
 
             if (pageFiles.Count > 0)
             {
-                var firstPage = new FlyerPage
+                for (int i = 0; i < pageFiles.Count; i++)
                 {
-                    PageNumber = 1,
-                    FileName = Path.GetFileName(pageFiles[0]),
-                    FullPath = pageFiles[0],
-                    Thumbnail = CreateThumbnail(pageFiles[0])
-                };
+                    var page = new FlyerPage
+                    {
+                        PageNumber = i + 1,
+                        FileName = Path.GetFileName(pageFiles[i]),
+                        FullPath = pageFiles[i],
+                        Thumbnail = CreateThumbnail(pageFiles[i])
+                    };
 
-                PageList.Items.Add(firstPage);
+                    PageList.Items.Add(page);
+                }
 
                 // Automatically select page 1.
-                PageList.SelectedItem = firstPage;
+                PageList.SelectedIndex = 0;
             }
         }
         private void SplitPdf(string sourcePdf)
@@ -280,7 +283,9 @@ namespace FlyerMonkey.Reviewer.Windows
 
                     addedCount++;
                 }
+                await commitService.MarkCommittedAsync(saved.Id);
 
+                await LoadSavedExtractionsAsync();
                 MessageBox.Show(
                     $"SQL write succeeded.\n\nProducts added: {addedCount}",
                     "Commit complete",

@@ -53,4 +53,28 @@ public class SqlCommitService
 
         return products ?? new List<ExtractedProduct>();
     }
+    public async Task MarkCommittedAsync(long extractionRunId)
+    {
+        using var connection =
+            new SqliteConnection(_sqliteConnectionString);
+
+        await connection.OpenAsync();
+
+        var command = connection.CreateCommand();
+
+        command.CommandText = """
+        UPDATE ExtractionRuns
+        SET
+            Status = 'Committed',
+            CommittedUtc = CURRENT_TIMESTAMP
+        WHERE ID = $id
+          AND Status = 'Saved';
+        """;
+
+        command.Parameters.AddWithValue(
+            "$id",
+            extractionRunId);
+
+        await command.ExecuteNonQueryAsync();
+    }
 }

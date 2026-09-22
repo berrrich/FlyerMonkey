@@ -104,4 +104,28 @@ public class ExtractionSaveService
 
         await insert.ExecuteNonQueryAsync();
     }
+    public async Task MarkCommittedAsync(int extractionRunId)
+    {
+        using var connection =
+            new SqliteConnection(_connectionString);
+
+        await connection.OpenAsync();
+
+        var command = connection.CreateCommand();
+
+        command.CommandText = """
+        UPDATE ExtractionRuns
+        SET
+            Status = 'Committed',
+            CommittedUtc = CURRENT_TIMESTAMP
+        WHERE ID = $id
+          AND Status = 'Saved';
+        """;
+
+        command.Parameters.AddWithValue(
+            "$id",
+            extractionRunId);
+
+        await command.ExecuteNonQueryAsync();
+    }
 }

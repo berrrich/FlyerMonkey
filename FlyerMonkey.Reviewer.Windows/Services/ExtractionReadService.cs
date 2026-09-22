@@ -33,6 +33,7 @@ public sealed class ExtractionReadService
                 ProductCount,
                 SavedUtc
             FROM ExtractionRuns
+            WHERE Status = 'Saved'
             ORDER BY ID DESC;
             """;
 
