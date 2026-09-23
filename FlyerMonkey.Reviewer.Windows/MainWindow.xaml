@@ -136,11 +136,32 @@
                         <DataTemplate>
 
                             <Border Margin="0,0,0,8"
-                            Padding="12"
-                            BorderBrush="#D8D8D8"
-                            BorderThickness="1"
-                            CornerRadius="6"
-                            Background="White">
+        Padding="12"
+        BorderBrush="#D8D8D8"
+        BorderThickness="1"
+        CornerRadius="6">
+
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Setter Property="Background" Value="White"/>
+
+                                        <Style.Triggers>
+
+                                            <DataTrigger Binding="{Binding ExtractionStatus}"
+                             Value="Saved">
+                                                <Setter Property="Background"
+                            Value="#DCEFFC"/>
+                                            </DataTrigger>
+
+                                            <DataTrigger Binding="{Binding ExtractionStatus}"
+                             Value="Committed">
+                                                <Setter Property="Background"
+                            Value="#DFF2E3"/>
+                                            </DataTrigger>
+
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
 
                                 <StackPanel>
 

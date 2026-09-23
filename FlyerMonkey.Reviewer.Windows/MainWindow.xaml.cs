@@ -17,12 +17,18 @@ namespace FlyerMonkey.Reviewer.Windows
     public class FlyerPage
     {
         public int PageNumber { get; set; }
+
         public string FileName { get; set; } = "";
+
         public string FullPath { get; set; } = "";
 
         public string DisplayName => $"Page {PageNumber}";
 
         public ImageSource? Thumbnail { get; set; }
+
+        public string ExtractionStatus { get; set; } = "";
+
+        public long? ExtractionRunId { get; set; }
     }
 
     public class FlyerFile
@@ -63,7 +69,7 @@ namespace FlyerMonkey.Reviewer.Windows
             return bitmap;
         }
 
-        private void FlyerList_SelectionChanged(
+        private async void FlyerList_SelectionChanged(
             object sender,
             SelectionChangedEventArgs e)
         {
@@ -71,7 +77,7 @@ namespace FlyerMonkey.Reviewer.Windows
                 return;
 
             _selectedFlyer = flyer;
-            LoadSplitPages(flyer);
+            await LoadSplitPagesAsync(flyer);
         }
 
         private void PageList_SelectionChanged(
@@ -88,7 +94,7 @@ namespace FlyerMonkey.Reviewer.Windows
 
             GetDataButton.Visibility = Visibility.Visible;
         }
-        private void LoadSplitPages(FlyerFile flyer)
+        private async Task LoadSplitPagesAsync(FlyerFile flyer)
         {
             PageList.Items.Clear();
 
@@ -109,6 +115,15 @@ namespace FlyerMonkey.Reviewer.Windows
 
             if (pageFiles.Count > 0)
             {
+                string sqlitePath =
+    @"C:\Users\richa\source\repos\FlyerMonkey\DATA\FlyerMonkey.db";
+
+                var extractionReadService =
+                    new ExtractionReadService(sqlitePath);
+
+                var extractionStates =
+                    await extractionReadService.GetExtractionStatesAsync();
+
                 for (int i = 0; i < pageFiles.Count; i++)
                 {
                     var page = new FlyerPage
@@ -118,7 +133,15 @@ namespace FlyerMonkey.Reviewer.Windows
                         FullPath = pageFiles[i],
                         Thumbnail = CreateThumbnail(pageFiles[i])
                     };
+                    var extractionState = extractionStates.FirstOrDefault(x =>
+    x.FlyerFileName == flyer.FileName &&
+    x.PageFileName == page.FileName);
 
+                    if (extractionState != null)
+                    {
+                        page.ExtractionStatus = extractionState.Status;
+                        page.ExtractionRunId = extractionState.Id;
+                    }
                     PageList.Items.Add(page);
                 }
 
@@ -285,7 +308,9 @@ namespace FlyerMonkey.Reviewer.Windows
                 }
                 await commitService.MarkCommittedAsync(saved.Id);
 
+                await LoadSplitPagesAsync(_selectedFlyer);
                 await LoadSavedExtractionsAsync();
+
                 MessageBox.Show(
                     $"SQL write succeeded.\n\nProducts added: {addedCount}",
                     "Commit complete",
@@ -338,9 +363,7 @@ namespace FlyerMonkey.Reviewer.Windows
                 GetDataButton.IsEnabled = true;
             }
         }
-        private void SplitFlyerButton_Click(
-    object sender,
-    RoutedEventArgs e)
+        private async void SplitFlyerButton_Click(object sender, RoutedEventArgs e)
         {
             if (_selectedFlyer == null)
                 return;
@@ -357,7 +380,7 @@ namespace FlyerMonkey.Reviewer.Windows
             try
             {
                 SplitPdf(_selectedFlyer.FullPath);
-                LoadSplitPages(_selectedFlyer);
+                await LoadSplitPagesAsync(_selectedFlyer);
 
                 MessageBox.Show(
                     "Flyer split successfully.",
@@ -422,6 +445,11 @@ namespace FlyerMonkey.Reviewer.Windows
                     MessageBoxButton.OK,
                     MessageBoxImage.Information);
 
+                if (PageList.SelectedItem is FlyerPage page)
+                {
+                    page.ExtractionStatus = "Saved";
+                }
+                await LoadSplitPagesAsync(_selectedFlyer);
                 await LoadSavedExtractionsAsync();
 
             }

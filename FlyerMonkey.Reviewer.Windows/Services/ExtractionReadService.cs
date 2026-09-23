@@ -57,4 +57,50 @@ public sealed class ExtractionReadService
 
         return results;
     }
+
+    public async Task<List<SavedExtraction>> GetExtractionStatesAsync()
+    {
+        var results = new List<SavedExtraction>();
+
+        using var connection =
+            new SqliteConnection(_connectionString);
+
+        await connection.OpenAsync();
+
+        var command = connection.CreateCommand();
+
+        command.CommandText = """
+        SELECT
+            ID,
+            Retailer,
+            FlyerFileName,
+            PageFileName,
+            PageNumber,
+            ProductCount,
+            SavedUtc,
+            Status
+        FROM ExtractionRuns
+        ORDER BY ID DESC;
+        """;
+
+        using var reader =
+            await command.ExecuteReaderAsync();
+
+        while (await reader.ReadAsync())
+        {
+            results.Add(new SavedExtraction
+            {
+                Id = reader.GetInt64(0),
+                Retailer = reader.IsDBNull(1) ? "" : reader.GetString(1),
+                FlyerFileName = reader.IsDBNull(2) ? "" : reader.GetString(2),
+                PageFileName = reader.IsDBNull(3) ? "" : reader.GetString(3),
+                PageNumber = reader.IsDBNull(4) ? 0 : reader.GetInt32(4),
+                ProductCount = reader.IsDBNull(5) ? 0 : reader.GetInt32(5),
+                SavedUtc = reader.IsDBNull(6) ? "" : reader.GetString(6),
+                Status = reader.IsDBNull(7) ? "" : reader.GetString(7)
+            });
+        }
+
+        return results;
+    }
 }
