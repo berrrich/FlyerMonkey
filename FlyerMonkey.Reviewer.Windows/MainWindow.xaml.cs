@@ -337,9 +337,12 @@ namespace FlyerMonkey.Reviewer.Windows
             {
                 return;
             }
+            var imageService = new ProductImageService();
+
+            var prompt = imageService.BuildImagePrompt(product);
 
             MessageBox.Show(
-                $"Crater requested:\n\n{product.ProductName}",
+                prompt,
                 "☄️ Crater It!");
         }
         private async void GetDataButton_Click(

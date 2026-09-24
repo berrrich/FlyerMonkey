@@ -5,6 +5,10 @@ Accept: application/json
 
 ###
 
+POST {{FlyerMonkey.Api_HostAddress}}/api/images/generate
+Accept: application/json
+###
+
 GET {{FlyerMonkey.Api_HostAddress}}/api/offers
 Accept: application/json
 ###
