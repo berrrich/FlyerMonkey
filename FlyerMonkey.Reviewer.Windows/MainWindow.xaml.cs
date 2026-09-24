@@ -328,7 +328,20 @@ namespace FlyerMonkey.Reviewer.Windows
             }
         }
 
+        private void CraterItButton_Click(
+    object sender,
+    RoutedEventArgs e)
+        {
+            if (sender is not Button button ||
+                button.Tag is not ExtractedProduct product)
+            {
+                return;
+            }
 
+            MessageBox.Show(
+                $"Crater requested:\n\n{product.ProductName}",
+                "☄️ Crater It!");
+        }
         private async void GetDataButton_Click(
             object sender,
             RoutedEventArgs e)

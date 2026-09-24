@@ -246,9 +246,17 @@
         FontSize="16" />
 
                                     <TextBlock Text="{Binding Brand}" />
+                                    <TextBlock Text="{Binding Price}" />
                                     <TextBlock Text="{Binding Variant}" />
                                     <TextBlock Text="{Binding PackSizeText}" />
                                     <TextBlock Text="{Binding Category}" />
+                                    <Button x:Name="CraterItButton"
+        Content="☄️ Crater It!"
+        Width="140"
+        Height="42"
+        Margin="5"
+        Tag="{Binding}"
+        Click="CraterItButton_Click"/>
                                 </StackPanel>
 
                             </Border>
