@@ -16,10 +16,11 @@ public class ImageGenerationService
     apiKey: _apiKey);
     }
 
-    public async Task<string> GenerateAsync(string prompt)
+    public async Task<BinaryData> GenerateAsync(string prompt)
     {
         var result =
             await _imageClient.GenerateImageAsync(prompt);
-                return "☄ OpenAI image generation completed.";
+
+        return result.Value.ImageBytes;
     }
 }
