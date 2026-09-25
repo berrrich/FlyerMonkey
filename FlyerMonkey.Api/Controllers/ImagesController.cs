@@ -16,9 +16,10 @@ public class ImagesController : ControllerBase
     }
 
     [HttpPost("generate")]
-    public ActionResult Generate(GenerateImageRequest request)
+    public async Task<ActionResult> Generate(GenerateImageRequest request)
     {
-        var result = _imageGenerationService.Generate(request.Prompt);
+        var result =
+            await _imageGenerationService.GenerateAsync(request.Prompt);
 
         return Ok(result);
     }
