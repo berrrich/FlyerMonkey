@@ -27,6 +27,8 @@ builder.Services.AddScoped<ProductService>();
 
 builder.Services.AddScoped<ProductImageService>();
 
+builder.Services.AddScoped<ImageGenerationService>();
+
 // Add services to the container.
 
 builder.Services.AddControllers();

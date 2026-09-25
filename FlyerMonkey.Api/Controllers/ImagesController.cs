@@ -1,4 +1,6 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using FlyerMonkey.Api.Models;
+using FlyerMonkey.Api.Services;
+using Microsoft.AspNetCore.Mvc;
 
 namespace FlyerMonkey.Api.Controllers;
 
@@ -6,9 +8,18 @@ namespace FlyerMonkey.Api.Controllers;
 [Route("api/[controller]")]
 public class ImagesController : ControllerBase
 {
-    [HttpPost("generate")]
-    public ActionResult Generate()
+    private readonly ImageGenerationService _imageGenerationService;
+
+    public ImagesController(ImageGenerationService imageGenerationService)
     {
-        return Ok("☄️ Image generation endpoint reached.");
+        _imageGenerationService = imageGenerationService;
+    }
+
+    [HttpPost("generate")]
+    public ActionResult Generate(GenerateImageRequest request)
+    {
+        var result = _imageGenerationService.Generate(request.Prompt);
+
+        return Ok(result);
     }
 }

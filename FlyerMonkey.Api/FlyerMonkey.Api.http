@@ -1,3 +1,4 @@
+//@FlyerMonkey.Api_HostAddress = https://flyermonkeyapi-g7htasdacxfzgbcd.australiaeast-01.azurewebsites.net
 @FlyerMonkey.Api_HostAddress = http://localhost:5145
 
 GET {{FlyerMonkey.Api_HostAddress}}/api/status
@@ -6,7 +7,11 @@ Accept: application/json
 ###
 
 POST {{FlyerMonkey.Api_HostAddress}}/api/images/generate
+Content-Type: application/json
 Accept: application/json
+{
+  "prompt": "Create a clean product image for Farmers Union Greek Yogurt, Kids, 130g."
+}
 ###
 
 GET {{FlyerMonkey.Api_HostAddress}}/api/offers
