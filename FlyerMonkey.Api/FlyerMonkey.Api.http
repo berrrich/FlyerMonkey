@@ -10,7 +10,7 @@ POST {{FlyerMonkey.Api_HostAddress}}/api/images/generate
 Content-Type: application/json
 Accept: application/json
 {
-  "prompt": "Create a clean product image for Farmers Union Greek Yogurt, Kids, 130g."
+  "prompt": "Create a clean product image for Cadbury Dairy Milk, Bubbly or Marvellous Creations Blocks 150-190g."
 }
 ###
 
