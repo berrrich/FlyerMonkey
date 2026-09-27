@@ -257,6 +257,25 @@
                                     <TextBlock Text="{Binding Variant}" />
                                     <TextBlock Text="{Binding PackSizeText}" />
                                     <TextBlock Text="{Binding Category}" />
+                                    <TextBlock Text="⚠ Possible duplicate"
+           FontWeight="Bold"
+           Margin="0,6,0,0"
+                                               Foreground="DarkOrange">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Visibility"
+                    Value="Collapsed"/>
+
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding PossibleDuplicate}"
+                             Value="True">
+                                                        <Setter Property="Visibility"
+                            Value="Visible"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
                                     <Button x:Name="CraterItButton"
         Content="☄️ Crater It!"
         Width="140"

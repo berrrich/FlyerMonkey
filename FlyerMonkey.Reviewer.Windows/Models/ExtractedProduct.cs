@@ -2,6 +2,7 @@
 
 public class ExtractedProduct
 {
+    public bool PossibleDuplicate { get; set; }
     public string ProductName { get; set; } = string.Empty;
 
     public string? Brand { get; set; }
@@ -25,4 +26,5 @@ public class ExtractedProduct
     public string? Promotion { get; set; }
 
     public string? ImageFilePath { get; set; }
+
 }
