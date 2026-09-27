@@ -351,6 +351,23 @@ namespace FlyerMonkey.Reviewer.Windows
                 var imageBytes =
                     await apiService.GenerateImageAsync(prompt);
 
+                var imageFolder =
+    @"C:\Users\richa\source\repos\FlyerMonkey\DATA\ProductImages";
+
+                Directory.CreateDirectory(imageFolder);
+
+                var fileName =
+                    $"{Guid.NewGuid():N}.jpg";
+
+                var imagePath =
+                    Path.Combine(imageFolder, fileName);
+
+                await File.WriteAllBytesAsync(
+                    imagePath,
+                    imageBytes);
+
+                product.ImageFilePath = imagePath;
+
                 GeneratedProductImage.Source = LoadImage(imageBytes);
                 GeneratedProductImage.Visibility = Visibility.Visible;
             }

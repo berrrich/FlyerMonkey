@@ -23,4 +23,6 @@ public class ExtractedProduct
     public string? UnitPrice { get; set; }
 
     public string? Promotion { get; set; }
+
+    public string? ImageFilePath { get; set; }
 }
