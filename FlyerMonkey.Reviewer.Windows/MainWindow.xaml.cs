@@ -328,7 +328,7 @@ namespace FlyerMonkey.Reviewer.Windows
             }
         }
 
-        private void CraterItButton_Click(
+        private async void CraterItButton_Click(
     object sender,
     RoutedEventArgs e)
         {
@@ -337,13 +337,37 @@ namespace FlyerMonkey.Reviewer.Windows
             {
                 return;
             }
-            var imageService = new ProductImageService();
 
+            var imageService = new ProductImageService();
             var prompt = imageService.BuildImagePrompt(product);
 
-            MessageBox.Show(
-                prompt,
-                "☄️ Crater It!");
+            var apiService = new ImageGenerationApiService();
+
+            try
+            {
+                button.IsEnabled = false;
+                button.Content = "☄ Cratering...";
+
+                var imageBytes =
+                    await apiService.GenerateImageAsync(prompt);
+
+                MessageBox.Show(
+                    $"Image returned successfully!\n\n{imageBytes.Length:N0} bytes",
+                    "☄ Crater complete!");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    ex.Message,
+                    "Image generation failed",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
+            }
+            finally
+            {
+                button.Content = "☄ Crater It!";
+                button.IsEnabled = true;
+            }
         }
         private async void GetDataButton_Click(
             object sender,

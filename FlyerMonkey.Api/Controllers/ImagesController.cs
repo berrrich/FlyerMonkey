@@ -21,6 +21,6 @@ public class ImagesController : ControllerBase
         var result =
             await _imageGenerationService.GenerateAsync(request.Prompt);
 
-        return File(result.ToArray(), "image/png");
+        return File(result.ToArray(), "image/jpeg");
     }
 }

@@ -38,10 +38,6 @@ public class ImageGenerationService
                 prompt,
                 options);
 
-        await File.WriteAllBytesAsync(
-            @"C:\Users\richa\source\repos\FlyerMonkey\DATA\ProductImages\flyermonkey-test2Cadbury.jpg",
-            result.Value.ImageBytes.ToArray());
-
         return result.Value.ImageBytes;
     }
 }
