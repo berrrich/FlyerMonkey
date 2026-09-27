@@ -351,9 +351,8 @@ namespace FlyerMonkey.Reviewer.Windows
                 var imageBytes =
                     await apiService.GenerateImageAsync(prompt);
 
-                MessageBox.Show(
-                    $"Image returned successfully!\n\n{imageBytes.Length:N0} bytes",
-                    "☄ Crater complete!");
+                GeneratedProductImage.Source = LoadImage(imageBytes);
+                GeneratedProductImage.Visibility = Visibility.Visible;
             }
             catch (Exception ex)
             {
@@ -368,6 +367,20 @@ namespace FlyerMonkey.Reviewer.Windows
                 button.Content = "☄ Crater It!";
                 button.IsEnabled = true;
             }
+        }
+        private static BitmapImage LoadImage(byte[] imageBytes)
+        {
+            using var stream = new MemoryStream(imageBytes);
+
+            var image = new BitmapImage();
+
+            image.BeginInit();
+            image.CacheOption = BitmapCacheOption.OnLoad;
+            image.StreamSource = stream;
+            image.EndInit();
+            image.Freeze();
+
+            return image;
         }
         private async void GetDataButton_Click(
             object sender,
