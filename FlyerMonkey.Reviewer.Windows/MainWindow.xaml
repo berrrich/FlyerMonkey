@@ -248,18 +248,61 @@
 
                                 <StackPanel>
                                     <TextBlock
-        Text="{Binding ProductName}"
-        FontWeight="Bold"
-        FontSize="16" />
+    Text="{Binding ProductName}"
+    FontWeight="Bold"
+    FontSize="16"
+    TextWrapping="Wrap" />
 
-                                    <TextBlock Text="{Binding Brand}" />
-                                    <TextBlock Text="{Binding Price}" />
-                                    <TextBlock Text="{Binding Variant}" />
-                                    <TextBlock Text="{Binding PackSizeText}" />
-                                    <TextBlock Text="{Binding Category}" />
+                                    <Border Background="#F2F2F2"
+        Padding="6"
+        Margin="0,8,0,8">
+                                    <Grid Margin="0,8,0,8" Background="#ededed">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                        </Grid.RowDefinitions>
+
+                                            <TextBlock Grid.Row="0" Grid.Column="0" Text="Brand:"/>
+                                            <TextBlock Grid.Row="0"
+           Grid.Column="1"
+           Text="{Binding Brand}"
+           ToolTip="{Binding Brand}"
+           TextTrimming="CharacterEllipsis"
+           FontWeight="Bold"
+           Margin="8,0,0,0"/>
+                                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Price:"/>
+                                        <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding Price}" FontWeight="Bold" Margin="8,0,0,0"/>
+                                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Reg.:" />
+                                            <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding RegularPrice}" FontWeight="Bold" Margin="8,0,0,0"/>
+                                            <TextBlock Grid.Row="3" Grid.Column="0" Text="Calc. Reg.:" />
+                                            <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding CalculatedRegularPrice }" FontWeight="Bold" Margin="8,0,0,0"/>
+                                            <TextBlock Grid.Row="4" Grid.Column="0" Text="Saving:"/>
+                                        <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding Saving}" FontWeight="Bold" Margin="8,0,0,0"/>
+                                        <TextBlock Grid.Row="5" Grid.Column="0" Text="Per Unit:"/>
+                                        <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding UnitPrice}" FontWeight="Bold" Margin="8,0,0,0"/>
+                                        <TextBlock Grid.Row="6" Grid.Column="0" Text="Variant:"/>
+                                        <TextBlock Grid.Row="6" Grid.Column="1" Text="{Binding Variant}" FontWeight="Bold" Margin="8,0,0,0"/>
+                                        <TextBlock Grid.Row="7" Grid.Column="0" Text="Pck Size:"/>
+                                        <TextBlock Grid.Row="7" Grid.Column="1" Text="{Binding PackSizeText}" FontWeight="Bold" Margin="8,0,0,0"/>
+                                        <TextBlock Grid.Row="8" Grid.Column="0" Text="Category:"/>
+                                        <TextBlock Grid.Row="8" Grid.Column="1" Text="{Binding Category}" FontWeight="Bold" Margin="8,0,0,0"/>
+
+                                    </Grid>
+                                    </Border>
                                     <TextBlock Text="⚠ Possible duplicate"
            FontWeight="Bold"
-           Margin="0,6,0,0"
+           Margin="0,6,0,8"
                                                Foreground="DarkOrange">
                                         <TextBlock.Style>
                                             <Style TargetType="TextBlock">

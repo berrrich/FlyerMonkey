@@ -19,6 +19,8 @@ public class ExtractedProduct
 
     public string? RegularPrice { get; set; }
 
+    public string? CalculatedRegularPrice { get; set; }
+
     public string? Saving { get; set; }
 
     public string? UnitPrice { get; set; }

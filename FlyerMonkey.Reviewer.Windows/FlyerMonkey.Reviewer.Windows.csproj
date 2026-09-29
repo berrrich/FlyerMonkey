@@ -20,4 +20,8 @@
     <ProjectReference Include="..\SQLServerConnection\SQLServerConnection.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Assets\Images\" />
+  </ItemGroup>
+
 </Project>

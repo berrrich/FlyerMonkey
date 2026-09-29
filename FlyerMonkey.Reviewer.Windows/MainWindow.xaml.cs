@@ -416,7 +416,12 @@ namespace FlyerMonkey.Reviewer.Windows
                 var products =
                     await extractor.ExtractProductsAsync(
                         _selectedPage.FullPath);
+                var productList = products.ToList();
 
+                foreach (var product in productList)
+                {
+                    ProductValidationService.SanitizeProduct(product);
+                }
                 ProductList.ItemsSource = products;
             }
             catch (Exception ex)

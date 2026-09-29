@@ -58,7 +58,7 @@ Return ONLY valid JSON in this exact shape:
     "category": "string",
     "barcode": "string",
     "price": "string",
-    "regularPrice": "string",
+    "regularPrice": "explicit previous/regular price only, otherwise empty string",
     "saving": "string",
     "unitPrice": "string",
     "promotion": "string"
@@ -70,6 +70,11 @@ Rules:
 - Use an empty string if a field is not visible.
 - Keep productName focused on the core product name, not the full advertisement sentence.
 - Prefer the printed flyer product description for productName when one is visible; use wording on the product packaging to supplement brand and variant.
+- regularPrice must contain only an advertised previous/regular product price.
+- Never put a unit price such as "per kg", "per litre", "per 100g" or similar into regularPrice; put that value in unitPrice instead.
+- NEVER calculate or infer regularPrice from price and saving.
+- A SAVE amount does not mean that a regularPrice was advertised.
+- If no previous/regular product price is explicitly advertised, leave regularPrice empty.
 - Put flavour/type/style information in variant where possible.
 - Put visible size or quantity information in packSizeText, for example "200g", "2 Litre", "30 Pack".
 - Use a simple grocery category such as Biscuits, Soft Drinks, Laundry, Produce, Meat, Dairy, Frozen, Snacks, Baby, Pantry, or similar.

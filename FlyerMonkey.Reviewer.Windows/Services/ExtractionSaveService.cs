@@ -20,7 +20,10 @@ public class ExtractionSaveService
         IEnumerable<ExtractedProduct> products)
     {
         var productList = products.ToList();
-
+        foreach (var product in productList)
+        {
+            ProductValidationService.SanitizeProduct(product);
+        }
         var json = JsonSerializer.Serialize(
             productList,
             new JsonSerializerOptions
