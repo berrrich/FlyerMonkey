@@ -1,15 +1,17 @@
-﻿using FlyerMonkey.Reviewer.Windows.Services;
-using System.Diagnostics;
-using System.IO;
-using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Media;
-using PDFtoImage;
-using System.Windows.Media.Imaging;
-using FlyerMonkey.Reviewer.Windows.Models;
+﻿using FlyerMonkey.Reviewer.Windows.Models;
+using FlyerMonkey.Reviewer.Windows.Services;
 using FlyerMonkey.Shared.Model;
+using PDFtoImage;
 using SQLServerConnection.Data;
 using Syncfusion.Pdf.Parsing;
+using System.Diagnostics;
+using System.IO;
+using System.Linq;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Input;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
 
 namespace FlyerMonkey.Reviewer.Windows
 {
@@ -175,6 +177,66 @@ namespace FlyerMonkey.Reviewer.Windows
 
                 File.WriteAllBytes(outputPath, pages[i]);
             }
+        }
+
+        private void EditableField_Click(
+    object sender,
+    MouseButtonEventArgs e)
+        {
+            if (sender is not TextBlock textBlock)
+                return;
+
+            if (textBlock.Parent is not Grid grid)
+                return;
+
+            var editor = grid.Children
+                .OfType<TextBox>()
+                .FirstOrDefault();
+
+            if (editor is null)
+                return;
+
+            textBlock.Visibility = Visibility.Collapsed;
+            editor.Visibility = Visibility.Visible;
+
+            editor.Focus();
+            editor.SelectAll();
+        }
+
+        private void EditableField_LostFocus(
+            object sender,
+            RoutedEventArgs e)
+        {
+            FinishEditing(sender);
+        }
+
+        private void EditableField_KeyDown(
+            object sender,
+            KeyEventArgs e)
+        {
+            if (e.Key == Key.Enter)
+            {
+                FinishEditing(sender);
+            }
+        }
+
+        private void FinishEditing(object sender)
+        {
+            if (sender is not TextBox editor)
+                return;
+
+            if (editor.Parent is not Grid grid)
+                return;
+
+            var display = grid.Children
+                .OfType<TextBlock>()
+                .FirstOrDefault();
+
+            if (display is null)
+                return;
+
+            editor.Visibility = Visibility.Collapsed;
+            display.Visibility = Visibility.Visible;
         }
         private static decimal? ParseMoney(string? value)
         {

@@ -16,7 +16,6 @@ public class ExtractedProduct
     public string? Barcode { get; set; }
 
     public string? Price { get; set; }
-
     public string? RegularPrice { get; set; }
 
     public string? CalculatedRegularPrice { get; set; }
@@ -25,6 +24,7 @@ public class ExtractedProduct
 
     public string? UnitPrice { get; set; }
 
+    public int? OfferQuantity { get; set; }
     public string? Promotion { get; set; }
 
     public string? ImageFilePath { get; set; }

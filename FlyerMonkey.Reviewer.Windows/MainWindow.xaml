@@ -1,497 +1,252 @@
-﻿<Window x:Class="FlyerMonkey.Reviewer.Windows.MainWindow"
-        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Flyer Monkey Reviewer"
-        Height="800"
-        Width="1400"
-        WindowStartupLocation="CenterScreen">
-
+﻿<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" x:Class="FlyerMonkey.Reviewer.Windows.MainWindow" Title="Flyer Monkey Reviewer" Height="800" Width="1400" WindowStartupLocation="CenterScreen">
     <Grid Background="#F3F3F3">
-
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="300"/>
             <!-- Flyers -->
-
             <ColumnDefinition Width="240"/>
             <!-- Pages -->
-
             <ColumnDefinition Width="300"/>
             <!-- Extracted Products -->
-
             <ColumnDefinition Width="380"/>
             <!-- Generated Image -->
-
             <ColumnDefinition Width="*"/>
             <!-- Big page preview -->
-
             <ColumnDefinition Width="230"/>
             <!-- Saved -->
         </Grid.ColumnDefinitions>
-
         <!-- Left flyer column -->
-        <Border Grid.Column="0"
-                Background="White"
-                BorderBrush="#D0D0D0"
-                BorderThickness="0,0,1,0">
-
+        <Border Grid.Column="0" Background="White" BorderBrush="#D0D0D0" BorderThickness="0,0,1,0">
             <DockPanel>
-
-                <Border DockPanel.Dock="Top"
-        Padding="16"
-        BorderBrush="#E0E0E0"
-        BorderThickness="0,0,0,1">
-
+                <Border DockPanel.Dock="Top" Padding="16" BorderBrush="#E0E0E0" BorderThickness="0,0,0,1">
                     <Grid>
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
-
-                        <TextBlock Grid.Column="0"
-                   Text="FLYERS"
-                   FontSize="18"
-                   FontWeight="SemiBold"
-                   VerticalAlignment="Center"/>
-
-                        <Button Grid.Column="1"
-                Content="↻"
-                FontFamily="Segoe UI Symbol"
-                FontSize="20"
-                Width="32"
-                Height="32"
-                Padding="0"
-                ToolTip="Refresh flyers"
-                Click="RefreshFlyers_Click"/>
+                        <TextBlock Grid.Column="0" Text="FLYERS" FontSize="18" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                        <Button Grid.Column="1" Content="↻" FontFamily="Segoe UI Symbol" FontSize="20" Width="32" Height="32" Padding="0" ToolTip="Refresh flyers" Click="RefreshFlyers_Click"/>
                     </Grid>
-
                 </Border>
-
-                <ListBox x:Name="FlyerList"
-                         Margin="10"
-                         BorderThickness="0"
-                         Background="Transparent"                         
-                         SelectionChanged="FlyerList_SelectionChanged">
-
+                <ListBox x:Name="FlyerList" Margin="10" BorderThickness="0" Background="Transparent" SelectionChanged="FlyerList_SelectionChanged">
                     <ListBox.ItemTemplate>
                         <DataTemplate>
-
-                            <Border Margin="0,0,0,10"
-                                    Padding="12"
-                                    BorderBrush="#D8D8D8"
-                                    BorderThickness="1"
-                                    CornerRadius="6"
-                                    Background="White">
-
+                            <Border Margin="0,0,0,10" Padding="12" BorderBrush="#D8D8D8" BorderThickness="1" CornerRadius="6" Background="White">
                                 <StackPanel>
-
-                                    <TextBlock Text="{Binding Retailer}"
-                                               FontSize="16"
-                                               FontWeight="SemiBold"/>
-
-                                    <TextBlock Text="{Binding FlyerDate}"
-                                               Margin="0,4,0,0"
-                                               Foreground="#555555"/>
-
-                                    <TextBlock Text="{Binding PageDescription}"
-                                               Margin="0,3,0,0"
-                                               Foreground="#777777"/>
-
-                                    <TextBlock Text="{Binding FileName}"
-                                               Margin="0,8,0,0"
-                                               FontSize="11"
-                                               Foreground="#999999"
-                                               TextWrapping="Wrap"/>
-
+                                    <TextBlock Text="{Binding Retailer}" FontSize="16" FontWeight="SemiBold"/>
+                                    <TextBlock Text="{Binding FlyerDate}" Margin="0,4,0,0" Foreground="#555555"/>
+                                    <TextBlock Text="{Binding PageDescription}" Margin="0,3,0,0" Foreground="#777777"/>
+                                    <TextBlock Text="{Binding FileName}" Margin="0,8,0,0" FontSize="11" Foreground="#999999" TextWrapping="Wrap"/>
                                 </StackPanel>
-
                             </Border>
-
                         </DataTemplate>
                     </ListBox.ItemTemplate>
-
                 </ListBox>
-
             </DockPanel>
-
         </Border>
-
         <!-- Selected flyer column pages -->
-        <Border Grid.Column="1"
-        Background="White"
-        BorderBrush="#D0D0D0"
-        BorderThickness="0,0,1,0">
-
+        <Border Grid.Column="1" Background="White" BorderBrush="#D0D0D0" BorderThickness="0,0,1,0">
             <DockPanel>
-
-                <Border DockPanel.Dock="Top"
-                Padding="16"
-                BorderBrush="#E0E0E0"
-                BorderThickness="0,0,0,1">
-
-                    <TextBlock Text="PAGES"
-                       FontSize="18"
-                       FontWeight="SemiBold"/>
+                <Border DockPanel.Dock="Top" Padding="16" BorderBrush="#E0E0E0" BorderThickness="0,0,0,1">
+                    <TextBlock Text="PAGES" FontSize="18" FontWeight="SemiBold"/>
                 </Border>
-
-                <ListBox x:Name="PageList"
-                 Margin="10"
-                 BorderThickness="0"
-                 Background="Transparent"                         
-         SelectionChanged="PageList_SelectionChanged">
-
+                <ListBox x:Name="PageList" Margin="10" BorderThickness="0" Background="Transparent" SelectionChanged="PageList_SelectionChanged">
                     <ListBox.ItemTemplate>
                         <DataTemplate>
-
-                            <Border Margin="0,0,0,8"
-        Padding="12"
-        BorderBrush="#D8D8D8"
-        BorderThickness="1"
-        CornerRadius="6">
-
+                            <Border Margin="0,0,0,8" Padding="12" BorderBrush="#D8D8D8" BorderThickness="1" CornerRadius="6">
                                 <Border.Style>
                                     <Style TargetType="Border">
                                         <Setter Property="Background" Value="White"/>
-
                                         <Style.Triggers>
-
-                                            <DataTrigger Binding="{Binding ExtractionStatus}"
-                             Value="Saved">
-                                                <Setter Property="Background"
-                            Value="#DCEFFC"/>
+                                            <DataTrigger Binding="{Binding ExtractionStatus}" Value="Saved">
+                                                <Setter Property="Background" Value="#DCEFFC"/>
                                             </DataTrigger>
-
-                                            <DataTrigger Binding="{Binding ExtractionStatus}"
-                             Value="Committed">
-                                                <Setter Property="Background"
-                            Value="#DFF2E3"/>
+                                            <DataTrigger Binding="{Binding ExtractionStatus}" Value="Committed">
+                                                <Setter Property="Background" Value="#DFF2E3"/>
                                             </DataTrigger>
-
                                         </Style.Triggers>
                                     </Style>
                                 </Border.Style>
-
                                 <StackPanel>
-
-                                    <Border Width="160"
-            Height="200"
-            Margin="0,0,0,10"
-            Background="#F2F2F2"
-            BorderBrush="#DDDDDD"
-            BorderThickness="1">
-
-                                        <Image Source="{Binding Thumbnail}"
-               Stretch="Uniform"/>
+                                    <Border Width="160" Height="200" Margin="0,0,0,10" Background="#F2F2F2" BorderBrush="#DDDDDD" BorderThickness="1">
+                                        <Image Source="{Binding Thumbnail}" Stretch="Uniform"/>
                                     </Border>
-
-                                    <TextBlock Text="{Binding DisplayName}"
-               FontSize="16"
-               FontWeight="SemiBold"/>
-
-                                    <TextBlock Text="{Binding FileName}"
-               Margin="0,5,0,0"
-               FontSize="11"
-               Foreground="#999999"
-               TextWrapping="Wrap"/>
-
+                                    <TextBlock Text="{Binding DisplayName}" FontSize="16" FontWeight="SemiBold"/>
+                                    <TextBlock Text="{Binding FileName}" Margin="0,5,0,0" FontSize="11" Foreground="#999999" TextWrapping="Wrap"/>
                                 </StackPanel>
-
                             </Border>
-
                         </DataTemplate>
                     </ListBox.ItemTemplate>
-
                 </ListBox>
-
             </DockPanel>
-
         </Border>
         <!-- Extracted product data -->
-        <Border Grid.Column="2"
-        Background="White"
-        BorderBrush="#D0D0D0"
-        BorderThickness="0,0,1,0"
-        Padding="10">
-
+        <Border Grid.Column="2" Background="White" BorderBrush="#D0D0D0" BorderThickness="0,0,1,0" Padding="10">
             <DockPanel>
-                <StackPanel DockPanel.Dock="Bottom"
-            Orientation="Horizontal"
-            HorizontalAlignment="Center"
-            Margin="0,10,0,0">
-
-                    <Button x:Name="SaveDataButton"
-            Content="Save"
-            Width="120"
-            Height="38"
-            Margin="5"
-            Click="SaveDataButton_Click"/>
+                <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,10,0,0">
+                    <Button x:Name="SaveDataButton" Content="Save" Width="120" Height="38" Margin="5" Click="SaveDataButton_Click"/>
                 </StackPanel>
-                <TextBlock DockPanel.Dock="Top"
-                   Text="EXTRACTED OFFERS"
-                   FontSize="18"
-                   FontWeight="SemiBold"
-                   Margin="5,5,5,15"/>
-
-                <ListBox x:Name="ProductList"
-         BorderThickness="0"
-         Background="Transparent"
-         HorizontalContentAlignment="Stretch"
-         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-         ScrollViewer.VerticalScrollBarVisibility="Auto">
-
+                <TextBlock DockPanel.Dock="Top" Text="EXTRACTED OFFERS" FontSize="18" FontWeight="SemiBold" Margin="5,5,5,15"/>
+                <ListBox x:Name="ProductList" BorderThickness="0" Background="Transparent" HorizontalContentAlignment="Stretch" ScrollViewer.HorizontalScrollBarVisibility="Disabled" ScrollViewer.VerticalScrollBarVisibility="Auto">
                     <ListBox.ItemTemplate>
                         <DataTemplate>
-
-                            <Border BorderBrush="#DDD"
-                    BorderThickness="1"
-                    Padding="10"
-                    Margin="0,0,0,8">
-
+                            <Border BorderBrush="#DDD" BorderThickness="1" Padding="10" Margin="0,0,0,8">
                                 <StackPanel>
-                                    <TextBlock
-    Text="{Binding ProductName}"
-    FontWeight="Bold"
-    FontSize="16"
-    TextWrapping="Wrap" />
-
-                                    <Border Background="#F2F2F2"
-        Padding="6"
-        Margin="0,8,0,8">
-                                    <Grid Margin="0,8,0,8" Background="#ededed">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto"/>
-                                            <ColumnDefinition Width="*"/>
-                                        </Grid.ColumnDefinitions>
-                                        <Grid.RowDefinitions>
-                                            <RowDefinition Height="Auto"/>
-                                            <RowDefinition Height="Auto"/>
-                                            <RowDefinition Height="Auto"/>
+                                    <TextBlock Text="{Binding ProductName}" FontWeight="Bold" FontSize="16" TextWrapping="Wrap"/>
+                                    <Border Background="#F2F2F2" Padding="6" Margin="0,8,0,8">
+                                        <Grid Margin="0,8,0,8" Background="#ededed">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <Grid.RowDefinitions>
                                                 <RowDefinition Height="Auto"/>
                                                 <RowDefinition Height="Auto"/>
                                                 <RowDefinition Height="Auto"/>
-                                            <RowDefinition Height="Auto"/>
-                                            <RowDefinition Height="Auto"/>
-                                            <RowDefinition Height="Auto"/>
-                                        </Grid.RowDefinitions>
-
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="Auto"/>
+                                            </Grid.RowDefinitions>
+                                            <!-- Product / offer fields. Click a value to edit it. -->
                                             <TextBlock Grid.Row="0" Grid.Column="0" Text="Brand:"/>
-                                            <TextBlock Grid.Row="0"
-           Grid.Column="1"
-           Text="{Binding Brand}"
-           ToolTip="{Binding Brand}"
-           TextTrimming="CharacterEllipsis"
-           FontWeight="Bold"
-           Margin="8,0,0,0"/>
-                                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Price:"/>
-                                        <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding Price}" FontWeight="Bold" Margin="8,0,0,0"/>
-                                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Reg.:" />
-                                            <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding RegularPrice}" FontWeight="Bold" Margin="8,0,0,0"/>
-                                            <TextBlock Grid.Row="3" Grid.Column="0" Text="Calc. Reg.:" />
-                                            <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding CalculatedRegularPrice }" FontWeight="Bold" Margin="8,0,0,0"/>
-                                            <TextBlock Grid.Row="4" Grid.Column="0" Text="Saving:"/>
-                                        <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding Saving}" FontWeight="Bold" Margin="8,0,0,0"/>
-                                        <TextBlock Grid.Row="5" Grid.Column="0" Text="Per Unit:"/>
-                                        <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding UnitPrice}" FontWeight="Bold" Margin="8,0,0,0"/>
-                                        <TextBlock Grid.Row="6" Grid.Column="0" Text="Variant:"/>
-                                        <TextBlock Grid.Row="6" Grid.Column="1" Text="{Binding Variant}" FontWeight="Bold" Margin="8,0,0,0"/>
-                                        <TextBlock Grid.Row="7" Grid.Column="0" Text="Pck Size:"/>
-                                        <TextBlock Grid.Row="7" Grid.Column="1" Text="{Binding PackSizeText}" FontWeight="Bold" Margin="8,0,0,0"/>
-                                        <TextBlock Grid.Row="8" Grid.Column="0" Text="Category:"/>
-                                        <TextBlock Grid.Row="8" Grid.Column="1" Text="{Binding Category}" FontWeight="Bold" Margin="8,0,0,0"/>
+                                            <Grid Grid.Row="0" Grid.Column="1" Margin="8,0,0,0">
+                                                <TextBlock x:Name="BrandDisplay" Text="{Binding Brand}" TextWrapping="Wrap" FontWeight="Bold" Cursor="Hand" MouseLeftButtonUp="EditableField_Click"/>
+                                                <TextBox x:Name="BrandEditor" Text="{Binding Brand, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Visibility="Collapsed" LostFocus="EditableField_LostFocus" KeyDown="EditableField_KeyDown"/>
+                                            </Grid>
 
-                                    </Grid>
+                                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Price:"/>
+                                            <Grid Grid.Row="1" Grid.Column="1" Margin="8,0,0,0">
+                                                <TextBlock x:Name="PriceDisplay" Text="{Binding Price}" TextWrapping="Wrap" FontWeight="Bold" Cursor="Hand" MouseLeftButtonUp="EditableField_Click"/>
+                                                <TextBox x:Name="PriceEditor" Text="{Binding Price, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Visibility="Collapsed" LostFocus="EditableField_LostFocus" KeyDown="EditableField_KeyDown"/>
+                                            </Grid>
+
+                                            <TextBlock Grid.Row="2" Grid.Column="0" Text="Reg.:"/>
+                                            <Grid Grid.Row="2" Grid.Column="1" Margin="8,0,0,0">
+                                                <TextBlock x:Name="RegularPriceDisplay" Text="{Binding RegularPrice}" TextWrapping="Wrap" FontWeight="Bold" Cursor="Hand" MouseLeftButtonUp="EditableField_Click"/>
+                                                <TextBox x:Name="RegularPriceEditor" Text="{Binding RegularPrice, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Visibility="Collapsed" LostFocus="EditableField_LostFocus" KeyDown="EditableField_KeyDown"/>
+                                            </Grid>
+
+                                            <!-- Derived value: display only. -->
+                                            <TextBlock Grid.Row="3" Grid.Column="0" Text="Calc. Reg.:"/>
+                                            <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding CalculatedRegularPrice}" TextWrapping="Wrap" FontWeight="Bold" Margin="8,0,0,0"/>
+
+                                            <TextBlock Grid.Row="4" Grid.Column="0" Text="Saving:"/>
+                                            <Grid Grid.Row="4" Grid.Column="1" Margin="8,0,0,0">
+                                                <TextBlock x:Name="SavingDisplay" Text="{Binding Saving}" TextWrapping="Wrap" FontWeight="Bold" Cursor="Hand" MouseLeftButtonUp="EditableField_Click"/>
+                                                <TextBox x:Name="SavingEditor" Text="{Binding Saving, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Visibility="Collapsed" LostFocus="EditableField_LostFocus" KeyDown="EditableField_KeyDown"/>
+                                            </Grid>
+
+                                            <TextBlock Grid.Row="5" Grid.Column="0" Text="Per Unit:"/>
+                                            <Grid Grid.Row="5" Grid.Column="1" Margin="8,0,0,0">
+                                                <TextBlock x:Name="UnitPriceDisplay" Text="{Binding UnitPrice}" TextWrapping="Wrap" FontWeight="Bold" Cursor="Hand" MouseLeftButtonUp="EditableField_Click"/>
+                                                <TextBox x:Name="UnitPriceEditor" Text="{Binding UnitPrice, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Visibility="Collapsed" LostFocus="EditableField_LostFocus" KeyDown="EditableField_KeyDown"/>
+                                            </Grid>
+
+                                            <TextBlock Grid.Row="6" Grid.Column="0" Text="Variant:"/>
+                                            <Grid Grid.Row="6" Grid.Column="1" Margin="8,0,0,0">
+                                                <TextBlock x:Name="VariantDisplay" Text="{Binding Variant}" TextWrapping="Wrap" FontWeight="Bold" Cursor="Hand" MouseLeftButtonUp="EditableField_Click"/>
+                                                <TextBox x:Name="VariantEditor" Text="{Binding Variant, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" TextWrapping="Wrap" Visibility="Collapsed" LostFocus="EditableField_LostFocus" KeyDown="EditableField_KeyDown"/>
+                                            </Grid>
+
+                                            <TextBlock Grid.Row="7" Grid.Column="0" Text="Pck Size:"/>
+                                            <Grid Grid.Row="7" Grid.Column="1" Margin="8,0,0,0">
+                                                <TextBlock x:Name="PackSizeDisplay" Text="{Binding PackSizeText}" TextWrapping="Wrap" FontWeight="Bold" Cursor="Hand" MouseLeftButtonUp="EditableField_Click"/>
+                                                <TextBox x:Name="PackSizeEditor" Text="{Binding PackSizeText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Visibility="Collapsed" LostFocus="EditableField_LostFocus" KeyDown="EditableField_KeyDown"/>
+                                            </Grid>
+
+                                            <TextBlock Grid.Row="8" Grid.Column="0" Text="Category:"/>
+                                            <Grid Grid.Row="8" Grid.Column="1" Margin="8,0,0,0">
+                                                <TextBlock x:Name="CategoryDisplay" Text="{Binding Category}" TextWrapping="Wrap" FontWeight="Bold" Cursor="Hand" MouseLeftButtonUp="EditableField_Click"/>
+                                                <TextBox x:Name="CategoryEditor" Text="{Binding Category, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Visibility="Collapsed" LostFocus="EditableField_LostFocus" KeyDown="EditableField_KeyDown"/>
+                                            </Grid>
+
+                                            <TextBlock Grid.Row="9" Grid.Column="0" Text="Offer Qty:"/>
+                                            <Grid Grid.Row="9" Grid.Column="1" Margin="8,0,0,0">
+                                                <TextBlock x:Name="OfferQuantityDisplay" Text="{Binding OfferQuantity}" TextWrapping="Wrap" FontWeight="Bold" Cursor="Hand" MouseLeftButtonUp="EditableField_Click"/>
+                                                <TextBox x:Name="OfferQuantityEditor" Text="{Binding OfferQuantity, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Visibility="Collapsed" LostFocus="EditableField_LostFocus" KeyDown="EditableField_KeyDown"/>
+                                            </Grid>
+
+                                            <TextBlock Grid.Row="10" Grid.Column="0" Text="Promotion:"/>
+                                            <Grid Grid.Row="10" Grid.Column="1" Margin="8,0,0,0">
+                                                <TextBlock x:Name="PromotionDisplay" Text="{Binding Promotion}" TextWrapping="Wrap" FontWeight="Bold" Cursor="Hand" MouseLeftButtonUp="EditableField_Click"/>
+                                                <TextBox x:Name="PromotionEditor" Text="{Binding Promotion, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" TextWrapping="Wrap" Visibility="Collapsed" LostFocus="EditableField_LostFocus" KeyDown="EditableField_KeyDown"/>
+                                            </Grid>
+                                        </Grid>
                                     </Border>
-                                    <TextBlock Text="ⓘ Existing product"
-           FontWeight="Bold"
-           Margin="0,6,0,8"
-                                               Foreground="Blue">
+                                    <TextBlock Text="ⓘ Existing product" FontWeight="Bold" Margin="0,6,0,8" Foreground="Blue">
                                         <TextBlock.Style>
                                             <Style TargetType="TextBlock">
-                                                <Setter Property="Visibility"
-                    Value="Collapsed"/>
-
+                                                <Setter Property="Visibility" Value="Collapsed"/>
                                                 <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding PossibleDuplicate}"
-                             Value="True">
-                                                        <Setter Property="Visibility"
-                            Value="Visible"/>
+                                                    <DataTrigger Binding="{Binding PossibleDuplicate}" Value="True">
+                                                        <Setter Property="Visibility" Value="Visible"/>
                                                     </DataTrigger>
                                                 </Style.Triggers>
                                             </Style>
                                         </TextBlock.Style>
                                     </TextBlock>
-                                    <Button x:Name="CraterItButton"
-        Content="☄️ Crater It!"
-        Width="140"
-        Height="42"
-        Margin="5"
-        Tag="{Binding}"
-        Click="CraterItButton_Click"/>
+                                    <Button x:Name="CraterItButton" Content="☄️ Crater It!" Width="140" Height="42" Margin="5" Tag="{Binding}" Click="CraterItButton_Click"/>
                                 </StackPanel>
-
                             </Border>
-
                         </DataTemplate>
                     </ListBox.ItemTemplate>
-
                 </ListBox>
-
             </DockPanel>
         </Border>
         <!-- Generated product image -->
-        <Border Grid.Column="3"
-        Background="White"
-        BorderBrush="#D0D0D0"
-        BorderThickness="0,0,1,0"
-        Padding="10">
-
+        <Border Grid.Column="3" Background="White" BorderBrush="#D0D0D0" BorderThickness="0,0,1,0" Padding="10">
             <DockPanel>
-
-                <TextBlock DockPanel.Dock="Top"
-                   Text="GENERATED IMAGE"
-                   FontSize="18"
-                   FontWeight="SemiBold"
-                   Margin="5,5,5,15"/>
-
-                <Image x:Name="GeneratedProductImage"
-               Stretch="Uniform"
-               HorizontalAlignment="Stretch"
-               VerticalAlignment="Top"
-               Visibility="Collapsed"/>
-
+                <TextBlock DockPanel.Dock="Top" Text="GENERATED IMAGE" FontSize="18" FontWeight="SemiBold" Margin="5,5,5,15"/>
+                <Image x:Name="GeneratedProductImage" Stretch="Uniform" HorizontalAlignment="Stretch" VerticalAlignment="Top" Visibility="Collapsed"/>
             </DockPanel>
-
         </Border>
         <!-- Page preview -->
-        <Border Grid.Column="4"
-        Margin="10"
-        Padding="15"
-        BorderBrush="#DDD"
-        BorderThickness="1"
-        CornerRadius="8">
-
+        <Border Grid.Column="4" Margin="10" Padding="15" BorderBrush="#DDD" BorderThickness="1" CornerRadius="8">
             <DockPanel>
-
-                <TextBlock DockPanel.Dock="Top"
-                   Text="PAGE REVIEW"
-                   FontSize="20"
-                   FontWeight="Bold"
-                   Margin="0,0,0,15"/>
-
-                <StackPanel DockPanel.Dock="Bottom"
-                    Orientation="Horizontal"
-                    HorizontalAlignment="Center"
-                    Margin="0,15,0,0">
-
-                    <Button x:Name="SplitFlyerButton"
-                    Content="Split Flyer"
-                    Width="140"
-                    Height="42"
-                    Margin="5"
-                    Click="SplitFlyerButton_Click"/>
-
-                    <Button x:Name="GetDataButton"
-                    Content="Get Data"
-                    Width="140"
-                    Height="42"
-                    Margin="5"
-                    Visibility="Collapsed"
-                    Click="GetDataButton_Click"/>
-
+                <TextBlock DockPanel.Dock="Top" Text="PAGE REVIEW" FontSize="20" FontWeight="Bold" Margin="0,0,0,15"/>
+                <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,15,0,0">
+                    <Button x:Name="SplitFlyerButton" Content="Split Flyer" Width="140" Height="42" Margin="5" Click="SplitFlyerButton_Click"/>
+                    <Button x:Name="GetDataButton" Content="Get Data" Width="140" Height="42" Margin="5" Visibility="Collapsed" Click="GetDataButton_Click"/>
                 </StackPanel>
-
                 <Grid>
-
-                    <ScrollViewer VerticalScrollBarVisibility="Auto"
-              HorizontalScrollBarVisibility="Disabled">
-
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                         <Grid>
-
-                            <Image x:Name="SelectedPageImage"
-               Stretch="Uniform"
-               HorizontalAlignment="Stretch"
-               VerticalAlignment="Top"
-               Margin="10"
-               Visibility="Collapsed"/>
-
+                            <Image x:Name="SelectedPageImage" Stretch="Uniform" HorizontalAlignment="Stretch" VerticalAlignment="Top" Margin="10" Visibility="Collapsed"/>
                         </Grid>
-
                     </ScrollViewer>
-
                 </Grid>
-
             </DockPanel>
         </Border>
         <!-- Saved Extraction Runs -->
-        <Border Grid.Column="5"
-        Background="White"
-        BorderBrush="#D0D0D0"
-        BorderThickness="1,0,0,0">
-
+        <Border Grid.Column="5" Background="White" BorderBrush="#D0D0D0" BorderThickness="1,0,0,0">
             <DockPanel>
-
                 <!-- Commit button stays at bottom -->
-                <StackPanel DockPanel.Dock="Bottom"
-                    Margin="10">
-
-                    <Button x:Name="CommitButton"
-                    Content="Commit"
-                    Height="38"
-                    Click="CommitButton_Click"/>
+                <StackPanel DockPanel.Dock="Bottom" Margin="10">
+                    <Button x:Name="CommitButton" Content="Commit" Height="38" Click="CommitButton_Click"/>
                 </StackPanel>
-
                 <!-- Heading -->
-                <TextBlock DockPanel.Dock="Top"
-                   Text="LOCALLY SAVED"
-                   FontSize="18"
-                   FontWeight="SemiBold"
-                   Margin="15"/>
-
+                <TextBlock DockPanel.Dock="Top" Text="LOCALLY SAVED" FontSize="18" FontWeight="SemiBold" Margin="15"/>
                 <!-- SQLite contents -->
-                <ListBox x:Name="SavedExtractionList"
-                     BorderThickness="0"
-                     Background="Transparent"
-                     HorizontalContentAlignment="Stretch"
-                     SelectionMode="Single">
-
+                <ListBox x:Name="SavedExtractionList" BorderThickness="0" Background="Transparent" HorizontalContentAlignment="Stretch" SelectionMode="Single">
                     <ListBox.ItemTemplate>
                         <DataTemplate>
-
-                            <Border BorderBrush="#DDD"
-                            BorderThickness="1"
-                            Padding="10"
-                            Margin="0,0,0,8">
-
+                            <Border BorderBrush="#DDD" BorderThickness="1" Padding="10" Margin="0,0,0,8">
                                 <StackPanel>
-
-                                    <TextBlock Text="{Binding Retailer}"
-                                       FontWeight="Bold"
-                                       FontSize="15"/>
-
-                                    <TextBlock Text="{Binding PageFileName}"
-                                       Margin="0,3,0,0"/>
-
-                                    <TextBlock Text="{Binding ProductCount, StringFormat={}{0} products}"
-                                       Foreground="Gray"/>
-
-                                    <TextBlock Text="{Binding SavedAt}"
-                                       FontSize="11"
-                                       Foreground="#999999"
-                                       Margin="0,4,0,0"/>
-                                    <TextBlock Text="{Binding SavedUtc}"
-           FontSize="11"
-           Foreground="#999999"/>
-
+                                    <TextBlock Text="{Binding Retailer}" FontWeight="Bold" FontSize="15"/>
+                                    <TextBlock Text="{Binding PageFileName}" Margin="0,3,0,0"/>
+                                    <TextBlock Text="{Binding ProductCount, StringFormat={}{0} products}" Foreground="Gray"/>
+                                    <TextBlock Text="{Binding SavedAt}" FontSize="11" Foreground="#999999" Margin="0,4,0,0"/>
+                                    <TextBlock Text="{Binding SavedUtc}" FontSize="11" Foreground="#999999"/>
                                 </StackPanel>
-
                             </Border>
-
                         </DataTemplate>
                     </ListBox.ItemTemplate>
-
                 </ListBox>
-
             </DockPanel>
         </Border>
-
     </Grid>
 </Window>
