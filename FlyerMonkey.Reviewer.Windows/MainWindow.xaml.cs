@@ -4,6 +4,7 @@ using FlyerMonkey.Shared.Model;
 using PDFtoImage;
 using SQLServerConnection.Data;
 using Syncfusion.Pdf.Parsing;
+using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -70,7 +71,7 @@ namespace FlyerMonkey.Reviewer.Windows
 
             return bitmap;
         }
-
+        private readonly ObservableCollection<ExtractedProduct> _products = new();
         private async void FlyerList_SelectionChanged(
             object sender,
             SelectionChangedEventArgs e)
@@ -91,8 +92,8 @@ namespace FlyerMonkey.Reviewer.Windows
 
             _selectedPage = page;
 
-            SelectedPageImage.Source = page.Thumbnail;
-            SelectedPageImage.Visibility = Visibility.Visible;
+            SelectedPageWebView.Visibility = Visibility.Visible;
+            SelectedPageWebView.Source = new Uri(page.FullPath);
 
             GetDataButton.Visibility = Visibility.Visible;
         }
@@ -179,6 +180,27 @@ namespace FlyerMonkey.Reviewer.Windows
             }
         }
 
+        private void AddOfferButton_Click(object sender, RoutedEventArgs e)
+        {
+            var result = MessageBox.Show(
+                "Add a new offer?",
+                "Add Offer",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question);
+
+            if (result != MessageBoxResult.Yes)
+                return;
+
+            var newProduct = new ExtractedProduct
+            {
+                ProductName = "New Offer"
+            };
+
+            _products.Add(newProduct);
+
+            ProductList.SelectedItem = newProduct;
+            ProductList.ScrollIntoView(newProduct);
+        }
         private void EditableField_Click(
     object sender,
     MouseButtonEventArgs e)
@@ -476,15 +498,17 @@ namespace FlyerMonkey.Reviewer.Windows
                 var extractor = new ProductExtractorService();
 
                 var products =
-                    await extractor.ExtractProductsAsync(
-                        _selectedPage.FullPath);
-                var productList = products.ToList();
+    await extractor.ExtractProductsAsync(
+        _selectedPage.FullPath);
 
-                foreach (var product in productList)
+                _products.Clear();
+
+                foreach (var product in products)
                 {
                     ProductValidationService.SanitizeProduct(product);
+                    _products.Add(product);
                 }
-                ProductList.ItemsSource = products;
+                
             }
             catch (Exception ex)
             {
@@ -620,7 +644,7 @@ namespace FlyerMonkey.Reviewer.Windows
         public MainWindow()
         {
             InitializeComponent();
-
+            ProductList.ItemsSource = _products;
             LoadFlyers();
 
             _ = LoadSavedExtractionsAsync();
