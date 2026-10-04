@@ -489,7 +489,28 @@ namespace FlyerMonkey.Reviewer.Windows
         {
             if (_selectedPage == null)
                 return;
+            string databasePath =
+    @"C:\Users\richa\source\repos\FlyerMonkey\DATA\FlyerMonkey.db";
 
+            var reader =
+                new ExtractionReadService(databasePath);
+
+            var savedProducts =
+                await reader.GetProductsAsync(
+                    _selectedFlyer!.FileName,
+                    _selectedPage.FileName);
+
+            if (savedProducts is { Count: > 0 })
+            {
+                _products.Clear();
+
+                foreach (var product in savedProducts)
+                {
+                    _products.Add(product);
+                }
+
+                return;
+            }
             try
             {
                 GetDataButton.IsEnabled = false;

@@ -58,7 +58,7 @@
                                         <Setter Property="Background" Value="White"/>
                                         <Style.Triggers>
                                             <DataTrigger Binding="{Binding ExtractionStatus}" Value="Saved">
-                                                <Setter Property="Background" Value="#DCEFFC"/>
+                                                <Setter Property="Background" Value="#A9D6F5"/>
                                             </DataTrigger>
                                             <DataTrigger Binding="{Binding ExtractionStatus}" Value="Committed">
                                                 <Setter Property="Background" Value="#DFF2E3"/>

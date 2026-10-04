@@ -1,5 +1,6 @@
 ﻿using Microsoft.Data.Sqlite;
 using FlyerMonkey.Reviewer.Windows.Models;
+using System.Text.Json;
 
 namespace FlyerMonkey.Reviewer.Windows.Services;
 
@@ -57,7 +58,46 @@ public sealed class ExtractionReadService
 
         return results;
     }
+    public async Task<List<ExtractedProduct>?> GetProductsAsync(
+    string flyerFileName,
+    string pageFileName)
+    {
+        using var connection =
+            new SqliteConnection(_connectionString);
 
+        await connection.OpenAsync();
+
+        var command = connection.CreateCommand();
+
+        command.CommandText = """
+        SELECT ExtractedJson
+        FROM ExtractionRuns
+        WHERE FlyerFileName = $flyerFileName
+          AND PageFileName = $pageFileName
+          AND Status = 'Saved'
+        ORDER BY ID DESC
+        LIMIT 1;
+        """;
+
+        command.Parameters.AddWithValue(
+            "$flyerFileName",
+            flyerFileName);
+
+        command.Parameters.AddWithValue(
+            "$pageFileName",
+            pageFileName);
+
+        var result =
+            await command.ExecuteScalarAsync();
+
+        if (result is not string json ||
+            string.IsNullOrWhiteSpace(json))
+        {
+            return null;
+        }
+
+        return JsonSerializer.Deserialize<List<ExtractedProduct>>(json);
+    }
     public async Task<List<SavedExtraction>> GetExtractionStatesAsync()
     {
         var results = new List<SavedExtraction>();
