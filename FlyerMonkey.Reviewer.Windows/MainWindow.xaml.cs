@@ -527,6 +527,49 @@ namespace FlyerMonkey.Reviewer.Windows
 
             return image;
         }
+        private void ProductImage_Click(
+    object sender,
+    MouseButtonEventArgs e)
+        {
+            if (sender is not Image image ||
+                image.DataContext is not ExtractedProduct product ||
+                string.IsNullOrWhiteSpace(product.ImageFilePath) ||
+                !File.Exists(product.ImageFilePath))
+            {
+                return;
+            }
+
+            var previewImage = new Image
+            {
+                Source = new BitmapImage(new Uri(product.ImageFilePath)),
+                Stretch = Stretch.Uniform,
+                Margin = new Thickness(10)
+            };
+
+            var previewWindow = new Window
+            {
+                Title = product.ProductName,
+                Content = previewImage,
+                Width = 800,
+                Height = 800,
+                WindowStartupLocation = WindowStartupLocation.Manual
+            };
+
+            previewWindow.Left = this.Left + 80;
+            previewWindow.Top = this.Top + 80;
+
+            
+            previewWindow.KeyDown += (_, args) =>
+            {
+                if (args.Key == Key.Escape)
+                {
+                    args.Handled = true;
+                    previewWindow.Close();
+                }
+            };
+
+            previewWindow.Show();
+        }
         private async void GetDataButton_Click(
             object sender,
             RoutedEventArgs e)

@@ -233,7 +233,20 @@
                                             </Style>
                                         </TextBlock.Style>
                                     </TextBlock>
-                                    <Button x:Name="CraterItButton" Content="☄️ Crater It!" Width="140" Height="42" Margin="5" Tag="{Binding}" Click="CraterItButton_Click"/>
+                                    <Button x:Name="CraterItButton"
+        Content="☄ Crater It!"
+        Width="140"
+        Height="42"
+        Margin="5"
+        Tag="{Binding}"
+        Click="CraterItButton_Click"/>
+
+                                    <Image Source="{Binding ImageFilePath}"
+       MaxHeight="180"
+       Stretch="Uniform"
+       Margin="5"
+       Cursor="Hand"
+       MouseLeftButtonUp="ProductImage_Click"/>
                                 </StackPanel>
                             </Border>
                         </DataTemplate>
