@@ -118,6 +118,14 @@
                TextWrapping="Wrap"
                Cursor="Hand"
                MouseLeftButtonUp="EditableField_Click"/>
+                                        <Button Content="🗑"
+        Width="32"
+        Height="32"
+        HorizontalAlignment="Right"
+        VerticalAlignment="Top"
+        ToolTip="Delete offer"
+        Tag="{Binding}"
+        Click="DeleteOfferButton_Click"/>
 
                                         <TextBox x:Name="ProductNameEditor"
              Text="{Binding ProductName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"

@@ -1,6 +1,7 @@
 ﻿using FlyerMonkey.Reviewer.Windows.Models;
 using FlyerMonkey.Reviewer.Windows.Services;
 using FlyerMonkey.Shared.Model;
+using Microsoft.Data.Sqlite;
 using PDFtoImage;
 using SQLServerConnection.Data;
 using Syncfusion.Pdf.Parsing;
@@ -201,6 +202,49 @@ namespace FlyerMonkey.Reviewer.Windows
             ProductList.SelectedItem = newProduct;
             ProductList.ScrollIntoView(newProduct);
         }
+        private async void DeleteOfferButton_Click(
+    object sender,
+    RoutedEventArgs e)
+        {
+            if (sender is not Button button ||
+                button.Tag is not ExtractedProduct product)
+                return;
+
+            var result = MessageBox.Show(
+                $"Delete '{product.ProductName}'?",
+                "Delete offer",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning);
+
+            if (result != MessageBoxResult.Yes)
+                return;
+
+            if (_selectedPage?.ExtractionRunId == null)
+            {
+                MessageBox.Show(
+                    "This extraction has not been saved yet.",
+                    "Delete offer",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+
+                return;
+            }
+
+            _products.Remove(product);
+
+            string databasePath =
+                @"C:\Users\richa\source\repos\FlyerMonkey\DATA\FlyerMonkey.db";
+
+            var saver =
+                new ExtractionSaveService(databasePath);
+
+            await saver.UpdateProductsAsync(
+                (int)_selectedPage.ExtractionRunId.Value,
+                _products);
+
+            await LoadSavedExtractionsAsync();
+        }
+
         private void EditableField_Click(
     object sender,
     MouseButtonEventArgs e)

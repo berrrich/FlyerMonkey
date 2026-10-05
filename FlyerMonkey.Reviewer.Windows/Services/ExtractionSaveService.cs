@@ -107,6 +107,54 @@ public class ExtractionSaveService
 
         await insert.ExecuteNonQueryAsync();
     }
+    public async Task UpdateProductsAsync(
+    int extractionRunId,
+    IEnumerable<ExtractedProduct> products)
+    {
+        var productList = products.ToList();
+
+        foreach (var product in productList)
+        {
+            ProductValidationService.SanitizeProduct(product);
+        }
+
+        var json = JsonSerializer.Serialize(
+            productList,
+            new JsonSerializerOptions
+            {
+                WriteIndented = true
+            });
+
+        using var connection =
+            new SqliteConnection(_connectionString);
+
+        await connection.OpenAsync();
+
+        var command = connection.CreateCommand();
+
+        command.CommandText = """
+        UPDATE ExtractionRuns
+        SET
+            ProductCount = $productCount,
+            ExtractedJson = $json
+        WHERE ID = $id
+          AND Status = 'Saved';
+        """;
+
+        command.Parameters.AddWithValue(
+            "$productCount",
+            productList.Count);
+
+        command.Parameters.AddWithValue(
+            "$json",
+            json);
+
+        command.Parameters.AddWithValue(
+            "$id",
+            extractionRunId);
+
+        await command.ExecuteNonQueryAsync();
+    }
     public async Task MarkCommittedAsync(int extractionRunId)
     {
         using var connection =
