@@ -2,15 +2,9 @@
     <Grid Background="#F3F3F3">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="300"/>
-            <!-- Flyers -->
             <ColumnDefinition Width="240"/>
-            <!-- Pages -->
             <ColumnDefinition Width="300"/>
-            <!-- Extracted Products -->
-            <ColumnDefinition Width="380"/>
-            <!-- Generated Image -->
             <ColumnDefinition Width="*"/>
-            <!-- Big page preview -->
             <ColumnDefinition Width="230"/>
             <!-- Saved -->
         </Grid.ColumnDefinitions>
@@ -255,14 +249,9 @@
             </DockPanel>
         </Border>
         <!-- Generated product image -->
-        <Border Grid.Column="3" Background="White" BorderBrush="#D0D0D0" BorderThickness="0,0,1,0" Padding="10">
-            <DockPanel>
-                <TextBlock DockPanel.Dock="Top" Text="GENERATED IMAGE" FontSize="18" FontWeight="SemiBold" Margin="5,5,5,15"/>
-                <Image x:Name="GeneratedProductImage" Stretch="Uniform" HorizontalAlignment="Stretch" VerticalAlignment="Top" Visibility="Collapsed"/>
-            </DockPanel>
-        </Border>
+        
         <!-- Page preview -->
-        <Border Grid.Column="4"
+        <Border Grid.Column="3"
         Margin="10"
         Padding="15"
         BorderBrush="#DDD"
@@ -308,7 +297,7 @@
             </DockPanel>
         </Border>
         <!-- Saved Extraction Runs -->
-        <Border Grid.Column="5" Background="White" BorderBrush="#D0D0D0" BorderThickness="1,0,0,0">
+        <Border Grid.Column="4" Background="White" BorderBrush="#D0D0D0" BorderThickness="1,0,0,0">
             <DockPanel>
                 <!-- Commit button stays at bottom -->
                 <StackPanel DockPanel.Dock="Bottom" Margin="10">

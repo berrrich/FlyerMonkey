@@ -11,6 +11,7 @@ using System.IO;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
@@ -491,13 +492,10 @@ namespace FlyerMonkey.Reviewer.Windows
                     Path.Combine(imageFolder, fileName);
 
                 await File.WriteAllBytesAsync(
-                    imagePath,
-                    imageBytes);
+    imagePath,
+    imageBytes);
 
                 product.ImageFilePath = imagePath;
-
-                GeneratedProductImage.Source = LoadImage(imageBytes);
-                GeneratedProductImage.Visibility = Visibility.Visible;
             }
             catch (Exception ex)
             {
@@ -513,20 +511,7 @@ namespace FlyerMonkey.Reviewer.Windows
                 button.IsEnabled = true;
             }
         }
-        private static BitmapImage LoadImage(byte[] imageBytes)
-        {
-            using var stream = new MemoryStream(imageBytes);
-
-            var image = new BitmapImage();
-
-            image.BeginInit();
-            image.CacheOption = BitmapCacheOption.OnLoad;
-            image.StreamSource = stream;
-            image.EndInit();
-            image.Freeze();
-
-            return image;
-        }
+       
         private void ProductImage_Click(
     object sender,
     MouseButtonEventArgs e)
