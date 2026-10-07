@@ -366,6 +366,16 @@ namespace FlyerMonkey.Reviewer.Windows
     ?? throw new InvalidOperationException(
         "FLYERMONKEY_SQL_CONNECTION is not set.");
 
+                var blobConnectionString =
+    Environment.GetEnvironmentVariable(
+        "FLYERMONKEY_BLOB_CONNECTION")
+    ?? throw new InvalidOperationException(
+        "FLYERMONKEY_BLOB_CONNECTION is not set.");
+
+                var imageUploadService =
+                    new ProductImageUploadService(
+                        blobConnectionString);
+
                 var repository =
                     new ProductRepository(sqlConnectionString);
 
@@ -397,6 +407,16 @@ namespace FlyerMonkey.Reviewer.Windows
 
                 foreach (var extractedProduct in products)
                 {
+                    string? imageBlobPath = null;
+
+                    if (!string.IsNullOrWhiteSpace(
+                            extractedProduct.ImageFilePath))
+                    {
+                        imageBlobPath =
+                            await imageUploadService.UploadAsync(
+                                extractedProduct.ImageFilePath);
+                    }
+
                     var product = new Product
                     {
                         Name = extractedProduct.ProductName,
@@ -404,7 +424,8 @@ namespace FlyerMonkey.Reviewer.Windows
                         Variant = extractedProduct.Variant,
                         PackSizeText = extractedProduct.PackSizeText,
                         Category = extractedProduct.Category,
-                        Barcode = extractedProduct.Barcode
+                        Barcode = extractedProduct.Barcode,
+                        ImageBlobPath = imageBlobPath
                     };
 
                     var productId =
@@ -437,7 +458,11 @@ namespace FlyerMonkey.Reviewer.Windows
                 }
                 await commitService.MarkCommittedAsync(saved.Id);
 
-                await LoadSplitPagesAsync(_selectedFlyer);
+                if (_selectedFlyer is not null)
+                {
+                    await LoadSplitPagesAsync(_selectedFlyer);
+                }
+
                 await LoadSavedExtractionsAsync();
 
                 MessageBox.Show(
