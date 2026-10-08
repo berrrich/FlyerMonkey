@@ -325,14 +325,27 @@ namespace FlyerMonkey.Reviewer.Windows
                     : null;
         }
 
+
         private async void CommitButton_Click(
-    object sender,
-    RoutedEventArgs e)
+            object sender,
+            RoutedEventArgs e)
         {
             if (SavedExtractionList.SelectedItem is not SavedExtraction saved)
             {
                 MessageBox.Show(
                     "Select a locally saved extraction first.",
+                    "Commit",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+
+                return;
+            }
+
+            // Prevent an already committed batch being committed again
+            if (saved.Status != "Saved")
+            {
+                MessageBox.Show(
+                    "This extraction has already been committed.",
                     "Commit",
                     MessageBoxButton.OK,
                     MessageBoxImage.Information);
@@ -348,6 +361,9 @@ namespace FlyerMonkey.Reviewer.Windows
 
             if (confirm != MessageBoxResult.Yes)
                 return;
+
+            // Existing try block continues here...
+
 
             try
             {
@@ -676,6 +692,59 @@ namespace FlyerMonkey.Reviewer.Windows
                     MessageBoxImage.Error);
             }
         }
+
+
+        private async void SavedExtractionList_SelectionChanged(
+            object sender,
+            SelectionChangedEventArgs e)
+        {
+            if (CommitButton == null)
+                return;
+
+            if (SavedExtractionList.SelectedItem
+                is not SavedExtraction saved)
+            {
+                CommitButton.IsEnabled = false;
+                return;
+            }
+
+            // Only locally saved batches can be committed
+            CommitButton.IsEnabled = saved.Status == "Saved";
+
+            try
+            {
+                string sqlitePath =
+                    @"C:\Users\richa\source\repos\FlyerMonkey\DATA\FlyerMonkey.db";
+
+                var commitService = new SqlCommitService(sqlitePath);
+
+                // Retrieve this exact extraction run
+                var products = await commitService.LoadProductsAsync(saved);
+
+                // Ignore results if the user selected another batch
+                // while the SQLite query was running.
+                if (SavedExtractionList.SelectedItem is not SavedExtraction current
+                    || current.Id != saved.Id)
+                    return;
+
+                // Refresh the existing UI collection
+                _products.Clear();
+
+                foreach (var product in products)
+                {
+                    _products.Add(product);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    ex.Message,
+                    "Could not restore extraction",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
+            }
+        }
+
         private async void SaveDataButton_Click(
     object sender,
     RoutedEventArgs e)
@@ -746,6 +815,7 @@ namespace FlyerMonkey.Reviewer.Windows
                 SaveDataButton.IsEnabled = true;
             }
         }
+
         private async Task LoadSavedExtractionsAsync()
         {
             string databasePath =
@@ -755,10 +825,12 @@ namespace FlyerMonkey.Reviewer.Windows
                 new ExtractionReadService(databasePath);
 
             var saved =
-                await reader.GetSavedAsync();
+    await reader.GetAllAsync();
 
             SavedExtractionList.ItemsSource = saved;
         }
+
+
         public MainWindow()
         {
             InitializeComponent();

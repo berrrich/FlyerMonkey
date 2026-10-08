@@ -9,5 +9,5 @@ public sealed class SavedExtraction
     public int PageNumber { get; set; }
     public int ProductCount { get; set; }
     public string SavedUtc { get; set; } = "";
-    public string Status { get; set; } = "";
+    public string Status { get; set; } = "Saved";
 }

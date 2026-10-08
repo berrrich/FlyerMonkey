@@ -301,26 +301,68 @@
             <DockPanel>
                 <!-- Commit button stays at bottom -->
                 <StackPanel DockPanel.Dock="Bottom" Margin="10">
-                    <Button x:Name="CommitButton" Content="Commit" Height="38" Click="CommitButton_Click"/>
+                    <Button x:Name="CommitButton"
+        Content="Commit"
+        Height="38"
+        IsEnabled="False"
+        Click="CommitButton_Click"/>
                 </StackPanel>
                 <!-- Heading -->
-                <TextBlock DockPanel.Dock="Top" Text="LOCALLY SAVED" FontSize="18" FontWeight="SemiBold" Margin="15"/>
+                <TextBlock DockPanel.Dock="Top" Text="SAVED EXTRACTIONS" FontSize="18" FontWeight="SemiBold" Margin="15"/>
                 <!-- SQLite contents -->
-                <ListBox x:Name="SavedExtractionList" BorderThickness="0" Background="Transparent" HorizontalContentAlignment="Stretch" SelectionMode="Single">
+
+                <ListBox x:Name="SavedExtractionList"
+         BorderThickness="0"
+         Background="Transparent"
+         HorizontalContentAlignment="Stretch"
+         SelectionMode="Single"
+         SelectionChanged="SavedExtractionList_SelectionChanged">
+
                     <ListBox.ItemTemplate>
                         <DataTemplate>
-                            <Border BorderBrush="#DDD" BorderThickness="1" Padding="10" Margin="0,0,0,8">
+                            <Border BorderBrush="#DDD"
+                    BorderThickness="1"
+                    Padding="10"
+                    Margin="0,0,0,8">
+
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Setter Property="Background" Value="#A9D6F5"/>
+
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Status}"
+                                         Value="Committed">
+                                                <Setter Property="Background"
+                                        Value="#B5E0BD"/>
+                                                <Setter Property="BorderBrush"
+                                        Value="#A5CFAE"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+
                                 <StackPanel>
-                                    <TextBlock Text="{Binding Retailer}" FontWeight="Bold" FontSize="15"/>
-                                    <TextBlock Text="{Binding PageFileName}" Margin="0,3,0,0"/>
-                                    <TextBlock Text="{Binding ProductCount, StringFormat={}{0} products}" Foreground="Gray"/>
-                                    <TextBlock Text="{Binding SavedAt}" FontSize="11" Foreground="#999999" Margin="0,4,0,0"/>
-                                    <TextBlock Text="{Binding SavedUtc}" FontSize="11" Foreground="#999999"/>
+                                    <TextBlock Text="{Binding Retailer}"
+                               FontWeight="Bold"
+                               FontSize="15"/>
+
+                                    <TextBlock Text="{Binding PageFileName}"
+                               Margin="0,3,0,0"/>
+
+                                    <TextBlock Text="{Binding ProductCount,
+                                     StringFormat={}{0} products}"
+                               Foreground="Gray"/>
+
+                                    <TextBlock Text="{Binding SavedUtc}"
+                               FontSize="11"
+                               Foreground="#999999"
+                               Margin="0,8,0,0"/>
                                 </StackPanel>
                             </Border>
                         </DataTemplate>
                     </ListBox.ItemTemplate>
                 </ListBox>
+
             </DockPanel>
         </Border>
     </Grid>
