@@ -1,78 +1,57 @@
 ﻿@page "/products"
-
 @using FlyerMonkey.Shared.Model
 @using FlyerMonkey.Shared.Services
+
 @inject IProductService ProductService
 
-<h1 class="offers-title">Offers</h1>
+<PageTitle>Products</PageTitle>
 
-@if (isLoading)
+<h1>Products</h1>
+
+@if (_products is null)
 {
     <p>Loading...</p>
 }
-else if (loadError is not null)
+else if (_products.Count == 0)
 {
-    <p class="text-danger">@loadError</p>
-}
-else if (products?.Any() != true)
-{
-    <p>No offers found.</p>
+    <p>No products found.</p>
 }
 else
 {
-    <div class="offers-list">
-        @foreach (var p in products)
+    <table class="table">
+        <thead>
+    <tr>
+        <th>Image</th>
+        <th>ID</th>
+        <th>Name</th>
+    </tr>
+</thead>
+        <tbody>
+            @foreach (var product in _products)
+            {
+                <tr>
+    <td>
+        @if (!string.IsNullOrWhiteSpace(product.ImageBlobPath))
         {
-            <div class="offer-card">
-                <div class="offer-thumb">
-                    🛒
-                </div>
-
-                <div class="offer-main">
-                    <div class="offer-name">@p.Name</div>
-
-                    @if (!string.IsNullOrWhiteSpace(p.Brand))
-                    {
-                        <div class="offer-meta">@p.Brand</div>
-                    }
-
-                    <div class="offer-meta">
-                        @p.PackSizeText
-                        @if (!string.IsNullOrWhiteSpace(p.Category))
-                        {
-                            <span> · @p.Category</span>
-                        }
-                    </div>
-                </div>
-
-                <button class="offer-button">
-                    View
-                </button>
-            </div>
+            <img src="@($"https://flyermonkeyapi-g7htasdacxfzgbcd.australiaeast-01.azurewebsites.net/api/products/{product.ID}/image")"
+                 alt="@product.Name"
+                 style="width:80px;height:80px;object-fit:contain;border-radius:8px;"
+                 loading="lazy" />
         }
-    </div>
+    </td>
+    <td>@product.ID</td>
+    <td>@product.Name</td>
+</tr>
+            }
+        </tbody>
+    </table>
 }
 
 @code {
-    private List<Product> products = new();
-    private bool isLoading;
-    private string? loadError;
+    private List<Product>? _products;
 
     protected override async Task OnInitializedAsync()
     {
-        isLoading = true;
-
-        try
-        {
-            products = await ProductService.GetProductsAsync();
-        }
-        catch (Exception ex)
-        {
-            loadError = "Failed to load offers: " + ex.Message;
-        }
-        finally
-        {
-            isLoading = false;
-        }
+        _products = await ProductService.GetProductsAsync();
     }
 }

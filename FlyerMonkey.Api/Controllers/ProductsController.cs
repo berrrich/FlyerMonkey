@@ -68,7 +68,7 @@ public class ProductsController : ControllerBase
             return NotFound();
         }
 
-        return File(imageStream, "image/png");
+        return File(imageStream, "image/jpeg");
     }
 
     [HttpPost]
