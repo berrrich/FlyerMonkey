@@ -49,8 +49,21 @@ else
         {
             <div class="offer-card">
                 <div class="offer-thumb">
-                    🛒
-                </div>
+    @if (offer.ProductID > 0)
+    {
+        <img src="@($"https://flyermonkeyapi-g7htasdacxfzgbcd.australiaeast-01.azurewebsites.net/api/products/{offer.ProductID}/image")"
+             alt="@offer.ProductName"
+             loading="lazy"
+             onerror="this.style.display='none'; this.nextElementSibling.style.display='block';"
+             style="width:80px;height:80px;object-fit:contain;border-radius:8px;" />
+
+        <span style="display:none;">🛒</span>
+    }
+    else
+    {
+        <span>🛒</span>
+    }
+</div>
 
                 <div class="offer-main">
                     <div class="offer-name">@offer.ProductName</div>

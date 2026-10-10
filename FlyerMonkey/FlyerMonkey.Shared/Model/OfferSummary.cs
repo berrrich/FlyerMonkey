@@ -29,7 +29,7 @@ public class OfferSummary
     public decimal? RegularPrice { get; set; }
 
     public decimal? AdvertisedSaving { get; set; }
-
+    public string? ImageBlobPath { get; set; }
     public string? PromoText { get; set; }
 
     public string? UnitPriceText { get; set; }

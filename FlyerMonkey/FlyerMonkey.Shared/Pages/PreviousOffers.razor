@@ -38,8 +38,18 @@ else
         {
             <div class="offer-card">
                 <div class="offer-thumb">
-                    🛒
-                </div>
+    @if (!string.IsNullOrWhiteSpace(offer.ImageBlobPath))
+    {
+        <img src="@($"https://flyermonkeyapi-g7htasdacxfzgbcd.australiaeast-01.azurewebsites.net/api/products/{offer.ProductID}/image")"
+             alt="@offer.ProductName"
+             style="width:80px;height:80px;object-fit:contain;border-radius:8px;"
+             loading="lazy" />
+    }
+    else
+    {
+        <span>🛒</span>
+    }
+</div>
 
                 <div class="offer-main">
                     <div class="offer-name">@offer.ProductName</div>

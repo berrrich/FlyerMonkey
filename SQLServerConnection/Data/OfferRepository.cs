@@ -235,6 +235,7 @@ public sealed class OfferRepository
             p.Variant,
             p.PackSizeText,
             p.Category,
+            p.ImageBlobPath,
 
             r.ID AS RetailerID,
             r.Name AS RetailerName,
@@ -326,7 +327,10 @@ public sealed class OfferRepository
                     reader["Category"] == DBNull.Value
                         ? null
                         : reader["Category"]?.ToString(),
-
+                ImageBlobPath =
+                    reader["ImageBlobPath"] == DBNull.Value
+                        ? null
+                        : reader["ImageBlobPath"]?.ToString(),
                 RetailerID = Convert.ToInt32(reader["RetailerID"]),
 
                 RetailerName =

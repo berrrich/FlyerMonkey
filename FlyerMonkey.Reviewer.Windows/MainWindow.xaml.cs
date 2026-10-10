@@ -75,13 +75,53 @@ namespace FlyerMonkey.Reviewer.Windows
         }
         private readonly ObservableCollection<ExtractedProduct> _products = new();
         private async void FlyerList_SelectionChanged(
-            object sender,
-            SelectionChangedEventArgs e)
+    object sender,
+    SelectionChangedEventArgs e)
         {
             if (FlyerList.SelectedItem is not FlyerFile flyer)
                 return;
 
+            string fileName = flyer.FileName;
+
+            // Temporary: use the existing flyer date.
+            if (!DateTime.TryParse(flyer.FlyerDate, out DateTime startDate))
+            {
+                MessageBox.Show(
+                    $"Unable to determine the flyer date:\n{flyer.FlyerDate}",
+                    "FlyerMonkey - Invalid Date",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+
+                FlyerList.SelectedItem = null;
+                return;
+            }
+
+            // Seven-day promotional period, inclusive.
+            DateTime endDate = startDate.AddDays(6);
+
+            string message =
+                $"Retailer: {flyer.Retailer}\n\n" +
+                $"Flyer: {fileName}\n\n" +
+                $"Valid From: {startDate:dddd, dd MMMM yyyy}\n" +
+                $"Valid To: {endDate:dddd, dd MMMM yyyy}\n\n" +
+                "Please verify these dates against the catalogue.\n\n" +
+                "YES = Confirm and proceed\n" +
+                "NO = Cancel";
+
+            var result = MessageBox.Show(
+                message,
+                "FlyerMonkey - Confirm Flyer Dates",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question);
+
+            if (result != MessageBoxResult.Yes)
+            {
+                FlyerList.SelectedItem = null;
+                return;
+            }
+
             _selectedFlyer = flyer;
+
             await LoadSplitPagesAsync(flyer);
         }
 
