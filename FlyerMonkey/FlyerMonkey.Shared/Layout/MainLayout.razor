@@ -1,9 +1,6 @@
 ﻿@inherits LayoutComponentBase
 
 <div class="page">
-    <div class="sidebar">
-        <NavMenu />
-    </div>
  
     <main>
         <div class="fm-topbar">
@@ -31,6 +28,25 @@
             @Body
         </article>
     </main>
+    <nav class="fm-bottom-nav" aria-label="Mobile navigation">
+
+    <NavLink href=""
+             Match="NavLinkMatch.All">
+        <span>🏷️</span>
+        <span>Offers</span>
+    </NavLink>
+
+    <NavLink href="previous">
+        <span>🕘</span>
+        <span>Previous</span>
+    </NavLink>
+
+    <NavLink href="products">
+        <span>🛒</span>
+        <span>Products</span>
+    </NavLink>
+
+</nav>
 </div>
 
 <div id="blazor-error-ui" data-nosnippet>

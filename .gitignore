@@ -1,21 +1,64 @@
+
+# ==========================================
+# FlyerMonkey - Git Ignore
+# ==========================================
+
+# Visual Studio
 .vs/
+*.user
+*.suo
+
+# Build outputs
 **/bin/
 **/obj/
-*.user
-*.csproj.user
 
+# Local application data
 /DATA/
+*.db
+*.db-shm
+*.db-wal
 
-# Retired projects
-/FlyerMonkey.Importer/
-/FlyerMonkey.Reviewer/
-**/FlyerMonkey.Server/
+# Android installation backups
+/MobileBackups/
 
-# Local diagnostic files
-/git-status-*.txt
+# Temporary files
+*.tmp
+
+# ==========================================
+# Experimental Monkey files
+# ==========================================
+/FlyerMonkey/FlyerMonkey.Shared/Model/Monkey.cs
+/FlyerMonkey/FlyerMonkey.Shared/Pages/Monkeys.razor
+/FlyerMonkey/FlyerMonkey.Shared/Services/MonkeyService.cs
+
+# ==========================================
+# Old and backup UI files
+# ==========================================
+/FlyerMonkey/FlyerMonkey.Shared/Pages/ProductsOLD.razor
+/MainWindow.cleaned.xaml
+/MainWindow_clean.xaml
+
+# ==========================================
+# Legacy / unused project folders
+# ==========================================
+/FlyerMonkey/FlyerMonkey.Server/
+/FlyerMonkey/FlyerMonkey/FlyerMonkey.Server/
+
+# ==========================================
+# Local diagnostic output
+# ==========================================
+/git-status-after.txt
+/git-status-sample.txt
 /ignored-tracked.txt
 /sql-search.txt
 
+# ==========================================
+# Archived / peripheral project files
+# ==========================================
+/FlyerMonkey.Importer/
 /Marketing/
 /SQLScripts/
 /FlyerMonkey/dbConnection.ps1
+
+# Legacy Reviewer project
+/FlyerMonkey.Reviewer/

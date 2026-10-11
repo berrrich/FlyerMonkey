@@ -138,3 +138,71 @@ main {
             font-weight: 700;
             border-bottom: 2px solid #333;
         }
+/* FlyerMonkey mobile bottom navigation */
+
+.fm-bottom-nav {
+    display: none;
+}
+
+@media (max-width: 640.98px) {
+
+    /* Hide desktop navigation links on mobile */
+    .fm-topbar-nav {
+        display: none;
+    }
+
+    /* Make the mobile header more compact */
+    .fm-topbar {
+        padding: 0 1rem;
+        min-height: 48px;
+    }
+
+    /* Keep scrolling content clear of bottom navigation */
+    main {
+        padding-bottom: 90px;
+    }
+
+    .fm-bottom-nav {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        display: flex;
+        justify-content: space-around;
+        align-items: center;
+        min-height: 68px;
+        padding-bottom: env(safe-area-inset-bottom, 0px);
+        background: white;
+        border-top: 1px solid #ddd;
+        box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.08);
+        z-index: 100;
+    }
+
+        .fm-bottom-nav ::deep a {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            flex: 1;
+            gap: 4px;
+            padding: 10px 4px;
+            color: #666;
+            text-decoration: none;
+            font-size: 0.8rem;
+        }
+
+            .fm-bottom-nav ::deep a.active {
+                color: #169c36;
+                font-weight: 700;
+            }
+            /* Larger mobile navigation icons */
+            .fm-bottom-nav ::deep a span:first-child {
+                font-size: 2.2rem;
+                line-height: 1;
+            }
+
+            /* Keep navigation labels compact */
+            .fm-bottom-nav ::deep a span:last-child {
+                font-size: 0.8rem;
+            }
+}
