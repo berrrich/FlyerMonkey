@@ -15,6 +15,7 @@ using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using System.Text.Json;
 
 namespace FlyerMonkey.Reviewer.Windows
 {
@@ -74,6 +75,46 @@ namespace FlyerMonkey.Reviewer.Windows
             return bitmap;
         }
         private readonly ObservableCollection<ExtractedProduct> _products = new();
+        private void ProductList_PreviewMouseWheel(
+    object sender,
+    MouseWheelEventArgs e)
+        {
+            const double pixelsPerNotch = 30;
+
+            var scrollViewer = FindVisualChild<ScrollViewer>(ProductList);
+
+            if (scrollViewer == null)
+                return;
+
+            double notches = e.Delta / 120.0;
+
+            scrollViewer.ScrollToVerticalOffset(
+                scrollViewer.VerticalOffset -
+                (notches * pixelsPerNotch));
+
+            e.Handled = true;
+        }
+        private static T? FindVisualChild<T>(
+    DependencyObject parent)
+    where T : DependencyObject
+        {
+            for (int i = 0;
+                 i < VisualTreeHelper.GetChildrenCount(parent);
+                 i++)
+            {
+                var child = VisualTreeHelper.GetChild(parent, i);
+
+                if (child is T match)
+                    return match;
+
+                var result = FindVisualChild<T>(child);
+
+                if (result != null)
+                    return result;
+            }
+
+            return null;
+        }
         private async void FlyerList_SelectionChanged(
     object sender,
     SelectionChangedEventArgs e)
@@ -309,6 +350,180 @@ namespace FlyerMonkey.Reviewer.Windows
             editor.Focus();
             editor.SelectAll();
         }
+        private void CategoryDisplay_Click(
+    object sender,
+    MouseButtonEventArgs e)
+        {
+            if (sender is not TextBlock textBlock)
+                return;
+
+            if (textBlock.DataContext is not ExtractedProduct product)
+                return;
+            // Keep the offer selected while its category editor is open.
+            ProductList.SelectedItem = product;
+            // Temporary category catalogue.
+            // Later we'll load this from the API.
+            var categories = new[]
+            {
+        "Fruit & Vegetables",
+        "Meat & Poultry",
+        "Seafood",
+        "Deli",
+        "Bakery",
+        "Dairy & Eggs",
+        "Frozen Foods",
+        "Pantry",
+        "Snacks & Confectionery",
+        "Drinks",
+        "Coffee & Tea",
+        "Breakfast & Cereals",
+        "Health & Beauty",
+        "Household & Cleaning",
+        "Baby & Toddler",
+        "Pet Supplies",
+        "Health & Wellness",
+        "General Merchandise",
+        "Other / Uncategorised"
+    };
+
+            // Translate older AI category suggestions.
+            var legacyCategories = new Dictionary<string, string>(
+                StringComparer.OrdinalIgnoreCase)
+            {
+                ["Meat"] = "Meat & Poultry",
+                ["Dairy"] = "Dairy & Eggs",
+                ["Freezer"] = "Frozen Foods",
+                ["Snacks"] = "Snacks & Confectionery",
+                ["Beverages"] = "Drinks",
+                ["Soft Drinks"] = "Drinks"
+            };
+
+            string? primary = product.PrimaryCategory;
+
+            if (string.IsNullOrWhiteSpace(primary))
+            {
+                primary = product.Category?.Trim();
+
+                if (primary != null &&
+                    legacyCategories.TryGetValue(primary, out var mapped))
+                {
+                    primary = mapped;
+                }
+            }
+
+            var selected = product.Categories.ToList();
+
+            if (selected.Count == 0 && primary != null)
+                selected.Add(primary);
+
+            var editor = new CategoryEditorWindow(
+    product.ProductName,
+    categories,
+    primary,
+    selected)
+            {
+                Owner = this,
+                WindowStartupLocation = WindowStartupLocation.Manual
+            };
+
+            // Position the editor near the left edge of Reviewer.
+            // Position editor over the Upcoming Flyers column.
+            editor.Left = this.Left - 150;
+            editor.Top = this.Top + 100;
+
+            if (editor.ShowDialog() == true)
+            {
+                product.PrimaryCategory = editor.PrimaryCategory;
+                product.Categories = editor.SelectedCategories;
+
+                // Preserve compatibility with existing extraction pipeline.
+                product.Category = editor.PrimaryCategory;
+
+                // Refresh the visible offer card.
+                ProductList.Items.Refresh();
+            }
+
+            e.Handled = true;
+        }
+
+
+        private void PromotionTypes_Click(
+            object sender,
+            RoutedEventArgs e)
+        {
+            if (sender is not Button button)
+                return;
+
+            if (button.DataContext is not ExtractedProduct product)
+                return;
+
+            ProductList.SelectedItem = product;
+
+            // Temporary lookup list, matching Azure SQL.
+            var promotionTypes = new[]
+            {
+        "Standard special",
+        "Half price",
+        "Percentage off",
+        "Dollar saving",
+        "Multi-buy",
+        "Member-only",
+        "Bonus quantity",
+        "Everyday low price",
+        "Other / Unclassified"
+    };
+
+            var selected = product.PromotionTypes?.ToList()
+                           ?? new List<string>();
+
+            // Suggest a classification for previously unclassified offers.
+            if (selected.Count == 0)
+            {
+                string promotion = product.Promotion?.Trim() ?? "";
+
+                if (promotion.Contains("ANY 2 FOR",
+                        StringComparison.OrdinalIgnoreCase) ||
+                    promotion.Contains("MULTI-BUY",
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    selected.Add("Multi-buy");
+                }
+                else if (promotion.Contains("HALF PRICE",
+                             StringComparison.OrdinalIgnoreCase))
+                {
+                    selected.Add("Half price");
+                }
+                else if (promotion.Contains("EVERYDAY LOW PRICE",
+                             StringComparison.OrdinalIgnoreCase))
+                {
+                    selected.Add("Everyday low price");
+                }
+            }
+
+            var editor = new PromotionEditorWindow(
+                product.ProductName,
+                product.Promotion,
+                promotionTypes,
+                selected)
+            {
+                Owner = this,
+                WindowStartupLocation = WindowStartupLocation.Manual
+            };
+
+            // Match the working Category Editor position.
+            editor.Left = this.Left - 100;
+            editor.Top = this.Top + 120;
+
+            if (editor.ShowDialog() == true)
+            {
+                product.PromotionTypes =
+                    editor.SelectedPromotionTypes;
+
+                ProductList.Items.Refresh();
+            }
+
+            e.Handled = true;
+        }
 
         private void EditableField_LostFocus(
             object sender,
@@ -505,6 +720,10 @@ namespace FlyerMonkey.Reviewer.Windows
                         FlyerPageNumber = saved.PageNumber,
 
                         PromoText = extractedProduct.Promotion,
+
+                        PromotionTypes = JsonSerializer.Serialize(
+    extractedProduct.PromotionTypes ?? new List<string>()),
+
                         UnitPriceText = extractedProduct.UnitPrice
                     };
 

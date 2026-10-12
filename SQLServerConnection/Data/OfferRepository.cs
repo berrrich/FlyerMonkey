@@ -80,7 +80,8 @@ public sealed class OfferRepository
             FlyerPageNumber,
             FlyerImageBlobPath,
             PromoText,
-            UnitPriceText,
+        PromotionTypes,
+        UnitPriceText,
             MultiBuyQuantity,
             MultiBuyPrice,
             MemberPrice,
@@ -103,7 +104,8 @@ public sealed class OfferRepository
             @FlyerPageNumber,
             @FlyerImageBlobPath,
             @PromoText,
-            @UnitPriceText,
+        @PromotionTypes,
+        @UnitPriceText,
             @MultiBuyQuantity,
             @MultiBuyPrice,
             @MemberPrice,
@@ -164,7 +166,9 @@ public sealed class OfferRepository
         command.Parameters.AddWithValue(
             "@PromoText",
             (object?)offer.PromoText ?? DBNull.Value);
-
+        command.Parameters.AddWithValue(
+    "@PromotionTypes",
+    (object?)offer.PromotionTypes ?? DBNull.Value);
         command.Parameters.AddWithValue(
             "@UnitPriceText",
             (object?)offer.UnitPriceText ?? DBNull.Value);

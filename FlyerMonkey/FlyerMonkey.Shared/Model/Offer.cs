@@ -33,6 +33,7 @@ public class Offer
     public string? FlyerImageBlobPath { get; set; }
 
     public string? PromoText { get; set; }
+    public string? PromotionTypes { get; set; }
 
     public string? UnitPriceText { get; set; }
 

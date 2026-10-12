@@ -95,7 +95,26 @@
                     <Button x:Name="AddOfferButton" Grid.Column="1" Content="➕" Width="32" Height="32" ToolTip="Add offer" Click="AddOfferButton_Click"/>
                 </Grid>
                 </Border>
-                <ListBox x:Name="ProductList" BorderThickness="0" Background="Transparent" HorizontalContentAlignment="Stretch" ScrollViewer.HorizontalScrollBarVisibility="Disabled" ScrollViewer.VerticalScrollBarVisibility="Auto">
+                <ListBox x:Name="ProductList" ScrollViewer.CanContentScroll="False"
+PreviewMouseWheel="ProductList_PreviewMouseWheel" BorderThickness="0" Background="Transparent" HorizontalContentAlignment="Stretch" ScrollViewer.HorizontalScrollBarVisibility="Disabled" ScrollViewer.VerticalScrollBarVisibility="Auto">
+
+                    <ListBox.ItemContainerStyle>
+                        <Style TargetType="{x:Type ListBoxItem}">
+                            <Setter Property="Padding" Value="0"/>
+                            <Setter Property="Margin" Value="0"/>
+                            <Setter Property="HorizontalContentAlignment"
+                Value="Stretch"/>
+
+                            <Style.Triggers>
+                                <Trigger Property="IsSelected" Value="True">
+                                    <Setter Property="Background" Value="#DCEBFF"/>
+                                    <Setter Property="BorderBrush" Value="#3478D4"/>
+                                    <Setter Property="BorderThickness" Value="2"/>
+                                </Trigger>
+                            </Style.Triggers>
+                        </Style>
+                    </ListBox.ItemContainerStyle>
+                    
                     <ListBox.ItemTemplate>
                         <DataTemplate>
                             <Border BorderBrush="#DDD" BorderThickness="1" Padding="10" Margin="0,0,0,8">
@@ -112,6 +131,7 @@
                                                 <ColumnDefinition Width="*"/>
                                             </Grid.ColumnDefinitions>
                                             <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto"/>
                                                 <RowDefinition Height="Auto"/>
                                                 <RowDefinition Height="Auto"/>
                                                 <RowDefinition Height="Auto"/>
@@ -165,7 +185,7 @@
                                             </Grid>
                                             <TextBlock Grid.Row="8" Grid.Column="0" Text="Category:"/>
                                             <Grid Grid.Row="8" Grid.Column="1" Margin="8,0,0,0">
-                                                <TextBlock x:Name="CategoryDisplay" Text="{Binding Category}" TextWrapping="Wrap" FontWeight="Bold" Cursor="Hand" MouseLeftButtonUp="EditableField_Click"/>
+                                                <TextBlock x:Name="CategoryDisplay" Text="{Binding Category}" TextWrapping="Wrap" FontWeight="Bold" Cursor="Hand" MouseLeftButtonUp="CategoryDisplay_Click"/>
                                                 <TextBox x:Name="CategoryEditor" Text="{Binding Category, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Visibility="Collapsed" LostFocus="EditableField_LostFocus" KeyDown="EditableField_KeyDown"/>
                                             </Grid>
                                             <TextBlock Grid.Row="9" Grid.Column="0" Text="Offer Qty:"/>
@@ -174,10 +194,55 @@
                                                 <TextBox x:Name="OfferQuantityEditor" Text="{Binding OfferQuantity, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Visibility="Collapsed" LostFocus="EditableField_LostFocus" KeyDown="EditableField_KeyDown"/>
                                             </Grid>
                                             <TextBlock Grid.Row="10" Grid.Column="0" Text="Promotion:"/>
+
                                             <Grid Grid.Row="10" Grid.Column="1" Margin="8,0,0,0">
-                                                <TextBlock x:Name="PromotionDisplay" Text="{Binding Promotion}" TextWrapping="Wrap" FontWeight="Bold" Cursor="Hand" MouseLeftButtonUp="EditableField_Click"/>
-                                                <TextBox x:Name="PromotionEditor" Text="{Binding Promotion, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" TextWrapping="Wrap" Visibility="Collapsed" LostFocus="EditableField_LostFocus" KeyDown="EditableField_KeyDown"/>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+
+                                                <Grid Grid.Column="0">
+                                                    <TextBlock x:Name="PromotionDisplay"
+                   Text="{Binding Promotion}"
+                   TextWrapping="Wrap"
+                   FontWeight="Bold"
+                   Cursor="Hand"
+                   MouseLeftButtonUp="EditableField_Click"/>
+
+                                                    <TextBox x:Name="PromotionEditor"
+                 Text="{Binding Promotion, Mode=TwoWay,
+                        UpdateSourceTrigger=PropertyChanged}"
+                 TextWrapping="Wrap"
+                 Visibility="Collapsed"
+                 LostFocus="EditableField_LostFocus"
+                 KeyDown="EditableField_KeyDown"/>
+                                                </Grid>
+
+                                                <Button Grid.Column="1"
+            Content="Types"
+            Width="52"
+            Height="26"
+            Margin="6,0,0,0"
+            VerticalAlignment="Top"
+            ToolTip="Edit promotion classifications"
+            Tag="{Binding}"
+            Click="PromotionTypes_Click"/>
                                             </Grid>
+
+                                            <!-- Selected promotion classifications -->
+                                            <TextBlock Grid.Row="11"
+           Grid.Column="0"
+           Text="Types:"/>
+
+                                            <TextBlock Grid.Row="11"
+           Grid.Column="1"
+           Margin="8,0,0,0"
+           Text="{Binding PromotionTypesDisplay}"
+           TextWrapping="Wrap"
+           FontWeight="Bold"
+           Foreground="#3478D4"/>
+
+
                                         </Grid>
                                     </Border>
                                     <TextBlock Text="ⓘ Existing product" FontWeight="Bold" Margin="0,6,0,8" Foreground="Blue">

@@ -15,7 +15,10 @@ public class ExtractedProduct : INotifyPropertyChanged
     public string? PackSizeText { get; set; }
 
     public string? Category { get; set; }
+    // New structured product classifications
+    public string? PrimaryCategory { get; set; }
 
+    public List<string> Categories { get; set; } = new();
     public string? Barcode { get; set; }
 
     public string? Price { get; set; }
@@ -29,7 +32,12 @@ public class ExtractedProduct : INotifyPropertyChanged
 
     public int? OfferQuantity { get; set; }
     public string? Promotion { get; set; }
-
+    // New structured offer classifications
+    public List<string> PromotionTypes { get; set; } = new();
+    public string PromotionTypesDisplay =>
+    PromotionTypes == null || PromotionTypes.Count == 0
+        ? ""
+        : string.Join(", ", PromotionTypes);
     private string? _imageFilePath;
 
     public string? ImageFilePath
