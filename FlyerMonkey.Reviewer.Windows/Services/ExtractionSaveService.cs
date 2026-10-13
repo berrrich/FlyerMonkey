@@ -58,9 +58,69 @@ public class ExtractionSaveService
 
         await createTable.ExecuteNonQueryAsync();
 
-        var insert = connection.CreateCommand();
+        // Update an existing uncommitted extraction,
+        // or insert a new extraction if none exists.
 
-        insert.CommandText = """
+        var save = connection.CreateCommand();
+
+        save.CommandText = """
+    UPDATE ExtractionRuns
+    SET
+        ProductCount = $productCount,
+        ExtractedJson = $json,
+        SavedUtc = CURRENT_TIMESTAMP
+    WHERE ID = (
+        SELECT ID
+        FROM ExtractionRuns
+        WHERE Retailer = $retailer
+          AND FlyerFileName = $flyerFileName
+          AND PageFileName = $pageFileName
+          AND Status = 'Saved'
+        ORDER BY ID DESC
+        LIMIT 1
+    );
+    """;
+
+        save.Parameters.AddWithValue("$retailer", flyer.Retailer);
+        save.Parameters.AddWithValue("$flyerFileName", flyer.FileName);
+        save.Parameters.AddWithValue("$pageFileName", page.FileName);
+        save.Parameters.AddWithValue("$productCount", productList.Count);
+        save.Parameters.AddWithValue("$json", json);
+
+        var rowsUpdated = await save.ExecuteNonQueryAsync();
+
+        if (rowsUpdated == 0)
+        {
+            // Do not silently create a second batch
+            // for a page already committed to SQL.
+            var check = connection.CreateCommand();
+
+            check.CommandText = """
+        SELECT COUNT(*)
+        FROM ExtractionRuns
+        WHERE Retailer = $retailer
+          AND FlyerFileName = $flyerFileName
+          AND PageFileName = $pageFileName
+          AND Status = 'Committed';
+        """;
+
+            check.Parameters.AddWithValue("$retailer", flyer.Retailer);
+            check.Parameters.AddWithValue("$flyerFileName", flyer.FileName);
+            check.Parameters.AddWithValue("$pageFileName", page.FileName);
+
+            var committedCount = Convert.ToInt32(
+                await check.ExecuteScalarAsync());
+
+            if (committedCount > 0)
+            {
+                throw new InvalidOperationException(
+                    "This page has already been committed. " +
+                    "Use the correction workflow to change committed data.");
+            }
+
+            var insert = connection.CreateCommand();
+
+            insert.CommandText = """
         INSERT INTO ExtractionRuns
         (
             Retailer,
@@ -81,32 +141,74 @@ public class ExtractionSaveService
         );
         """;
 
-        insert.Parameters.AddWithValue(
-            "$retailer",
-            flyer.Retailer);
+            insert.Parameters.AddWithValue("$retailer", flyer.Retailer);
+            insert.Parameters.AddWithValue("$flyerFileName", flyer.FileName);
+            insert.Parameters.AddWithValue("$pageFileName", page.FileName);
+            insert.Parameters.AddWithValue("$pageNumber", page.PageNumber);
+            insert.Parameters.AddWithValue("$productCount", productList.Count);
+            insert.Parameters.AddWithValue("$json", json);
 
-        insert.Parameters.AddWithValue(
-            "$flyerFileName",
-            flyer.FileName);
+            await insert.ExecuteNonQueryAsync();
 
-        insert.Parameters.AddWithValue(
-            "$pageFileName",
-            page.FileName);
+        } // Closes if (rowsUpdated == 0)
 
-        insert.Parameters.AddWithValue(
-            "$pageNumber",
-            page.PageNumber);
+    } // Closes SaveAsync()
 
-        insert.Parameters.AddWithValue(
-            "$productCount",
-            productList.Count);
+    public async Task UpdateSavedExtractionAsync(
+    long extractionId,
+    IEnumerable<ExtractedProduct> products)
+    {
+        var productList = products.ToList();
 
-        insert.Parameters.AddWithValue(
-            "$json",
-            json);
+        foreach (var product in productList)
+        {
+            ProductValidationService.SanitizeProduct(product);
+        }
 
-        await insert.ExecuteNonQueryAsync();
+        var json = JsonSerializer.Serialize(
+            productList,
+            new JsonSerializerOptions
+            {
+                WriteIndented = true
+            });
+
+        using var connection =
+            new SqliteConnection(_connectionString);
+
+        await connection.OpenAsync();
+
+        using var command = connection.CreateCommand();
+
+        command.CommandText = """
+        UPDATE ExtractionRuns
+        SET
+            ProductCount = $productCount,
+            ExtractedJson = $json,
+            SavedUtc = CURRENT_TIMESTAMP
+        WHERE ID = $extractionId
+          AND Status = 'Saved';
+        """;
+
+        command.Parameters.AddWithValue(
+            "$extractionId", extractionId);
+
+        command.Parameters.AddWithValue(
+            "$productCount", productList.Count);
+
+        command.Parameters.AddWithValue(
+            "$json", json);
+
+        var rowsUpdated =
+            await command.ExecuteNonQueryAsync();
+
+        if (rowsUpdated != 1)
+        {
+            throw new InvalidOperationException(
+                "The saved extraction could not be updated. " +
+                "It may already have been committed or deleted.");
+        }
     }
+
     public async Task UpdateProductsAsync(
     int extractionRunId,
     IEnumerable<ExtractedProduct> products)

@@ -120,7 +120,11 @@ namespace FlyerMonkey.Reviewer.Windows
     SelectionChangedEventArgs e)
         {
             if (FlyerList.SelectedItem is not FlyerFile flyer)
+            {
+                _selectedFlyer = null;
+                _selectedPage = null;
                 return;
+            }
 
             string fileName = flyer.FileName;
 
@@ -167,11 +171,14 @@ namespace FlyerMonkey.Reviewer.Windows
         }
 
         private void PageList_SelectionChanged(
-            object sender,
-            SelectionChangedEventArgs e)
+    object sender,
+    SelectionChangedEventArgs e)
         {
             if (PageList.SelectedItem is not FlyerPage page)
+            {
+                _selectedPage = null;
                 return;
+            }
 
             _selectedPage = page;
 
@@ -182,6 +189,10 @@ namespace FlyerMonkey.Reviewer.Windows
         }
         private async Task LoadSplitPagesAsync(FlyerFile flyer)
         {
+            // Remember the currently selected page.
+            string? selectedPageFileName =
+                _selectedPage?.FileName;
+
             PageList.Items.Clear();
 
             string splitRoot =
@@ -202,7 +213,7 @@ namespace FlyerMonkey.Reviewer.Windows
             if (pageFiles.Count > 0)
             {
                 string sqlitePath =
-    @"C:\Users\richa\source\repos\FlyerMonkey\DATA\FlyerMonkey.db";
+                    @"C:\Users\richa\source\repos\FlyerMonkey\DATA\FlyerMonkey.db";
 
                 var extractionReadService =
                     new ExtractionReadService(sqlitePath);
@@ -210,29 +221,47 @@ namespace FlyerMonkey.Reviewer.Windows
                 var extractionStates =
                     await extractionReadService.GetExtractionStatesAsync();
 
-                for (int i = 0; i < pageFiles.Count; i++)
+                foreach (var pageFile in pageFiles)
                 {
                     var page = new FlyerPage
                     {
-                        PageNumber = i + 1,
-                        FileName = Path.GetFileName(pageFiles[i]),
-                        FullPath = pageFiles[i],
-                        Thumbnail = CreateThumbnail(pageFiles[i])
+                        PageNumber = PageList.Items.Count + 1,
+                        FileName = Path.GetFileName(pageFile),
+                        FullPath = pageFile,
+                        Thumbnail = CreateThumbnail(pageFile)
                     };
-                    var extractionState = extractionStates.FirstOrDefault(x =>
-    x.FlyerFileName == flyer.FileName &&
-    x.PageFileName == page.FileName);
+
+                    var extractionState =
+                        extractionStates.FirstOrDefault(x =>
+                            x.FlyerFileName == flyer.FileName &&
+                            x.PageFileName == page.FileName);
 
                     if (extractionState != null)
                     {
                         page.ExtractionStatus = extractionState.Status;
                         page.ExtractionRunId = extractionState.Id;
                     }
+
                     PageList.Items.Add(page);
                 }
 
-                // Automatically select page 1.
-                PageList.SelectedIndex = 0;
+                // Restore the previously selected page.
+                FlyerPage? pageToSelect = null;
+
+                if (!string.IsNullOrEmpty(selectedPageFileName))
+                {
+                    pageToSelect = PageList.Items
+                        .OfType<FlyerPage>()
+                        .FirstOrDefault(p =>
+                            p.FileName == selectedPageFileName);
+                }
+
+                // Default to page 1 if no previous selection.
+                pageToSelect ??= PageList.Items
+                    .OfType<FlyerPage>()
+                    .FirstOrDefault();
+
+                PageList.SelectedItem = pageToSelect;
             }
         }
         private void SplitPdf(string sourcePdf)
@@ -702,6 +731,12 @@ namespace FlyerMonkey.Reviewer.Windows
                     var productId =
     await repository.AddProductAsync(product);
 
+                    await repository.SaveProductCategoriesAsync(
+                        productId,
+                        extractedProduct.PrimaryCategory
+                            ?? extractedProduct.Category,
+                        extractedProduct.Categories);
+
                     var offer = new Offer
                     {
                         ProductID = productId,
@@ -1004,19 +1039,39 @@ namespace FlyerMonkey.Reviewer.Windows
             }
         }
 
+
         private async void SaveDataButton_Click(
-    object sender,
-    RoutedEventArgs e)
+            object sender,
+            RoutedEventArgs e)
         {
-            if (_selectedFlyer == null ||
-                _selectedPage == null)
+            var savedExtraction =
+                SavedExtractionList.SelectedItem as SavedExtraction;
+
+            bool editingSavedExtraction =
+                savedExtraction != null &&
+                savedExtraction.Status == "Saved";
+
+            if (!editingSavedExtraction &&
+                (_selectedFlyer == null || _selectedPage == null))
             {
+                MessageBox.Show(
+                    "Select a flyer and page, or open a saved extraction.",
+                    "Save",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+
                 return;
             }
 
             if (ProductList.ItemsSource
                 is not IEnumerable<ExtractedProduct> products)
             {
+                MessageBox.Show(
+                    "No product data is available to save.",
+                    "Save",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+
                 return;
             }
 
@@ -1026,7 +1081,6 @@ namespace FlyerMonkey.Reviewer.Windows
             {
                 MessageBox.Show(
                     "There is no extracted data to save.");
-
                 return;
             }
 
@@ -1041,24 +1095,44 @@ namespace FlyerMonkey.Reviewer.Windows
                 var saver =
                     new ExtractionSaveService(databasePath);
 
-                await saver.SaveAsync(
-                _selectedFlyer,
-                _selectedPage,
-                productList);
-
-                MessageBox.Show(
-                    $"Saved {productList.Count} products from {_selectedPage.FileName}.",
-                    "Save complete",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Information);
-
-                if (PageList.SelectedItem is FlyerPage page)
+                if (editingSavedExtraction)
                 {
-                    page.ExtractionStatus = "Saved";
-                }
-                await LoadSplitPagesAsync(_selectedFlyer);
-                await LoadSavedExtractionsAsync();
+                    // Update the exact existing SQLite batch.
+                    await saver.UpdateSavedExtractionAsync(
+                        savedExtraction!.Id,
+                        productList);
 
+                    MessageBox.Show(
+                        $"Updated {productList.Count} products in " +
+                        $"{savedExtraction.PageFileName}.",
+                        "Save complete",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Information);
+                }
+                else
+                {
+                    // Save a fresh extraction.
+                    await saver.SaveAsync(
+                        _selectedFlyer!,
+                        _selectedPage!,
+                        productList);
+
+                    if (PageList.SelectedItem is FlyerPage page)
+                    {
+                        page.ExtractionStatus = "Saved";
+                    }
+
+                    await LoadSplitPagesAsync(_selectedFlyer!);
+
+                    MessageBox.Show(
+                        $"Saved {productList.Count} products from " +
+                        $"{_selectedPage?.FileName}.",
+                        "Save complete",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Information);
+                }
+
+                await LoadSavedExtractionsAsync();
             }
             catch (Exception ex)
             {
@@ -1074,6 +1148,7 @@ namespace FlyerMonkey.Reviewer.Windows
                 SaveDataButton.IsEnabled = true;
             }
         }
+
 
         private async Task LoadSavedExtractionsAsync()
         {

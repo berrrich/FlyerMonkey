@@ -20,6 +20,9 @@ namespace FlyerMonkey.Shared.Model
         public string? Barcode { get; set; }
 
         public string? Category { get; set; }
+        public string? PrimaryCategory { get; set; }
+
+        public List<string> Categories { get; set; } = new();
 
         public string? ImageBlobPath { get; set; }
     }

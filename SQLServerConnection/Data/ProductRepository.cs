@@ -76,6 +76,78 @@ VALUES
 
         return Convert.ToInt32(result);
     }
+
+    public async Task SaveProductCategoriesAsync(
+        int productId,
+        string? primaryCategory,
+        IEnumerable<string>? categories,
+        CancellationToken cancellationToken = default)
+    {
+        var categoryNames = (categories ?? Enumerable.Empty<string>())
+            .Where(c => !string.IsNullOrWhiteSpace(c))
+            .Select(c => c.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (!string.IsNullOrWhiteSpace(primaryCategory))
+        {
+            primaryCategory = primaryCategory.Trim();
+
+            if (!categoryNames.Contains(
+                primaryCategory,
+                StringComparer.OrdinalIgnoreCase))
+            {
+                categoryNames.Insert(0, primaryCategory);
+            }
+        }
+
+        if (categoryNames.Count == 0)
+            return;
+
+        const string sql = """
+        INSERT INTO dbo.ProductCategories
+            (ProductID, CategoryID, IsPrimary)
+        SELECT
+            @ProductID,
+            c.ID,
+            CASE
+            WHEN LOWER(c.Name) = LOWER(@PrimaryCategory) THEN 1
+            ELSE 0
+        END
+        FROM dbo.Categories c
+        WHERE c.Name = @CategoryName
+          AND c.IsActive = 1
+          AND NOT EXISTS
+          (
+              SELECT 1
+              FROM dbo.ProductCategories pc
+              WHERE pc.ProductID = @ProductID
+                AND pc.CategoryID = c.ID
+          );
+        """;
+
+        await using var connection =
+            await OpenConnectionWithRetryAsync(cancellationToken);
+
+        foreach (var categoryName in categoryNames)
+        {
+            await using var command =
+                new SqlCommand(sql, connection);
+
+            command.Parameters.AddWithValue(
+                "@ProductID", productId);
+
+            command.Parameters.AddWithValue(
+                "@PrimaryCategory",
+                (object?)primaryCategory ?? DBNull.Value);
+
+            command.Parameters.AddWithValue(
+                "@CategoryName", categoryName);
+
+            await command.ExecuteNonQueryAsync(cancellationToken);
+        }
+    }
+
     public ProductRepository(string connectionString)
     {
         if (string.IsNullOrWhiteSpace(connectionString))
