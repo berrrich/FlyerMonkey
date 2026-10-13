@@ -1,0 +1,64 @@
+﻿@page "/products/{Id:int}"
+
+@using FlyerMonkey.Shared.Model
+@using FlyerMonkey.Shared.Services
+
+@inject IProductService ProductService
+
+<PageTitle>Product Details</PageTitle>
+
+@if (_product is null)
+{
+    <p>Loading product...</p>
+}
+else
+{
+    <h2>@_product.Name</h2>
+
+    <p><strong>Brand:</strong> @_product.Brand</p>
+    <p><strong>Pack size:</strong> @_product.PackSizeText</p>
+
+    @if (!string.IsNullOrWhiteSpace(_product.ImageBlobPath))
+    {
+        <img src="@($"https://flyermonkeyapi-g7htasdacxfzgbcd.australiaeast-01.azurewebsites.net/api/products/{_product.ID}/image")"
+             alt="@_product.Name"
+             style="max-width:250px;max-height:250px;object-fit:contain;" />
+    }
+
+    <h4>Categories</h4>
+
+    <p>
+        <strong>Primary:</strong>
+        @(_product.PrimaryCategory ?? _product.Category ?? "Not assigned")
+    </p>
+
+    @if (_product.Categories is { Count: > 0 })
+    {
+        <ul>
+            @foreach (var category in _product.Categories)
+            {
+                <li>@category</li>
+            }
+        </ul>
+    }
+    else
+    {
+        <p>No additional categories assigned.</p>
+    }
+
+    <a href="/products">← Back to Products</a>
+}
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    private Product? _product;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        var products = await ProductService.GetProductsAsync();
+
+        _product = products.FirstOrDefault(p => p.ID == Id);
+    }
+}

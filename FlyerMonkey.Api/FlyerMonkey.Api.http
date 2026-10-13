@@ -35,3 +35,11 @@ Content-Type: application/json
   "name": "Pepsi Max",
   "price": 3.50
 }
+
+###
+
+
+GET {{FlyerMonkey.Api_HostAddress}}/api/products/104
+Accept: application/json
+
+

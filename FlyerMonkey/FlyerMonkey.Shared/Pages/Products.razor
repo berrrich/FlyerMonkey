@@ -40,7 +40,13 @@ else
         }
     </td>
     <td>@product.ID</td>
-    <td>@product.Name</td>
+
+                    <td>
+                        <a href="@($"/products/{product.ID}")">
+                            @product.Name
+                        </a>
+                    </td>
+
 </tr>
             }
         </tbody>

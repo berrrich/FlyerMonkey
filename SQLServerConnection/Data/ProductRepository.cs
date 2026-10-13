@@ -269,6 +269,53 @@ VALUES
             });
         }
 
+        await reader.CloseAsync();
+
+        // Load multiple categories for each product.
+        const string categorySql = """
+SELECT
+pc.ProductID,
+c.Name AS CategoryName,
+pc.IsPrimary
+FROM dbo.ProductCategories pc
+INNER JOIN dbo.Categories c
+    ON c.ID = pc.CategoryID
+ORDER BY
+    pc.ProductID,
+    pc.IsPrimary DESC,
+    c.Name;
+""";
+
+        await using var categoryCommand =
+            new SqlCommand(categorySql, connection);
+
+        await using var categoryReader =
+            await categoryCommand.ExecuteReaderAsync(cancellationToken);
+
+        var productLookup = products.ToDictionary(p => p.ID);
+
+        while (await categoryReader.ReadAsync(cancellationToken))
+        {
+            int productId =
+                Convert.ToInt32(categoryReader["ProductID"]);
+
+            string categoryName =
+                categoryReader["CategoryName"]?.ToString()
+                ?? string.Empty;
+
+            if (productLookup.TryGetValue(productId, out var product)
+                && !string.IsNullOrWhiteSpace(categoryName))
+            {
+                product.Categories.Add(categoryName);
+
+                if (Convert.ToBoolean(categoryReader["IsPrimary"]))
+                {
+                    product.PrimaryCategory = categoryName;
+                }
+
+            }
+        }
+
         return products;
     }
 }
