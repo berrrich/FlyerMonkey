@@ -22,18 +22,19 @@ else
         <div class="row g-4 align-items-start">
 
             <!-- Product image -->
-            <div class="fm-product-image">
+<div class="fm-product-image">
     @if (!string.IsNullOrWhiteSpace(_product.ImageBlobPath))
     {
         <img
             src="@($"https://flyermonkeyapi-g7htasdacxfzgbcd.australiaeast-01.azurewebsites.net/api/products/{_product.ID}/image")"
             alt="@_product.Name"
-            onerror="this.onerror=null;this.src='_content/FlyerMonkey.Shared/images/product-placeholder.png';" />
+            onerror="this.onerror=null;this.src='/_content/FlyerMonkey.Shared/images/product-placeholder.png';" />
     }
     else
     {
-        <img src="images/product-placeholder.png"
-             alt="Product image unavailable" />
+        <img
+            src="/_content/FlyerMonkey.Shared/images/product-placeholder.png"
+            alt="Product image unavailable" />
     }
 </div>
 

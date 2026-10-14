@@ -39,13 +39,13 @@ else
         <img
             src="@($"https://flyermonkeyapi-g7htasdacxfzgbcd.australiaeast-01.azurewebsites.net/api/products/{_offer.ProductID}/image")"
             alt="@_offer.ProductName"
-            onerror="this.onerror=null;this.src='_content/FlyerMonkey.Shared/images/product-placeholder.png';" />
+            onerror="this.onerror=null;this.src='/_content/FlyerMonkey.Shared/images/product-placeholder.png';" />
     }
     else
-    {
-        <img src="images/product-placeholder.png"
-             alt="Product image unavailable" />
-    }
+{
+    <img src="/_content/FlyerMonkey.Shared/images/product-placeholder.png"
+         alt="Product image unavailable" />
+}
 </div>
 
 
