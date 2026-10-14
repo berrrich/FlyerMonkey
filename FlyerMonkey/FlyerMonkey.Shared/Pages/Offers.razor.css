@@ -1,0 +1,7 @@
+/* CSS for Offers component */
+a.offer-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+}

@@ -1,0 +1,188 @@
+﻿
+@page "/offers/{Id:int}"
+
+@using FlyerMonkey.Shared.Model
+@using FlyerMonkey.Shared.Services
+
+@inject IOfferService OfferService
+
+<PageTitle>Offer Details</PageTitle>
+
+@if (_isLoading)
+{
+    <p>Loading offer...</p>
+}
+else if (_error is not null)
+{
+    <p class="text-danger">@_error</p>
+}
+else if (_offer is null)
+{
+    <p>Offer not found.</p>
+    <a href="/">← Back to Offers</a>
+}
+else
+{
+    <div class="container py-4">
+
+        <a href="/" class="d-inline-block mb-4">
+            ← Back to Offers
+        </a>
+
+        <div class="row g-4 align-items-start">
+
+            <!-- Product image -->
+            
+<div class="fm-offer-image">
+    @if (_offer.ProductID > 0)
+    {
+        <img
+            src="@($"https://flyermonkeyapi-g7htasdacxfzgbcd.australiaeast-01.azurewebsites.net/api/products/{_offer.ProductID}/image")"
+            alt="@_offer.ProductName"
+            onerror="this.onerror=null;this.src='_content/FlyerMonkey.Shared/images/product-placeholder.png';" />
+    }
+    else
+    {
+        <img src="images/product-placeholder.png"
+             alt="Product image unavailable" />
+    }
+</div>
+
+
+            <!-- Offer details -->
+            <div class="col-12 col-md-6">
+
+                <div class="fm-offer-details">
+
+                    <div class="text-muted mb-2">
+                        @_offer.RetailerName
+
+                        @if (!string.IsNullOrWhiteSpace(_offer.StoreName))
+                        {
+                            <span> · @_offer.StoreName</span>
+                        }
+                    </div>
+
+                    <h1>@_offer.ProductName</h1>
+
+                    @if (!string.IsNullOrWhiteSpace(_offer.Brand))
+                    {
+                        <p><strong>Brand:</strong> @_offer.Brand</p>
+                    }
+
+                    @if (!string.IsNullOrWhiteSpace(_offer.Variant))
+                    {
+                        <p><strong>Variant:</strong> @_offer.Variant</p>
+                    }
+
+                    @if (!string.IsNullOrWhiteSpace(_offer.PackSizeText))
+                    {
+                        <p><strong>Pack size:</strong> @_offer.PackSizeText</p>
+                    }
+
+                    @if (_offer.AdvertisedPrice.HasValue)
+                    {
+                        <div class="fm-offer-price">
+                            @_offer.AdvertisedPrice.Value.ToString("C")
+                        </div>
+                    }
+
+                    @if (_offer.RegularPrice.HasValue)
+                    {
+                        <p class="text-muted">
+                            Regular price:
+                            @_offer.RegularPrice.Value.ToString("C")
+                        </p>
+                    }
+
+                    @if (_offer.AdvertisedSaving.HasValue)
+                    {
+                        <p class="text-success fw-bold">
+                            Save @_offer.AdvertisedSaving.Value.ToString("C")
+                        </p>
+                    }
+
+                    @if (!string.IsNullOrWhiteSpace(_offer.UnitPriceText))
+                    {
+                        <p>@_offer.UnitPriceText</p>
+                    }
+
+                    @if (!string.IsNullOrWhiteSpace(_offer.PromoText))
+                    {
+                        <p><strong>Promotion:</strong> @_offer.PromoText</p>
+                    }
+
+                    @if (_offer.ValidFrom.HasValue || _offer.ValidTo.HasValue)
+                    {
+                        <p class="text-muted">
+                            Valid:
+                            @(_offer.ValidFrom?.ToString("dd MMM yyyy") ?? "—")
+                            to
+                            @(_offer.ValidTo?.ToString("dd MMM yyyy") ?? "—")
+                        </p>
+                    }
+
+                    <hr class="my-4" />
+
+                    <button class="btn btn-primary w-100 mb-2"
+                            disabled>
+                        🛒 Add to Cart — Coming Soon
+                    </button>
+
+                    <button class="btn btn-outline-secondary w-100"
+                            disabled>
+                        ☄️ Crater It! — Coming Soon
+                    </button>
+
+                    <div class="mt-4">
+                        <a href="@($"/products/{_offer.ProductID}")">
+                            View Product Details →
+                        </a>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+        <section class="mt-5">
+            <h3>Compare Offers</h3>
+            <p class="text-muted">
+                Other retailer offers for this product will appear here.
+            </p>
+            <div class="fm-offer-placeholder">
+                More offers coming soon.
+            </div>
+        </section>
+
+    </div>
+}
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    private OfferSummary? _offer;
+    private bool _isLoading = true;
+    private string? _error;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _isLoading = true;
+        _error = null;
+        _offer = null;
+
+        try
+        {
+            var offers = await OfferService.GetOffersAsync();
+            _offer = offers.FirstOrDefault(o => o.OfferID == Id);
+        }
+        catch (Exception ex)
+        {
+            _error = $"Unable to load offer: {ex.Message}";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+}

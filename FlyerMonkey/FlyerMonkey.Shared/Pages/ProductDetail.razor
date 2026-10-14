@@ -13,40 +13,107 @@
 }
 else
 {
-    <h2>@_product.Name</h2>
+    <div class="container py-4">
 
-    <p><strong>Brand:</strong> @_product.Brand</p>
-    <p><strong>Pack size:</strong> @_product.PackSizeText</p>
+        <a href="/products" class="d-inline-block mb-4">
+            ← Back to Products
+        </a>
 
+        <div class="row g-4 align-items-start">
+
+            <!-- Product image -->
+            <div class="fm-product-image">
     @if (!string.IsNullOrWhiteSpace(_product.ImageBlobPath))
     {
-        <img src="@($"https://flyermonkeyapi-g7htasdacxfzgbcd.australiaeast-01.azurewebsites.net/api/products/{_product.ID}/image")"
-             alt="@_product.Name"
-             style="max-width:250px;max-height:250px;object-fit:contain;" />
-    }
-
-    <h4>Categories</h4>
-
-    <p>
-        <strong>Primary:</strong>
-        @(_product.PrimaryCategory ?? _product.Category ?? "Not assigned")
-    </p>
-
-    @if (_product.Categories is { Count: > 0 })
-    {
-        <ul>
-            @foreach (var category in _product.Categories)
-            {
-                <li>@category</li>
-            }
-        </ul>
+        <img
+            src="@($"https://flyermonkeyapi-g7htasdacxfzgbcd.australiaeast-01.azurewebsites.net/api/products/{_product.ID}/image")"
+            alt="@_product.Name"
+            onerror="this.onerror=null;this.src='_content/FlyerMonkey.Shared/images/product-placeholder.png';" />
     }
     else
     {
-        <p>No additional categories assigned.</p>
+        <img src="images/product-placeholder.png"
+             alt="Product image unavailable" />
     }
+</div>
 
-    <a href="/products">← Back to Products</a>
+            <!-- Product details -->
+            <div class="col-12 col-md-6">
+
+                <div class="fm-product-details">
+
+                    <div class="text-muted mb-2">
+                        @(_product.PrimaryCategory
+                            ?? _product.Category
+                            ?? "Uncategorised")
+                    </div>
+
+                    <h1>@_product.Name</h1>
+
+                    @if (!string.IsNullOrWhiteSpace(_product.Brand))
+                    {
+                        <p>
+                            <strong>Brand:</strong>
+                            @_product.Brand
+                        </p>
+                    }
+
+                    @if (!string.IsNullOrWhiteSpace(_product.PackSizeText))
+                    {
+                        <p>
+                            <strong>Pack size:</strong>
+                            @_product.PackSizeText
+                        </p>
+                    }
+
+                    <h5 class="mt-4">Categories</h5>
+
+                    @if (_product.Categories is { Count: > 0 })
+                    {
+                        <div class="d-flex flex-wrap gap-2">
+                            @foreach (var category in _product.Categories)
+                            {
+                                <span class="badge bg-secondary">
+                                    @category
+                                </span>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <p class="text-muted">
+                            No additional categories assigned.
+                        </p>
+                    }
+
+                    <hr class="my-4" />
+
+                    <button class="btn btn-outline-secondary w-100"
+                            disabled>
+                        ☄️ Crater It! — Coming Soon
+                    </button>
+
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Related offers -->
+        <section class="mt-5">
+
+            <h3>Compare Offers</h3>
+
+            <p class="text-muted">
+                Compare prices and promotions from retailers.
+            </p>
+
+            <div class="fm-offer-placeholder">
+                Offers for this product will appear here.
+            </div>
+
+        </section>
+
+    </div>
 }
 
 @code {
@@ -57,6 +124,8 @@ else
 
     protected override async Task OnParametersSetAsync()
     {
+        _product = null;
+
         var products = await ProductService.GetProductsAsync();
 
         _product = products.FirstOrDefault(p => p.ID == Id);
