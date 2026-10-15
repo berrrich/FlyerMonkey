@@ -23,7 +23,7 @@ public class ImageGenerationService
 
         return result.Value.ImageBytes;
     }*/
-    public async Task<BinaryData> GenerateAsync(string prompt)
+    public async Task<BinaryData> GenerateAsync(string prompt, CancellationToken cancellationToken = default)
     {
 #pragma warning disable OPENAI001
         var options = new ImageGenerationOptions
@@ -36,7 +36,8 @@ public class ImageGenerationService
         var result =
             await _imageClient.GenerateImageAsync(
                 prompt,
-                options);
+                options,
+                cancellationToken);
 
         return result.Value.ImageBytes;
     }

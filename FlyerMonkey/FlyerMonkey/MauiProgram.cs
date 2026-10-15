@@ -22,6 +22,9 @@ namespace FlyerMonkey
             
             builder.Services.AddSyncfusionBlazor();
 
+            // No base address: generation stays disabled in MAUI.
+            builder.Services.AddHttpClient<ImageGenerationApiService>();
+
             var apiBaseUrl =
                 "https://flyermonkeyapi-g7htasdacxfzgbcd.australiaeast-01.azurewebsites.net/";
 

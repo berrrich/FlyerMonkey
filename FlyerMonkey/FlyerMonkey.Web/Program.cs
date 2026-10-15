@@ -15,6 +15,16 @@ builder.Services.AddRazorComponents()
 
 builder.Services.AddSyncfusionBlazor();
 
+builder.Services.AddHttpClient<ImageGenerationApiService>(client =>
+{
+    if (builder.Environment.IsDevelopment() &&
+        builder.Configuration.GetValue<bool>("CraterIt:Enabled") &&
+        Uri.TryCreate(builder.Configuration["CraterIt:ApiBaseUrl"], UriKind.Absolute, out var uri) &&
+        uri.IsLoopback && (uri.Scheme == "http" || uri.Scheme == "https"))
+        client.BaseAddress = uri;
+    client.Timeout = TimeSpan.FromMinutes(3);
+}).ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
+
 builder.Services.AddHttpClient<
     AppProductService,
     WebProductApiService>(client =>
