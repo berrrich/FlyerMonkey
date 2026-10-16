@@ -2,6 +2,7 @@
 
 @using FlyerMonkey.Shared.Model
 @using FlyerMonkey.Shared.Services
+@using FlyerMonkey.Shared.Components
 
 @inject IProductService ProductService
 @inject ImageGenerationApiService ImageGeneration
@@ -21,27 +22,37 @@ else
             ← Back to Products
         </a>
 
-        <div class="row g-4 align-items-start">
+        <div class="fm-detail-layout">
 
-            <!-- Product image -->
-<div class="fm-product-image">
-    @if (!string.IsNullOrWhiteSpace(_product.ImageBlobPath))
-    {
-        <img
-            src="@($"https://flyermonkeyapi-g7htasdacxfzgbcd.australiaeast-01.azurewebsites.net/api/products/{_product.ID}/image")"
-            alt="@_product.Name"
-            onerror="this.onerror=null;this.src='/_content/FlyerMonkey.Shared/images/product-placeholder.png';" />
-    }
-    else
-    {
-        <img
-            src="/_content/FlyerMonkey.Shared/images/product-placeholder.png"
-            alt="Product image unavailable" />
-    }
-</div>
-
-            <!-- Product details -->
-            <div class="col-12 col-md-6">
+            <section class="fm-artwork" aria-label="Product images">
+                <figure>
+                    <div class="fm-product-image">
+                        @if (!string.IsNullOrWhiteSpace(_product.ImageBlobPath))
+                        {
+                            <img src="@($"https://flyermonkeyapi-g7htasdacxfzgbcd.australiaeast-01.azurewebsites.net/api/products/{_product.ID}/image")"
+                                 alt="@_product.Name"
+                                 onerror="this.onerror=null;this.src='/_content/FlyerMonkey.Shared/images/product-placeholder.png';" />
+                        }
+                        else
+                        {
+                            <img src="/_content/FlyerMonkey.Shared/images/product-placeholder.png"
+                                 alt="Product image unavailable" />
+                        }
+                    </div>
+                    <figcaption>Original product image — authoritative product reference when available.</figcaption>
+                </figure>
+                @if (_preview is not null)
+                {
+                    <figure>
+                        <div class="fm-product-image">
+                            <img src="@_preview" alt="@_previewStyle artwork inspired by @_product.Name" />
+                        </div>
+                        <figcaption>@_previewStyle — AI-generated artwork, not an authoritative product reference.</figcaption>
+                        <button type="button" class="btn btn-link" @onclick="() => _preview = null">Clear preview</button>
+                    </figure>
+                }
+            </section>
+            <div class="fm-detail-information">
 
                 <div class="fm-product-details">
 
@@ -93,27 +104,31 @@ else
 
                     @if (ImageGeneration.IsEnabled)
                     {
-                        <button class="btn btn-outline-secondary w-100"
-                                disabled="@(_generation is not null)" @onclick="GenerateAsync">
-                            @(_generation is not null ? "Cratering..." : "Crater It!")
-                        </button>
-                        @if (_generation is not null)
-                        {
-                            <p role="status">Generating a temporary preview...</p>
-                            <button class="btn btn-link" @onclick="CancelGeneration">Cancel</button>
-                        }
-                        @if (_generationMessage is not null)
-                        {
-                            <p role="alert">@_generationMessage</p>
-                        }
-                        @if (_preview is not null)
-                        {
-                            <figure class="mt-3">
-                                <img src="@_preview" alt="Generated preview of @_product.Name" class="img-fluid" />
-                                <figcaption>Generated preview only. The original image is unchanged.</figcaption>
-                            </figure>
-                            <button class="btn btn-link" @onclick="() => _preview = null">Clear preview</button>
-                        }
+                        <section id="crater-controls" aria-labelledby="crater-title" tabindex="-1" @ref="_craterControls">
+                            <h2 id="crater-title">Crater It!</h2>
+                            <label for="crater-style">Creative style</label>
+                            <select id="crater-style" class="form-select mb-2" @bind="_style" disabled="@(_generation is not null)">
+                                @foreach (var preset in CraterItPromptBuilder.Presets)
+                                {
+                                    <option value="@preset.Style">@preset.Name</option>
+                                }
+                            </select>
+                            <p>@CraterItPromptBuilder.GetPreset(_style).Description</p>
+                            <p class="text-muted">Temporary AI artwork based on product descriptions. Packaging and branding may differ from the original.</p>
+                            <button type="button" class="btn btn-outline-secondary w-100"
+                                    disabled="@(_generation is not null)" @onclick="GenerateAsync">
+                                <CraterComet /> @(_generation is not null ? "Cratering..." : "Crater It!")
+                            </button>
+                            @if (_generation is not null)
+                            {
+                                <p role="status">Generating a temporary preview...</p>
+                                <button class="btn btn-link" @onclick="CancelGeneration">Cancel</button>
+                            }
+                            @if (_generationMessage is not null)
+                            {
+                                <p role="alert">@_generationMessage</p>
+                            }
+                        </section>
                     }
                     else
                     {
@@ -147,9 +162,26 @@ else
     [Parameter]
     public int Id { get; set; }
 
+    [SupplyParameterFromQuery(Name = "crater")]
+    public bool OpenCrater { get; set; }
+
+    private ElementReference _craterControls;
+    private bool _focusCrater;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_focusCrater && _product is not null && ImageGeneration.IsEnabled)
+        {
+            _focusCrater = false;
+            await _craterControls.FocusAsync();
+        }
+    }
+
     private Product? _product;
     private CancellationTokenSource? _generation;
     private string? _preview;
+    private string? _previewStyle;
+    private CraterStyle _style = CraterStyle.Classic;
     private string? _generationMessage;
     private bool _disposed;
     private int _loadVersion;
@@ -163,13 +195,16 @@ else
         var request = new CancellationTokenSource();
         _generation = request;
         _generationMessage = null;
-        var prompt = $"Create a clean product image for {Field(_product.Brand)} {Field(_product.Name)}, " +
-            $"{Field(_product.Variant)}, {Field(_product.PackSizeText)} on a plain background.";
+        var style = _style;
+        var prompt = CraterItPromptBuilder.Build(_product, style);
         try
         {
             var bytes = await ImageGeneration.GenerateAsync(prompt, request.Token);
             if (IsCurrent() && !request.IsCancellationRequested)
+            {
                 _preview = "data:image/jpeg;base64," + Convert.ToBase64String(bytes);
+                _previewStyle = CraterItPromptBuilder.GetPreset(style).Name;
+            }
         }
         catch (OperationCanceledException)
         {
@@ -193,12 +228,6 @@ else
         bool IsCurrent() => !_disposed && Id == productId && ReferenceEquals(_generation, request);
     }
 
-    private static string Field(string? value)
-    {
-        var text = (value ?? "").Trim();
-        return text[..Math.Min(text.Length, 300)];
-    }
-
     private void CancelGeneration() => _generation?.Cancel();
 
     public void Dispose()
@@ -212,6 +241,9 @@ else
         CancelGeneration();
         _generation = null;
         _preview = null;
+        _previewStyle = null;
+        _style = CraterStyle.Classic;
+        _focusCrater = OpenCrater;
         _generationMessage = null;
         var version = ++_loadVersion;
         var productId = Id;

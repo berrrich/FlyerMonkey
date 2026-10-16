@@ -6,6 +6,8 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="../../FlyerMonkey/FlyerMonkey.Shared/Services/CraterItPromptBuilder.cs" Link="CraterItPromptBuilder.cs" />
+    <Compile Include="../../FlyerMonkey/FlyerMonkey.Shared/Model/Product.cs" Link="Product.cs" />
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <Using Include="Microsoft.AspNetCore.Hosting" />
     <Using Include="Microsoft.Extensions.Configuration" />

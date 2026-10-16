@@ -14,6 +14,23 @@ void Check(bool condition, string name)
     checks++;
 }
 
+var product = new FlyerMonkey.Shared.Model.Product
+    { Brand = "Brand", Name = "Asparagus", Variant = "Fresh", PackSizeText = "250g" };
+var classic = CraterItPromptBuilder.Build(product, CraterStyle.Classic);
+Check(classic.StartsWith("Create a clean product image for Brand Asparagus, Fresh, 250g on a plain background."),
+    "Classic preserves established wording and metadata order");
+Check(CraterItPromptBuilder.Presets.Count == 5 &&
+    CraterItPromptBuilder.Presets.Select(p => p.Style).Distinct().Count() == 5, "Five distinct presets available");
+product.Brand = product.Name = product.Variant = product.PackSizeText = new string('x', 4000);
+Check(CraterItPromptBuilder.Presets.All(p => CraterItPromptBuilder.Build(product, p.Style).Length <= 2000),
+    "Every preset stays within API prompt limit with oversized metadata");
+Check(CraterItPromptBuilder.Presets.All(p => !string.IsNullOrWhiteSpace(
+    CraterItPromptBuilder.Build(new FlyerMonkey.Shared.Model.Product(), p.Style))), "Missing metadata supported");
+Check(CraterItPromptBuilder.Presets.Where(p => p.Style != CraterStyle.Classic).All(p =>
+    !CraterItPromptBuilder.Build(product, p.Style).Contains("on a plain background")), "Creative presets do not inherit plain-background constraint");
+try { CraterItPromptBuilder.Build(product, (CraterStyle)999); throw new Exception("Expected unknown preset rejection"); }
+catch (ArgumentOutOfRangeException) { Check(true, "Unknown preset rejected"); }
+
 async Task<ActionResult> Call(string environment = "Development", bool enabled = true,
     string remote = "127.0.0.1", string host = "localhost:5000", bool header = true,
     string prompt = "product", ImageGenerationService? service = null,

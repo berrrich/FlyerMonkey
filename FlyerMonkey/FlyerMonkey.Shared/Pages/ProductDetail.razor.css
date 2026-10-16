@@ -1,4 +1,11 @@
 ﻿
+.fm-detail-layout { display: grid; grid-template-columns: minmax(0, 2fr) minmax(260px, 1fr); gap: 1.5rem; }
+.fm-artwork { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 1rem; }
+.fm-artwork figure { margin: 0; min-width: 0; }
+.fm-artwork figcaption { padding: .75rem 0; color: #555; }
+.fm-detail-information { min-width: 0; }
+#crater-controls { scroll-margin-top: 1rem; }
+#crater-controls:focus { outline: 3px solid #c92d3b; outline-offset: 6px; }
 .fm-product-image {
     background: #f7f7f7;
     border: 1px solid #ddd;
@@ -44,6 +51,7 @@
 }
 
 @media (max-width: 767px) {
+    .fm-detail-layout { grid-template-columns: minmax(0, 1fr); }
     .fm-product-image {
         min-height: 260px;
     }

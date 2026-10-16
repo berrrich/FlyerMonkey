@@ -45,3 +45,21 @@ Cancellation stops client waiting and propagates to the provider request, but ca
 ## Interrupted-work recovery
 
 At resumption git status showed only untracked docs/ and git diff was empty; no partial application changes existed. This implementation used smaller patches below the BOM-prefixed first line. All patches in this run succeeded, and existing work was preserved.
+
+## Mission 003 — creative presets (2026-10-16)
+
+Added shared Services/CraterItPromptBuilder.cs with Crater Classic, Comet Crush, Alien Exposure, Comety and Pull the Lever definitions. Classic preserves the existing Product Detail prompt opening, metadata order, 300-character field bounds and plain background; restrained fidelity instructions follow it. Other styles use the same metadata without the plain-background constraint. Prompts exclude movie-specific scenes and copyrighted characters.
+
+Product Detail now offers a labelled preset selector and responsive original/generated image comparison. The original remains the authoritative reference. Each successful temporary preview retains its preset caption; failed regeneration preserves the previous preview. Existing cancel, loading, errors, duplicate-request and stale-result safeguards remain.
+
+Products now uses responsive cards with a compact red SVG comet, accessible action name and hover/focus tooltip. The comet navigates to Product Detail using ?crater=true#crater-controls, where controls receive focus after loading. Navigation never starts generation. Actions remain gated by existing local client enablement.
+
+Changed files: both product pages, Product Detail CSS, new Pages/Products.razor.css, new Components/CraterComet.razor, new Services/CraterItPromptBuilder.cs, the package-free checks project/program and this report. Both existing Razor UTF-8 BOMs are preserved.
+
+API guards, generation clients, reviewer workflow, provider/model settings, dependencies, canonical product/offer records, SQL, Azure storage and deployment configuration are unchanged. No persistence, accounts, credits or save controls were added.
+
+Validation: API, web and Windows MAUI builds with --no-restore passed. Web compilation reported two existing unused-field warnings in Offers.razor; Windows reported three existing PRI249 qualifier warnings. All 21 package-free checks passed: the original 15 plus Classic wording/order, five distinct presets, prompt bounds for every preset, absent metadata, creative background constraints and unknown preset rejection. An asparagus metadata fixture protects prompt assembly; it is not evidence of the historical asparagus request or generated-image quality. git diff --check passed.
+
+No browser, mobile platform other than Windows, live provider request or real image-quality assessment was run. Manual checks remain for tooltip/focus behaviour, narrow-screen comparison, cancellation, error recovery and navigation during generation. Generation is still text-only and cannot promise exact packaging/branding. Cancellation may not prevent a provider charge.
+
+Future retained gallery: use a separate artwork entity with product/user associations, its own image reference, preset, prompt version, creation time and review status. Keep canonical Product.ImageBlobPath independent. This is design direction only; no persistence types, schema or endpoints are introduced here.

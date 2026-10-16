@@ -1,0 +1,11 @@
+.fm-product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr)); gap: 1rem; }
+.fm-product-card { border: 1px solid #ddd; border-radius: 12px; background: white; }
+.fm-card-image { display: flex; justify-content: center; padding: 1rem; }
+.fm-card-image img { width: 100%; height: 180px; object-fit: contain; }
+.fm-card-details { position: relative; padding: 1rem 3.5rem 1rem 1rem; }
+.fm-card-details h2 { font-size: 1.1rem; }
+.fm-comet-action { position: absolute; right: .5rem; top: .5rem; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border-radius: 50%; color: #a51929; background: #fff2ef; }
+.fm-comet-action:hover { background: #ffe0d8; }
+.fm-comet-action:focus-visible { outline: 3px solid #a51929; outline-offset: 3px; }
+.fm-comet-tooltip { position: absolute; right: 0; bottom: 100%; width: 190px; padding: .5rem; border-radius: 6px; background: #342126; color: white; font-size: .85rem; visibility: hidden; z-index: 2; }
+.fm-comet-action:hover .fm-comet-tooltip, .fm-comet-action:focus .fm-comet-tooltip { visibility: visible; }

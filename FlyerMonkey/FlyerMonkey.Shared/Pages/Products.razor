@@ -1,11 +1,11 @@
 ﻿@page "/products"
 @using FlyerMonkey.Shared.Model
 @using FlyerMonkey.Shared.Services
-
+@using FlyerMonkey.Shared.Components
 @inject IProductService ProductService
+@inject ImageGenerationApiService ImageGeneration
 
 <PageTitle>Products</PageTitle>
-
 <h1>Products</h1>
 
 @if (_products is null)
@@ -18,39 +18,37 @@ else if (_products.Count == 0)
 }
 else
 {
-    <table class="table">
-        <thead>
-    <tr>
-        <th>Image</th>
-        <th>ID</th>
-        <th>Name</th>
-    </tr>
-</thead>
-        <tbody>
-            @foreach (var product in _products)
-            {
-                <tr>
-    <td>
-        @if (!string.IsNullOrWhiteSpace(product.ImageBlobPath))
+    <div class="fm-product-grid">
+        @foreach (var product in _products)
         {
-            <img src="@($"https://flyermonkeyapi-g7htasdacxfzgbcd.australiaeast-01.azurewebsites.net/api/products/{product.ID}/image")"
-                 alt="@product.Name"
-                 style="width:80px;height:80px;object-fit:contain;border-radius:8px;"
-                 loading="lazy" />
-        }
-    </td>
-    <td>@product.ID</td>
-
-                    <td>
-                        <a href="@($"/products/{product.ID}")">
-                            @product.Name
+            <article class="fm-product-card" @key="product.ID">
+                <a class="fm-card-image" href="@($"/products/{product.ID}")">
+                    @if (!string.IsNullOrWhiteSpace(product.ImageBlobPath))
+                    {
+                        <img src="@($"https://flyermonkeyapi-g7htasdacxfzgbcd.australiaeast-01.azurewebsites.net/api/products/{product.ID}/image")"
+                             alt="@product.Name" loading="lazy"
+                             onerror="this.onerror=null;this.src='/_content/FlyerMonkey.Shared/images/product-placeholder.png';" />
+                    }
+                    else
+                    {
+                        <img src="/_content/FlyerMonkey.Shared/images/product-placeholder.png" alt="Product image unavailable" loading="lazy" />
+                    }
+                </a>
+                <div class="fm-card-details">
+                    <h2><a href="@($"/products/{product.ID}")">@product.Name</a></h2>
+                    <small class="text-muted">Product @product.ID</small>
+                    @if (ImageGeneration.IsEnabled)
+                    {
+                        <a class="fm-comet-action" href="@($"/products/{product.ID}?crater=true#crater-controls")"
+                           aria-label="@($"Crater It: {product.Name}")">
+                            <CraterComet />
+                            <span class="fm-comet-tooltip" role="tooltip">Crater It! — @CraterItPromptBuilder.GetPreset(CraterStyle.Classic).Name and more</span>
                         </a>
-                    </td>
-
-</tr>
-            }
-        </tbody>
-    </table>
+                    }
+                </div>
+            </article>
+        }
+    </div>
 }
 
 @code {
