@@ -6,6 +6,7 @@
 
 @inject IProductService ProductService
 @inject ImageGenerationApiService ImageGeneration
+@inject CraterArtworkApiService ArtworkGallery
 @implements IDisposable
 
 <PageTitle>Product Details</PageTitle>
@@ -102,10 +103,10 @@ else
 
                     <hr class="my-4" />
 
-                    @if (ImageGeneration.IsEnabled)
+                    @if (ArtworkGallery.IsEnabled)
                     {
-                        <section id="crater-controls" aria-labelledby="crater-title" tabindex="-1" @ref="_craterControls">
-                            <h2 id="crater-title">Crater It!</h2>
+                        <section aria-labelledby="crater-gallery-title">
+                            <h2 id="crater-gallery-title">Saved Crater artwork</h2>
                             @if (_history.Count > 0)
                             {
                                 <label for="crater-history">Saved artwork</label>
@@ -117,6 +118,20 @@ else
                                     }
                                 </select>
                             }
+                            else
+                            {
+                                <p>@(_historyLoading ? "Loading saved artwork..." : "No saved artwork available for this product.")</p>
+                            }
+                            @if (_artworkMessage is not null)
+                            {
+                                <p role="alert">@_artworkMessage</p>
+                            }
+                        </section>
+                    }
+                    @if (ImageGeneration.IsEnabled)
+                    {
+                        <section id="crater-controls" aria-labelledby="crater-title" tabindex="-1" @ref="_craterControls">
+                            <h2 id="crater-title">Crater It!</h2>
                             <label for="crater-style">Creative style</label>
                             <select id="crater-style" class="form-select mb-2" @bind="_style" disabled="@(_generation is not null)">
                                 @foreach (var preset in CraterItPromptBuilder.Presets)
@@ -140,6 +155,10 @@ else
                                 <p role="alert">@_generationMessage</p>
                             }
                         </section>
+                    }
+                    else if (ArtworkGallery.IsEnabled)
+                    {
+                        <p class="text-muted">Image generation is disabled on this device. You can view previously saved artwork.</p>
                     }
                     else
                     {
@@ -194,6 +213,8 @@ else
     private string? _previewStyle;
     private CraterStyle _style = CraterStyle.Classic;
     private string? _generationMessage;
+    private string? _artworkMessage;
+    private bool _historyLoading;
     private bool _disposed;
     private int _loadVersion;
     private List<CraterArtwork> _history = [];
@@ -223,7 +244,8 @@ else
         var version = _loadVersion;
         try
         {
-            var bytes = await ImageGeneration.ReadAsync(artwork.ArtworkId, retrieval.Token);
+            _artworkMessage = null;
+            var bytes = await ArtworkGallery.ReadAsync(artwork.ArtworkId, retrieval.Token);
             if (!_disposed && version == _loadVersion && !retrieval.IsCancellationRequested)
             {
                 _preview = "data:image/jpeg;base64," + Convert.ToBase64String(bytes);
@@ -235,7 +257,7 @@ else
         catch (Exception)
         {
             if (!_disposed && version == _loadVersion && !retrieval.IsCancellationRequested)
-                _generationMessage = "Saved artwork could not be loaded. It may be missing or the local API may be unavailable.";
+                _artworkMessage = "Saved artwork could not be loaded. It may be missing or the local API may be unavailable.";
         }
         finally { if (ReferenceEquals(_retrieval, retrieval)) _retrieval = null; }
     }
@@ -309,6 +331,8 @@ else
         _focusCrater = OpenCrater;
         _generationMessage = null;
         _history = [];
+        _artworkMessage = null;
+        _historyLoading = false;
         _selectedArtwork = "";
         _pending = null;
         var version = ++_loadVersion;
@@ -320,13 +344,14 @@ else
         if (!_disposed && version == _loadVersion)
         {
             _product = products.FirstOrDefault(p => p.ID == productId);
-            if (_product is not null && ImageGeneration.IsEnabled)
+            if (_product is not null && ArtworkGallery.IsEnabled)
             {
+                _historyLoading = true;
                 using var retrieval = new CancellationTokenSource();
                 _retrieval = retrieval;
                 try
                 {
-                    var history = await ImageGeneration.ListAsync(productId, retrieval.Token);
+                    var history = await ArtworkGallery.ListAsync(productId, retrieval.Token);
                     if (!_disposed && version == _loadVersion && !retrieval.IsCancellationRequested)
                     {
                         _history = history;
@@ -337,9 +362,13 @@ else
                 catch (Exception)
                 {
                     if (!_disposed && version == _loadVersion)
-                        _generationMessage = "Saved artwork history could not be loaded. Check the local API.";
+                        _artworkMessage = "Saved artwork history could not be loaded. Check the local API and ADB forwarding.";
                 }
-                finally { if (ReferenceEquals(_retrieval, retrieval)) _retrieval = null; }
+                finally
+                {
+                    if (version == _loadVersion) _historyLoading = false;
+                    if (ReferenceEquals(_retrieval, retrieval)) _retrieval = null;
+                }
             }
         }
     }

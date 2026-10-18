@@ -146,20 +146,64 @@ catch (InvalidOperationException) { Check(true, "Unexpected repository layout fa
 var handler = new FakeHandler();
 using var http = new HttpClient(handler) { BaseAddress = new Uri("http://localhost:5000/") };
 var client = new ImageGenerationApiService(http);
+var gallery = new CraterArtworkApiService(http);
 handler.Artwork = saved;
 Check((await client.GenerateAsync(Guid.NewGuid(), 1, "Asparagus", CraterStyle.Classic, "product", default)).ArtworkId == saved.ArtworkId && handler.Calls == 1,
     "Client posts once and accepts saved metadata");
-Check((await client.ListAsync(1, default)).Count == 1 && (await client.ReadAsync(saved.ArtworkId, default)).Length == 3,
+Check((await gallery.ListAsync(1, default)).Count == 1 && (await gallery.ReadAsync(saved.ArtworkId, default)).Length == 3,
     "Client retrieves history and JPEG with local header");
 handler.InvalidImage = true;
-try { await client.ReadAsync(saved.ArtworkId, default); throw new Exception("Expected invalid image rejection"); }
+try { await gallery.ReadAsync(saved.ArtworkId, default); throw new Exception("Expected invalid image rejection"); }
 catch (InvalidOperationException) { Check(true, "Non-JPEG response rejected"); }
-try { await client.ReadAsync(saved.ArtworkId, cancelled.Token); throw new Exception("Expected cancellation"); }
+try { await gallery.ReadAsync(saved.ArtworkId, cancelled.Token); throw new Exception("Expected cancellation"); }
 catch (OperationCanceledException) { Check(true, "Client cancellation honored"); }
 using var disabledHttp = new HttpClient(handler);
 Check(!new ImageGenerationApiService(disabledHttp).IsEnabled, "MAUI/default client disabled");
 using var publicHttp = new HttpClient(handler) { BaseAddress = new Uri("https://public.example/") };
 Check(!new ImageGenerationApiService(publicHttp).IsEnabled, "Public API address disabled");
+Check(!new CraterArtworkApiService(publicHttp).IsEnabled && !new CraterArtworkApiService(disabledHttp).IsEnabled,
+    "Public and unconfigured gallery clients disabled");
+Check(typeof(CraterArtworkApiService).GetMethods(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.DeclaredOnly | System.Reflection.BindingFlags.Instance)
+    .All(m => m.Name is "get_IsEnabled" or "ListAsync" or "ReadAsync"), "Read-only client exposes no generation/upload operation");
+var androidServices = new ServiceCollection().AddLogging();
+androidServices.AddMauiCraterClients(androidDebug: true);
+var androidHandler = new FakeHandler { Artwork = saved };
+androidServices.AddHttpClient<CraterArtworkApiService>().ConfigurePrimaryHttpMessageHandler(() => androidHandler);
+using (var provider = androidServices.BuildServiceProvider())
+{
+    var androidGallery = provider.GetRequiredService<CraterArtworkApiService>();
+    var androidGeneration = provider.GetRequiredService<ImageGenerationApiService>();
+    Check(androidGallery.IsEnabled && !androidGeneration.IsEnabled, "Android Debug registration enables gallery and disables generation");
+    Check((await androidGallery.ListAsync(1, default)).Single().ArtworkId == saved.ArtworkId &&
+        (await androidGallery.ReadAsync(saved.ArtworkId, default)).Length == 3 && androidHandler.Calls == 2,
+        "Android Debug gallery reads saved history/JPEG through forwarded localhost using GET only");
+    try
+    {
+        await androidGeneration.GenerateAsync(Guid.NewGuid(), 1, "Asparagus", CraterStyle.Classic, "product", default);
+        throw new Exception("Expected Android generation denial");
+    }
+    catch (InvalidOperationException) { Check(androidHandler.Calls == 2, "Android generation rejected before any HTTP call"); }
+}
+using (var provider = new ServiceCollection().AddLogging().AddMauiCraterClients(androidDebug: false).BuildServiceProvider())
+    Check(!provider.GetRequiredService<CraterArtworkApiService>().IsEnabled &&
+        !provider.GetRequiredService<ImageGenerationApiService>().IsEnabled, "Release/non-Android MAUI has no gallery or generation address");
+foreach (var setup in new[] { (true, true, "http://localhost:5145/", true), (true, true, "https://localhost:7255/", true),
+    (false, true, "http://localhost:5145/", false), (true, false, "http://localhost:5145/", false),
+    (true, true, "https://public.example/", false), (true, true, "http://10.0.2.2:5145/", false) })
+{
+    using var provider = new ServiceCollection().AddLogging().AddWebCraterClients(setup.Item1, setup.Item2, setup.Item3).BuildServiceProvider();
+    Check(provider.GetRequiredService<CraterArtworkApiService>().IsEnabled == setup.Item4 &&
+        provider.GetRequiredService<ImageGenerationApiService>().IsEnabled == setup.Item4,
+        "Web retains explicit Development/flag/loopback policy for gallery and generation");
+    foreach (var type in new[] { typeof(CraterArtworkApiService), typeof(ImageGenerationApiService) })
+    {
+        var pipeline = provider.GetRequiredService<IHttpMessageHandlerFactory>().CreateHandler(type.Name);
+        while (pipeline is DelegatingHandler link) pipeline = link.InnerHandler!;
+        Check(pipeline is HttpClientHandler { AllowAutoRedirect: false }, "Crater clients do not follow redirects");
+    }
+}
+Check(androidHandler.GetOnly && androidHandler.LastHost == "localhost" && androidHandler.LastPort == 5145,
+    "Android gallery stays on the ADB-forwarded loopback port");
 Console.WriteLine($"{checks} checks passed. No provider calls or credentials used.");
 
 sealed class FaultStore : ICraterArtworkStore
@@ -175,10 +219,16 @@ sealed class FakeHandler : HttpMessageHandler
     public int Calls;
     public bool InvalidImage;
     public CraterArtwork Artwork = null!;
+    public bool GetOnly = true;
+    public string? LastHost;
+    public int LastPort;
     protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken token)
     {
         token.ThrowIfCancellationRequested();
         if (!request.Headers.Contains("X-CraterIt-Local")) throw new Exception("Invalid request");
+        GetOnly &= request.Method == HttpMethod.Get;
+        LastHost = request.RequestUri!.Host;
+        LastPort = request.RequestUri.Port;
         Calls++;
         var response = new HttpResponseMessage(HttpStatusCode.OK)
         {

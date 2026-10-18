@@ -16,12 +16,6 @@ public sealed class ImageGenerationApiService(HttpClient http)
             throw new InvalidOperationException("Missing saved artwork metadata.");
     }
 
-    public async Task<List<CraterArtwork>> ListAsync(int productId, CancellationToken token)
-    {
-        using var response = await SendAsync(HttpMethod.Get, $"api/images/artwork?productId={productId}", null, token);
-        return await response.Content.ReadFromJsonAsync<List<CraterArtwork>>(token) ?? [];
-    }
-
     private async Task<HttpResponseMessage> SendAsync(HttpMethod method, string path, object? content, CancellationToken token)
     {
         if (!IsEnabled)
@@ -38,13 +32,4 @@ public sealed class ImageGenerationApiService(HttpClient http)
         catch { response.Dispose(); throw; }
     }
 
-    public async Task<byte[]> ReadAsync(Guid artworkId, CancellationToken cancellationToken)
-    {
-        using var response = await SendAsync(HttpMethod.Get, $"api/images/artwork/{artworkId:N}/image", null, cancellationToken);
-        var bytes = await response.Content.ReadAsByteArrayAsync(cancellationToken);
-        if (response.Content.Headers.ContentType?.MediaType != "image/jpeg" ||
-            bytes.Length < 3 || bytes[0] != 0xff || bytes[1] != 0xd8 || bytes[2] != 0xff)
-            throw new InvalidOperationException("The service did not return a JPEG image.");
-        return bytes;
-    }
 }

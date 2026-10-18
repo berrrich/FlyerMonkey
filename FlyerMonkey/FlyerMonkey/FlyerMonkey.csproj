@@ -40,6 +40,8 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <AndroidManifestOverlay Include="Platforms\Android\AndroidManifest.Debug.xml" Condition="'$(Configuration)' == 'Debug' and $([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'" />
+    <AndroidResource Remove="Platforms\Android\Resources\xml\crater_debug_network_security_config.xml" Condition="'$(Configuration)' != 'Debug'" />
     <!-- App Icon -->
     <MauiIcon Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.svg" Color="#512BD4" />
 

@@ -22,5 +22,7 @@
     <Compile Include="../../FlyerMonkey.Api/Services/LocalCraterArtworkStore.cs" Link="LocalCraterArtworkStore.cs" />
     <Compile Include="../../FlyerMonkey/FlyerMonkey.Shared/Model/CraterArtwork.cs" Link="CraterArtwork.cs" />
     <Compile Include="../../FlyerMonkey/FlyerMonkey.Shared/Services/ImageGenerationApiService.cs" Link="ImageGenerationApiService.cs" />
+    <Compile Include="../../FlyerMonkey/FlyerMonkey.Shared/Services/CraterArtworkApiService.cs" Link="CraterArtworkApiService.cs" />
+    <Compile Include="../../FlyerMonkey/FlyerMonkey.Shared/Services/CraterClientRegistration.cs" Link="CraterClientRegistration.cs" />
   </ItemGroup>
 </Project>
