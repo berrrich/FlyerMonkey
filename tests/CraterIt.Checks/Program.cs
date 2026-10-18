@@ -204,7 +204,122 @@ foreach (var setup in new[] { (true, true, "http://localhost:5145/", true), (tru
 }
 Check(androidHandler.GetOnly && androidHandler.LastHost == "localhost" && androidHandler.LastPort == 5145,
     "Android gallery stays on the ADB-forwarded loopback port");
+async Task<ActionResult> CallFixture(string environment = "Development", bool enabled = true, bool? fixtureEnabled = true,
+    string remote = "127.0.0.1", string host = "localhost:5146", bool header = true,
+    string provider = "Azure", string? allowedProduct = "102", ImportDevelopmentFixtureRequest? input = null,
+    FixtureStore? storage = null, ProductService? products = null, CancellationToken token = default)
+{
+    var context = new DefaultHttpContext();
+    context.Connection.RemoteIpAddress = IPAddress.Parse(remote);
+    context.Request.Host = new HostString(host);
+    if (header) context.Request.Headers["X-CraterIt-Local"] = "1";
+    var services = new ServiceCollection().AddLogging();
+    if (storage is not null) services.AddSingleton<ICraterArtworkStore>(storage);
+    if (products is not null) services.AddSingleton(products);
+    // No paid provider is registered, including for successful imports.
+    context.RequestServices = services.BuildServiceProvider();
+    var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+    {
+        ["CraterIt:Enabled"] = enabled.ToString(), ["CraterIt:FixtureImportEnabled"] = fixtureEnabled?.ToString(),
+        ["CraterIt:FixtureProductId"] = allowedProduct, ["CraterArt:Provider"] = provider
+    }).Build();
+    var controller = new DevelopmentCraterFixturesController { ControllerContext = new ControllerContext { HttpContext = context } };
+    return await controller.Import(input ?? new ImportDevelopmentFixtureRequest
+        { RequestId = Guid.NewGuid(), ArtworkId = Guid.NewGuid(), ProductID = 102 },
+        new TestEnvironment { EnvironmentName = environment }, configuration, token);
+}
+
+Check(await CallFixture(fixtureEnabled: null) is NotFoundResult, "Fixture endpoint defaults off before service resolution");
+Check(await CallFixture(fixtureEnabled: false) is NotFoundResult, "Explicitly disabled fixture endpoint denied");
+Check(await CallFixture(environment: "Production") is NotFoundResult, "Production fixture import denied even when enabled");
+Check(await CallFixture(environment: "Staging") is NotFoundResult, "Staging fixture import denied even when enabled");
+Check(await CallFixture(enabled: false) is NotFoundResult, "Crater opt-in is still required for fixtures");
+Check(await CallFixture(remote: "192.0.2.1") is NotFoundResult, "Nonloopback fixture caller denied");
+Check(await CallFixture(host: "public.example") is NotFoundResult, "Nonloopback fixture Host denied");
+Check(await CallFixture(header: false) is NotFoundResult, "Fixture local header required");
+Check(await CallFixture(provider: "Local") is NotFoundResult, "Fixture endpoint refuses local artwork storage");
+Check(await CallFixture(allowedProduct: null) is NotFoundResult && await CallFixture(allowedProduct: "invalid") is NotFoundResult,
+    "Fixture endpoint requires an explicit valid product scope");
+Check(await CallFixture(input: new ImportDevelopmentFixtureRequest { ProductID = 102 }) is BadRequestObjectResult,
+    "Empty fixture identifiers rejected before services");
+Check(await CallFixture(input: new ImportDevelopmentFixtureRequest { RequestId = Guid.NewGuid(), ArtworkId = Guid.NewGuid(), ProductID = 103 }) is BadRequestObjectResult,
+    "Fixture endpoint cannot write an unapproved product");
+
+var fixtureStore = new FixtureStore();
+var fixtureProducts = new ProductService();
+var fixtureRequest = new ImportDevelopmentFixtureRequest { RequestId = Guid.NewGuid(), ArtworkId = Guid.NewGuid(), ProductID = 102 };
+var fixtureResult = await CallFixture(input: fixtureRequest, storage: fixtureStore, products: fixtureProducts);
+var fixtureMetadata = (CraterArtwork)((OkObjectResult)fixtureResult).Value!;
+Check(fixtureStore.Writes == 1 && fixtureProducts.Reads == 1 && fixtureMetadata.ProductID == 102 &&
+    fixtureMetadata.ProductName == "[DEV FIXTURE] Test product" && fixtureMetadata.PresetName == "Development fixture (not generated)",
+    "Fixture import validates existing product and saves a clearly labelled record without a paid provider");
+Check(fixtureMetadata.ArtworkId == fixtureRequest.ArtworkId && fixtureMetadata.RequestId == fixtureRequest.RequestId &&
+    fixtureMetadata.CreatedUtc.Offset == TimeSpan.Zero && fixtureMetadata.ContentType == "image/jpeg" && fixtureMetadata.Filename == "artwork.jpg",
+    "Fixture import preserves request/artwork identity and server UTC metadata");
+var fixtureBytes = (await fixtureStore.ReadAsync(fixtureMetadata.ArtworkId, default))!;
+Check(fixtureBytes.Length == 631 && Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(fixtureBytes)) == DevelopmentCraterFixture.Sha256,
+    "Only the embedded valid 631-byte fixture with expected SHA-256 is saved");
+Check(await CallFixture(input: fixtureRequest, storage: fixtureStore) is OkObjectResult { Value: CraterArtwork fixtureReplay } &&
+    fixtureReplay == fixtureMetadata && fixtureStore.Writes == 1, "Fixture replay returns original metadata without writing or reloading SQL");
+var changedIdentity = new ImportDevelopmentFixtureRequest { RequestId = fixtureRequest.RequestId, ArtworkId = Guid.NewGuid(), ProductID = 102 };
+Check(await CallFixture(input: changedIdentity, storage: fixtureStore) is ConflictObjectResult && fixtureStore.Writes == 1,
+    "Fixture request conflict never overwrites");
+var collidingIdentity = new ImportDevelopmentFixtureRequest { RequestId = Guid.NewGuid(), ArtworkId = fixtureMetadata.ArtworkId, ProductID = 102 };
+Check(await CallFixture(input: collidingIdentity, storage: fixtureStore) is ConflictObjectResult && fixtureStore.Writes == 1,
+    "Existing artwork ID cannot be overwritten by another request");
+fixtureStore.Images.Remove(fixtureMetadata.ArtworkId);
+Check(await CallFixture(input: fixtureRequest, storage: fixtureStore) is ObjectResult { StatusCode: 503 } && fixtureStore.Writes == 1,
+    "Missing committed fixture is not recreated on replay");
+fixtureStore.Images[fixtureMetadata.ArtworkId] = [255, 216, 255];
+Check(await CallFixture(input: fixtureRequest, storage: fixtureStore) is ObjectResult { StatusCode: 503 } && fixtureStore.Writes == 1,
+    "Changed committed fixture is not repaired or overwritten");
+var absentProducts = new ProductService { Lookup = (_, _) => Task.FromResult<Product?>(null) };
+var absentStore = new FixtureStore();
+Check(await CallFixture(storage: absentStore, products: absentProducts) is NotFoundObjectResult && absentStore.Writes == 0,
+    "Nonexistent catalogue product prevents fixture save");
+var failedFixtureStore = new FixtureStore { FailSave = true };
+Check(await CallFixture(storage: failedFixtureStore, products: fixtureProducts) is ObjectResult { StatusCode: 503 } && failedFixtureStore.Writes == 0,
+    "Fixture persistence failure does not report success");
+using var fixtureCancellation = new CancellationTokenSource();
+fixtureCancellation.Cancel();
+try { await CallFixture(token: fixtureCancellation.Token); throw new Exception("Expected fixture cancellation"); }
+catch (OperationCanceledException) { Check(true, "Cancelled fixture request cannot reach storage"); }
+var fixtureStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+var fixtureRelease = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+var busyProducts = new ProductService { Lookup = async (id, token) =>
+    { fixtureStarted.SetResult(); await fixtureRelease.Task.WaitAsync(token); return new Product { ID = id, Name = "Test product" }; } };
+var busyFixture = CallFixture(storage: new FixtureStore(), products: busyProducts);
+await fixtureStarted.Task;
+Check(await CallFixture() is StatusCodeResult { StatusCode: 429 }, "Concurrent fixture import is rejected before storage");
+Check(await Call() is StatusCodeResult { StatusCode: 429 }, "Fixture import and generation share the existing single-process write slot");
+fixtureRelease.SetResult();
+await busyFixture;
+Check(Convert.ToInt64(typeof(DevelopmentCraterFixturesController).GetMethod("Import")!.CustomAttributes
+    .Single(a => a.AttributeType == typeof(RequestSizeLimitAttribute)).ConstructorArguments.Single().Value) == 1024,
+    "Fixture request body is limited to 1 KiB and contains no image/prompt/path fields");
+Check(typeof(ImportDevelopmentFixtureRequest).GetProperties().Select(p => p.Name).Order().SequenceEqual(new[] { "ArtworkId", "ProductID", "RequestId" }),
+    "Fixture body accepts only artwork ID, product ID and request ID");
 Console.WriteLine($"{checks} checks passed. No provider calls or credentials used.");
+
+sealed class FixtureStore : ICraterArtworkStore
+{
+    public Dictionary<Guid, CraterArtwork> Metadata = [];
+    public Dictionary<Guid, byte[]> Images = [];
+    public int Writes;
+    public bool FailSave;
+    public Task<CraterArtwork?> FindRequestAsync(Guid id, CancellationToken token) => Task.FromResult(Metadata.Values.SingleOrDefault(a => a.RequestId == id));
+    public Task<IReadOnlyList<CraterArtwork>> ListAsync(int id, CancellationToken token) => Task.FromResult<IReadOnlyList<CraterArtwork>>(Metadata.Values.Where(a => a.ProductID == id).ToArray());
+    public Task<byte[]?> ReadAsync(Guid id, CancellationToken token) => Task.FromResult(Images.GetValueOrDefault(id));
+    public Task SaveAsync(CraterArtwork artwork, byte[] bytes, CancellationToken token)
+    {
+        token.ThrowIfCancellationRequested();
+        if (FailSave) throw new IOException("Simulated fixture save failure");
+        Metadata.Add(artwork.ArtworkId, artwork);
+        Images.Add(artwork.ArtworkId, bytes);
+        Writes++;
+        return Task.CompletedTask;
+    }
+}
 
 sealed class FaultStore : ICraterArtworkStore
 {
@@ -253,6 +368,13 @@ sealed class TestEnvironment : IWebHostEnvironment
 
 namespace FlyerMonkey.Api.Services
 {
+    // Only the read-only product lookup is needed by the linked fixture endpoint; no database is contacted.
+    public sealed class ProductService
+    {
+        public int Reads;
+        public Func<int, CancellationToken, Task<Product?>> Lookup = (id, _) => Task.FromResult<Product?>(new Product { ID = id, Name = "Test product" });
+        public Task<Product?> GetAsync(int id, CancellationToken token) { Reads++; return Lookup(id, token); }
+    }
     // Linked controller uses this fake instead of constructing the provider service.
     public sealed class ImageGenerationService
     {

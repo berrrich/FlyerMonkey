@@ -15,6 +15,10 @@
     <Using Include="Microsoft.Extensions.Hosting" />
     <Using Include="Microsoft.AspNetCore.Http" />
     <Compile Include="../../FlyerMonkey.Api/Controllers/ImagesController.cs" Link="ImagesController.cs" />
+    <Compile Include="../../FlyerMonkey.Api/Controllers/DevelopmentCraterFixturesController.cs" Link="DevelopmentCraterFixturesController.cs" />
+    <Compile Include="../../FlyerMonkey.Api/Models/ImportDevelopmentFixtureRequest.cs" Link="ImportDevelopmentFixtureRequest.cs" />
+    <Compile Include="../../FlyerMonkey.Api/Services/DevelopmentCraterFixture.cs" Link="DevelopmentCraterFixture.cs" />
+    <Compile Include="../../FlyerMonkey.Api/Services/CraterArtworkWriteSlot.cs" Link="CraterArtworkWriteSlot.cs" />
     <Compile Include="../../FlyerMonkey.Api/Models/GenerateImageRequest.cs" Link="GenerateImageRequest.cs" />
     <Using Include="Microsoft.Extensions.Logging" />
     <Compile Include="../../FlyerMonkey.Api/Services/CraterItLocalAccess.cs" Link="CraterItLocalAccess.cs" />

@@ -12,7 +12,7 @@ namespace FlyerMonkey.Api.Controllers;
 [Route("api/[controller]")]
 public class ImagesController : ControllerBase
 {
-    private static readonly SemaphoreSlim GenerationSlot = new(1, 1);
+    private static readonly SemaphoreSlim GenerationSlot = CraterArtworkWriteSlot.Instance;
 
     [HttpPost("generate")]
     public async Task<ActionResult> Generate(
