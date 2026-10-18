@@ -62,3 +62,12 @@
 
 # Legacy Reviewer project
 /FlyerMonkey.Reviewer/
+
+# ==========================================
+# Local secrets and Azure credentials
+# ==========================================
+.env
+.env.*
+**/secrets.json
+**/appsettings.Development.json
+*.pubxml.user
