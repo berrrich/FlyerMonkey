@@ -48,7 +48,7 @@ else
                             <img src="@_preview" alt="@_previewStyle artwork inspired by @_product.Name" />
                         </div>
                         <figcaption>@_previewStyle — AI-generated artwork, not an authoritative product reference.</figcaption>
-                        <button type="button" class="btn btn-link" @onclick="() => _preview = null">Clear preview</button>
+                        <button type="button" class="btn btn-link" @onclick="HideArtwork">Hide artwork</button>
                     </figure>
                 }
             </section>
@@ -106,6 +106,17 @@ else
                     {
                         <section id="crater-controls" aria-labelledby="crater-title" tabindex="-1" @ref="_craterControls">
                             <h2 id="crater-title">Crater It!</h2>
+                            @if (_history.Count > 0)
+                            {
+                                <label for="crater-history">Saved artwork</label>
+                                <select id="crater-history" class="form-select mb-2" value="@_selectedArtwork" @onchange="SelectArtworkAsync" disabled="@(_generation is not null)">
+                                    <option value="">Choose saved artwork</option>
+                                    @foreach (var artwork in _history)
+                                    {
+                                        <option value="@artwork.ArtworkId">@artwork.PresetName — @artwork.CreatedUtc.ToString("u")</option>
+                                    }
+                                </select>
+                            }
                             <label for="crater-style">Creative style</label>
                             <select id="crater-style" class="form-select mb-2" @bind="_style" disabled="@(_generation is not null)">
                                 @foreach (var preset in CraterItPromptBuilder.Presets)
@@ -114,14 +125,14 @@ else
                                 }
                             </select>
                             <p>@CraterItPromptBuilder.GetPreset(_style).Description</p>
-                            <p class="text-muted">Temporary AI artwork based on product descriptions. Packaging and branding may differ from the original.</p>
+                            <p class="text-muted">Artwork is saved automatically. Packaging and branding may differ from the original.</p>
                             <button type="button" class="btn btn-outline-secondary w-100"
                                     disabled="@(_generation is not null)" @onclick="GenerateAsync">
                                 <CraterComet /> @(_generation is not null ? "Cratering..." : "Crater It!")
                             </button>
                             @if (_generation is not null)
                             {
-                                <p role="status">Generating a temporary preview...</p>
+                                <p role="status">Generating and saving artwork...</p>
                                 <button class="btn btn-link" @onclick="CancelGeneration">Cancel</button>
                             }
                             @if (_generationMessage is not null)
@@ -185,6 +196,49 @@ else
     private string? _generationMessage;
     private bool _disposed;
     private int _loadVersion;
+    private List<CraterArtwork> _history = [];
+    private string _selectedArtwork = "";
+    private CancellationTokenSource? _retrieval;
+    private (Guid Id, string Prompt, CraterStyle Style, string Name)? _pending;
+
+    private void HideArtwork()
+    {
+        _retrieval?.Cancel();
+        _selectedArtwork = "";
+        _preview = null;
+    }
+
+    private async Task SelectArtworkAsync(ChangeEventArgs args)
+    {
+        if (Guid.TryParse(args.Value?.ToString(), out var id) && _history.FirstOrDefault(a => a.ArtworkId == id) is { } artwork)
+            await ShowArtworkAsync(artwork);
+        else HideArtwork();
+    }
+
+    private async Task ShowArtworkAsync(CraterArtwork artwork)
+    {
+        _retrieval?.Cancel();
+        using var retrieval = new CancellationTokenSource();
+        _retrieval = retrieval;
+        var version = _loadVersion;
+        try
+        {
+            var bytes = await ImageGeneration.ReadAsync(artwork.ArtworkId, retrieval.Token);
+            if (!_disposed && version == _loadVersion && !retrieval.IsCancellationRequested)
+            {
+                _preview = "data:image/jpeg;base64," + Convert.ToBase64String(bytes);
+                _previewStyle = artwork.PresetName;
+                _selectedArtwork = artwork.ArtworkId.ToString();
+            }
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception)
+        {
+            if (!_disposed && version == _loadVersion && !retrieval.IsCancellationRequested)
+                _generationMessage = "Saved artwork could not be loaded. It may be missing or the local API may be unavailable.";
+        }
+        finally { if (ReferenceEquals(_retrieval, retrieval)) _retrieval = null; }
+    }
 
     private async Task GenerateAsync()
     {
@@ -197,26 +251,31 @@ else
         _generationMessage = null;
         var style = _style;
         var prompt = CraterItPromptBuilder.Build(_product, style);
+        _retrieval?.Cancel();
+        if (_pending is not { } pending || pending.Prompt != prompt || pending.Style != style || pending.Name != _product.Name)
+            _pending = (Guid.NewGuid(), prompt, style, _product.Name ?? "");
         try
         {
-            var bytes = await ImageGeneration.GenerateAsync(prompt, request.Token);
+            var artwork = await ImageGeneration.GenerateAsync(_pending.Value.Id, productId,
+                _pending.Value.Name, style, prompt, request.Token);
             if (IsCurrent() && !request.IsCancellationRequested)
             {
-                _preview = "data:image/jpeg;base64," + Convert.ToBase64String(bytes);
-                _previewStyle = CraterItPromptBuilder.GetPreset(style).Name;
+                _pending = null;
+                _history = _history.Where(a => a.ArtworkId != artwork.ArtworkId).Prepend(artwork).ToList();
+                await ShowArtworkAsync(artwork);
             }
         }
         catch (OperationCanceledException)
         {
             if (IsCurrent())
                 _generationMessage = request.IsCancellationRequested
-                    ? "Generation cancelled. An accepted request may still incur a charge."
-                    : "Generation timed out. Try again when ready.";
+                    ? "Cancelled waiting. Artwork may still be saved; reload to check history. An accepted request may incur a charge."
+                    : "Generation timed out. Reload to check history before retrying.";
         }
         catch (Exception)
         {
             if (IsCurrent())
-                _generationMessage = "Generation failed. Check that the local API is running and enabled, then try again.";
+                _generationMessage = "Generation or saving failed. Reload to check history before retrying. Check that the local API is running and enabled.";
         }
         finally
         {
@@ -228,7 +287,11 @@ else
         bool IsCurrent() => !_disposed && Id == productId && ReferenceEquals(_generation, request);
     }
 
-    private void CancelGeneration() => _generation?.Cancel();
+    private void CancelGeneration()
+    {
+        _generation?.Cancel();
+        _retrieval?.Cancel();
+    }
 
     public void Dispose()
     {
@@ -245,6 +308,9 @@ else
         _style = CraterStyle.Classic;
         _focusCrater = OpenCrater;
         _generationMessage = null;
+        _history = [];
+        _selectedArtwork = "";
+        _pending = null;
         var version = ++_loadVersion;
         var productId = Id;
         _product = null;
@@ -252,6 +318,29 @@ else
         var products = await ProductService.GetProductsAsync();
 
         if (!_disposed && version == _loadVersion)
+        {
             _product = products.FirstOrDefault(p => p.ID == productId);
+            if (_product is not null && ImageGeneration.IsEnabled)
+            {
+                using var retrieval = new CancellationTokenSource();
+                _retrieval = retrieval;
+                try
+                {
+                    var history = await ImageGeneration.ListAsync(productId, retrieval.Token);
+                    if (!_disposed && version == _loadVersion && !retrieval.IsCancellationRequested)
+                    {
+                        _history = history;
+                        if (history.FirstOrDefault() is { } newest) await ShowArtworkAsync(newest);
+                    }
+                }
+                catch (OperationCanceledException) { }
+                catch (Exception)
+                {
+                    if (!_disposed && version == _loadVersion)
+                        _generationMessage = "Saved artwork history could not be loaded. Check the local API.";
+                }
+                finally { if (ReferenceEquals(_retrieval, retrieval)) _retrieval = null; }
+            }
+        }
     }
 }

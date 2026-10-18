@@ -28,6 +28,9 @@ builder.Services.AddScoped<ProductService>();
 builder.Services.AddScoped<ProductImageService>();
 
 builder.Services.AddScoped<ImageGenerationService>();
+builder.Services.AddSingleton<ICraterArtworkStore>(sp => new LocalCraterArtworkStore(
+    LocalCraterArtworkStore.ResolveRoot(sp.GetRequiredService<IWebHostEnvironment>()),
+    sp.GetRequiredService<ILogger<LocalCraterArtworkStore>>()));
 
 // Add services to the container.
 

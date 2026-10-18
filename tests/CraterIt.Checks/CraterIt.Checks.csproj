@@ -16,6 +16,11 @@
     <Using Include="Microsoft.AspNetCore.Http" />
     <Compile Include="../../FlyerMonkey.Api/Controllers/ImagesController.cs" Link="ImagesController.cs" />
     <Compile Include="../../FlyerMonkey.Api/Models/GenerateImageRequest.cs" Link="GenerateImageRequest.cs" />
+    <Using Include="Microsoft.Extensions.Logging" />
+    <Compile Include="../../FlyerMonkey.Api/Services/CraterItLocalAccess.cs" Link="CraterItLocalAccess.cs" />
+    <Compile Include="../../FlyerMonkey.Api/Services/ICraterArtworkStore.cs" Link="ICraterArtworkStore.cs" />
+    <Compile Include="../../FlyerMonkey.Api/Services/LocalCraterArtworkStore.cs" Link="LocalCraterArtworkStore.cs" />
+    <Compile Include="../../FlyerMonkey/FlyerMonkey.Shared/Model/CraterArtwork.cs" Link="CraterArtwork.cs" />
     <Compile Include="../../FlyerMonkey/FlyerMonkey.Shared/Services/ImageGenerationApiService.cs" Link="ImageGenerationApiService.cs" />
   </ItemGroup>
 </Project>

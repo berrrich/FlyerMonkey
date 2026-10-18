@@ -1,6 +1,8 @@
 ﻿# Crater It! implementation
 
-Implemented on Product Detail only. The original product image remains visible and unchanged; generated JPEGs appear separately as labelled, in-memory previews. No persistence is added.
+Mission 004A supersedes the temporary-preview behavior below: generated artwork is now saved automatically by the API. See [Mission 004A implementation and restart verification](CraterArtPersistence.md).
+
+The following sections record the earlier missions. They originally implemented Product Detail previews in memory without persistence.
 
 ## Changed files
 
