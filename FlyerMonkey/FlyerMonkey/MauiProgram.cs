@@ -21,6 +21,8 @@ namespace FlyerMonkey
 
             
             builder.Services.AddSyncfusionBlazor();
+            // Opt-in remains false until the cloud pilot is separately approved. No change to local gallery routing.
+            builder.Services.AddApprovedArtworkClient();
 
 #if ANDROID && DEBUG
             builder.Services.AddMauiCraterClients(androidDebug: true);

@@ -1,0 +1,15 @@
+{
+    "SchemaVersion":  1,
+    "Entries":  [
+                    {
+                        "ProductID":  102,
+                        "ArtworkId":  "28071cca-5456-4f78-b621-28c504a3440a",
+                        "Sha256":  "D83EC0500BD2152E02E571BF2B7E825E31AD4DC1565DF49A78F6AD1DE99E4817",
+                        "Length":  164538,
+                        "Preset":  1,
+                        "Provenance":  "generated",
+                        "ApprovedBy":  "FMAdmin",
+                        "ApprovedUtc":  "2026-10-19T09:13:58.5307916+00:00"
+                    }
+                ]
+}

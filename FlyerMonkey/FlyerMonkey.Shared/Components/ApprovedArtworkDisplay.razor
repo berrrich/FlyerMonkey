@@ -1,0 +1,45 @@
+@using FlyerMonkey.Shared.Services
+@inject ApprovedArtworkApiService ApprovedArtwork
+@implements IDisposable
+
+@if (_preview is not null)
+{
+    <figure>
+        <div class="fm-product-image">
+            <img src="@_preview" alt="Approved creative artwork inspired by @ProductName" style="width:100%;max-height:350px;object-fit:contain;" />
+        </div>
+        <figcaption>Approved Crater creative artwork — AI-generated; not an authoritative product reference.</figcaption>
+    </figure>
+}
+@if (_failed)
+{
+    <p role="status">Approved creative artwork is temporarily unavailable.</p>
+}
+
+@code {
+    [Parameter] public int ProductId { get; set; }
+    [Parameter] public string? ProductName { get; set; }
+    private string? _preview;
+    private bool _failed;
+    private CancellationTokenSource? _request;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _request?.Cancel();
+        using var request = new CancellationTokenSource();
+        _request = request;
+        _preview = null;
+        _failed = false;
+        try
+        {
+            var bytes = await ApprovedArtwork.ReadAsync(ProductId, request.Token);
+            if (!request.IsCancellationRequested && bytes is not null)
+                _preview = "data:image/jpeg;base64," + Convert.ToBase64String(bytes);
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception) { if (!request.IsCancellationRequested) _failed = true; }
+        finally { if (ReferenceEquals(_request, request)) _request = null; }
+    }
+
+    public void Dispose() => _request?.Cancel();
+}

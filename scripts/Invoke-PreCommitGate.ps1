@@ -82,6 +82,7 @@ try {
         Write-Host "  $($Matches[0])"
     }
     Invoke-DotnetCheck 'CraterIt.Checks' @('run','--project','tests/CraterIt.Checks/CraterIt.Checks.csproj','--no-restore','--no-launch-profile','-p:UseAppHost=false') '(?m)^(?<count>\d+) checks passed' 100
+    Invoke-DotnetCheck 'ApprovedArtwork.Checks (offline publication boundary and import)' @('run','--project','tests/ApprovedArtwork.Checks/ApprovedArtwork.Checks.csproj','--no-restore','--no-launch-profile') '(?m)^(?<count>\d+) approved artwork checks passed' 60
     # This suite also tests container isolation, private access, create-only writes and non-Development denial.
     Invoke-DotnetCheck 'CraterArtwork.AzureChecks and canonical-container isolation' @('run','--project','tests/CraterArtwork.AzureChecks/CraterArtwork.AzureChecks.csproj','--no-restore','--no-launch-profile') '(?m)^(?<count>\d+) offline Azure checks passed' 54
     Invoke-DotnetCheck 'API build' @('build','FlyerMonkey.Api/FlyerMonkey.Api.csproj','--no-restore','-v','minimal')

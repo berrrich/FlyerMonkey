@@ -15,6 +15,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Content Update="approved-artwork.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <ProjectReference Include="..\FlyerMonkey\FlyerMonkey.Shared\FlyerMonkey.Shared.csproj" />
     <ProjectReference Include="..\SQLServerConnection\SQLServerConnection.csproj" />
   </ItemGroup>

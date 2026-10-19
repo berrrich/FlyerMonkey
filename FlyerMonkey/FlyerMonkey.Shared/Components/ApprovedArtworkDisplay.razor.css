@@ -1,0 +1,12 @@
+figure { margin: 0; min-width: 0; }
+.fm-product-image {
+    background: #f7f7f7;
+    border: 1px solid #ddd;
+    border-radius: 12px;
+    padding: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 260px;
+}
+figcaption { padding: .75rem 0; color: #555; }

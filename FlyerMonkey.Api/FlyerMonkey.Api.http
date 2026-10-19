@@ -1,4 +1,4 @@
-//@FlyerMonkey.Api_HostAddress = https://flyermonkeyapi-g7htasdacxfzgbcd.australiaeast-01.azurewebsites.net
+//@FlyerMonkey.Api_HostAddress = https://flyermonkeyapi-7htasdacxfzgbcd.australiaeast-01.azurewebsites.net
 @FlyerMonkey.Api_HostAddress = http://localhost:5145
 
 GET {{FlyerMonkey.Api_HostAddress}}/api/status
@@ -39,7 +39,7 @@ Content-Type: application/json
 ###
 
 
-GET {{FlyerMonkey.Api_HostAddress}}/api/products/104
+GET {{FlyerMonkey.Api_HostAddress}}/api/products/102
 Accept: application/json
 
 

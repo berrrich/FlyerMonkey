@@ -42,6 +42,7 @@ else
                     </div>
                     <figcaption>Original product image — authoritative product reference when available.</figcaption>
                 </figure>
+                <ApprovedArtworkDisplay ProductId="@_product.ID" ProductName="@_product.Name" />
                 @if (_preview is not null)
                 {
                     <figure>

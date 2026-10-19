@@ -28,6 +28,9 @@ builder.Services.AddScoped<ProductService>();
 builder.Services.AddScoped<ProductImageService>();
 
 builder.Services.AddScoped<ImageGenerationService>();
+builder.Services.AddSingleton(sp => new ApprovedArtworkReader(ApprovedArtworkReader.CreateContainer(
+    sp.GetRequiredService<IConfiguration>()["ApprovedArtwork:ServiceUri"], managedIdentityOnly: true),
+    sp.GetRequiredService<ILogger<ApprovedArtworkReader>>()));
 builder.Services.AddSingleton<ICraterArtworkStore>(sp => CraterArtworkStoreFactory.Create(
     sp.GetRequiredService<IConfiguration>(), sp.GetRequiredService<IWebHostEnvironment>(),
     sp.GetRequiredService<ILoggerFactory>()));

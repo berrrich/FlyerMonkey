@@ -14,6 +14,8 @@ builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
 builder.Services.AddSyncfusionBlazor();
+builder.Services.AddApprovedArtworkClient(builder.Configuration.GetValue<bool>("ApprovedArtwork:Enabled"),
+    builder.Configuration["ApprovedArtwork:ApiBaseUrl"]);
 
 builder.Services.AddWebCraterClients(builder.Environment.IsDevelopment(),
     builder.Configuration.GetValue<bool>("CraterIt:Enabled"), builder.Configuration["CraterIt:ApiBaseUrl"]);

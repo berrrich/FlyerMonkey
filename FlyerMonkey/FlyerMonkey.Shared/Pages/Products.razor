@@ -36,7 +36,6 @@ else
                 </a>
                 <div class="fm-card-details">
                     <h2><a href="@($"/products/{product.ID}")">@product.Name</a></h2>
-                    <small class="text-muted">Product @product.ID</small>
                     @if (ImageGeneration.IsEnabled)
                     {
                         <a class="fm-comet-action" href="@($"/products/{product.ID}?crater=true#crater-controls")"
