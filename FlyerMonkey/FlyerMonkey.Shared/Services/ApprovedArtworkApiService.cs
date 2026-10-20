@@ -11,6 +11,10 @@ public sealed class ApprovedArtworkApiService(HttpClient http)
     {
         if (!IsEnabled) return null;
         if (productId <= 0) throw new ArgumentOutOfRangeException(nameof(productId));
+        // ResponseHeadersRead ends HttpClient's timeout at the headers; bound the body too.
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(token);
+        timeout.CancelAfter(TimeSpan.FromSeconds(30));
+        token = timeout.Token;
         using var response = await http.GetAsync($"api/products/{productId}/approved-artwork/image", HttpCompletionOption.ResponseHeadersRead, token);
         if (response.StatusCode == HttpStatusCode.NotFound) return null;
         response.EnsureSuccessStatusCode();

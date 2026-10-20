@@ -56,8 +56,18 @@ async Task<ActionResult> Call(string environment = "Development", bool enabled =
         new Dictionary<string, string?> { ["CraterIt:Enabled"] = enabled.ToString() }).Build();
     if (operation == "list") return await controller.List(1, new TestEnvironment { EnvironmentName = environment }, configuration, token);
     if (operation == "image") return await controller.Image(artworkId, new TestEnvironment { EnvironmentName = environment }, configuration, token);
-    return await controller.Generate(input ?? new GenerateImageRequest { Prompt = prompt, RequestId = Guid.NewGuid(), ProductID = 1, ProductName = "Product" },
+    var result = await controller.Generate(input ?? new GenerateImageRequest { Prompt = prompt, RequestId = Guid.NewGuid(), ProductID = 1, ProductName = "Product" },
         new TestEnvironment { EnvironmentName = environment }, configuration, token);
+    if (result is OkObjectResult)
+    {
+        Check(context.Response.Headers["X-CraterIt-Outcome"] is var outcome && (outcome == "fresh" || outcome == "replay"), "Successful API response identifies fresh/replay");
+        var generationValid = double.TryParse(context.Response.Headers["X-CraterIt-Generation-Ms"], System.Globalization.CultureInfo.InvariantCulture, out var generationMs);
+        var saveValid = double.TryParse(context.Response.Headers["X-CraterIt-Save-Ms"], System.Globalization.CultureInfo.InvariantCulture, out var saveMs);
+        Check(generationValid && generationMs >= 0 && saveValid && saveMs >= 0,
+            "Successful API response includes nonnegative server phase timings");
+        if (outcome == "replay") Check(generationMs == 0 && saveMs == 0, "Replay does no generation or save work");
+    }
+    return result;
 }
 
 Check(await Call(environment: "Production") is NotFoundResult, "Production denied before service resolution");
@@ -166,23 +176,32 @@ Check(!new CraterArtworkApiService(publicHttp).IsEnabled && !new CraterArtworkAp
 Check(typeof(CraterArtworkApiService).GetMethods(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.DeclaredOnly | System.Reflection.BindingFlags.Instance)
     .All(m => m.Name is "get_IsEnabled" or "ListAsync" or "ReadAsync"), "Read-only client exposes no generation/upload operation");
 var androidServices = new ServiceCollection().AddLogging();
+using (var policyProvider = new ServiceCollection().AddLogging().AddMauiCraterClients(true).BuildServiceProvider())
+{
+    var pipeline = policyProvider.GetRequiredService<IHttpMessageHandlerFactory>().CreateHandler(nameof(ImageGenerationApiService));
+    while (pipeline is DelegatingHandler link) pipeline = link.InnerHandler!;
+    Check(pipeline is HttpClientHandler { AllowAutoRedirect: false }, "Android generation disables redirects");
+}
 androidServices.AddMauiCraterClients(androidDebug: true);
 var androidHandler = new FakeHandler { Artwork = saved };
 androidServices.AddHttpClient<CraterArtworkApiService>().ConfigurePrimaryHttpMessageHandler(() => androidHandler);
+var androidGenerationHandler = new FakeHandler { Artwork = saved };
+androidServices.AddHttpClient<ImageGenerationApiService>().ConfigurePrimaryHttpMessageHandler(() => androidGenerationHandler);
 using (var provider = androidServices.BuildServiceProvider())
 {
     var androidGallery = provider.GetRequiredService<CraterArtworkApiService>();
     var androidGeneration = provider.GetRequiredService<ImageGenerationApiService>();
-    Check(androidGallery.IsEnabled && !androidGeneration.IsEnabled, "Android Debug registration enables gallery and disables generation");
+    Check(androidGallery.IsEnabled && androidGeneration.IsEnabled, "Android Debug registration enables local gallery and generation");
     Check((await androidGallery.ListAsync(1, default)).Single().ArtworkId == saved.ArtworkId &&
         (await androidGallery.ReadAsync(saved.ArtworkId, default)).Length == 3 && androidHandler.Calls == 2,
         "Android Debug gallery reads saved history/JPEG through forwarded localhost using GET only");
-    try
-    {
-        await androidGeneration.GenerateAsync(Guid.NewGuid(), 1, "Asparagus", CraterStyle.Classic, "product", default);
-        throw new Exception("Expected Android generation denial");
-    }
-    catch (InvalidOperationException) { Check(androidHandler.Calls == 2, "Android generation rejected before any HTTP call"); }
+    var timed = await androidGeneration.GenerateTimedAsync(Guid.NewGuid(), 1, "Asparagus", CraterStyle.Classic, "product", default);
+    Check(timed.Artwork == saved && timed.Outcome == "fresh" && timed.GenerationMs == 1234.5 && timed.SaveMs == 12,
+        "Android generation reuses POST client and reads server timing headers");
+    Check(androidGenerationHandler.LastHost == "localhost" && androidGenerationHandler.LastPort == 5145 && androidGenerationHandler.Calls == 1,
+        "Android generation only calls forwarded localhost port");
+    Check(provider.GetRequiredService<IHttpClientFactory>().CreateClient(nameof(ImageGenerationApiService)).Timeout == TimeSpan.FromMinutes(3),
+        "Android generation has a three-minute timeout");
 }
 using (var provider = new ServiceCollection().AddLogging().AddMauiCraterClients(androidDebug: false).BuildServiceProvider())
     Check(!provider.GetRequiredService<CraterArtworkApiService>().IsEnabled &&
@@ -350,7 +369,13 @@ sealed class FakeHandler : HttpMessageHandler
             Content = new ByteArrayContent(InvalidImage ? [1, 2, 3] : [255, 216, 255])
         };
         response.Content.Headers.ContentType = new("image/jpeg");
-        if (request.Method == HttpMethod.Post) response.Content = JsonContent.Create(Artwork);
+        if (request.Method == HttpMethod.Post)
+        {
+            response.Content = JsonContent.Create(Artwork);
+            response.Headers.Add("X-CraterIt-Outcome", "fresh");
+            response.Headers.Add("X-CraterIt-Generation-Ms", "1234.5");
+            response.Headers.Add("X-CraterIt-Save-Ms", "12.0");
+        }
         else if (request.RequestUri!.AbsolutePath.EndsWith("/artwork")) response.Content = JsonContent.Create(new[] { Artwork });
         return Task.FromResult(response);
     }

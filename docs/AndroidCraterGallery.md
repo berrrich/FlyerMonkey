@@ -1,5 +1,10 @@
 # Mission 005D — read-only Android Debug Crater gallery
 
+Mission 009B supersedes the generation-disabled Android Debug policy described
+below. Android Debug now enables the existing local generation client, with a
+three-minute timeout and redirects disabled. Release and other MAUI platforms
+remain disabled. See [Mobile Crater timing pilot](MobileCraterTimingPilot.md).
+
 Web and MAUI continue to share FlyerMonkey.Shared/Pages/ProductDetail.razor. Saved-artwork viewing now uses CraterArtworkApiService, which exposes only history and JPEG GET operations. ImageGenerationApiService retains only generation. The gallery is rendered and loaded using its own enablement condition, with its own loading/error messages; generation controls remain independently guarded. Original product images, presets/prompts, API endpoints/access checks, storage configuration and existing saved files are unchanged.
 
 CraterClientRegistration registers both clients. Web keeps its existing Development + enabled flag + loopback HTTP/HTTPS policy, three-minute generation timeout and disabled redirects. Android Debug gets a read-only gallery address of http://localhost:5145/ and a 30-second timeout. Generation has no MAUI address in any configuration. Release and other MAUI platforms have neither gallery nor generation addresses. Both clients keep the local API header, and gallery requests never POST or follow redirects.

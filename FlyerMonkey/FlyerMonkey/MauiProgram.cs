@@ -21,17 +21,18 @@ namespace FlyerMonkey
 
             
             builder.Services.AddSyncfusionBlazor();
-            // Opt-in remains false until the cloud pilot is separately approved. No change to local gallery routing.
-            builder.Services.AddApprovedArtworkClient();
-
-#if ANDROID && DEBUG
-            builder.Services.AddMauiCraterClients(androidDebug: true);
-#else
-            builder.Services.AddMauiCraterClients(androidDebug: false);
-#endif
 
             var apiBaseUrl =
                 "https://flyermonkeyapi-g7htasdacxfzgbcd.australiaeast-01.azurewebsites.net/";
+
+#if ANDROID && DEBUG
+            // Read-only approved artwork uses HTTPS independently of the local Crater gallery.
+            builder.Services.AddApprovedArtworkClient(enabled: true, apiBaseUrl: apiBaseUrl);
+            builder.Services.AddMauiCraterClients(androidDebug: true);
+#else
+            builder.Services.AddApprovedArtworkClient();
+            builder.Services.AddMauiCraterClients(androidDebug: false);
+#endif
 
             builder.Services.AddHttpClient<AppProductService, ProductApiService>(client =>
             {

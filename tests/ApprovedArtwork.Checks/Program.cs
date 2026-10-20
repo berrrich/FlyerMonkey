@@ -215,12 +215,15 @@ try
         Check(!provider.GetRequiredService<ApprovedArtworkApiService>().IsEnabled,"Actual default registration remains disabled");
     await Reject<InvalidOperationException>(() => { new ServiceCollection().AddApprovedArtworkClient(true,"http://localhost:5145/"); return Task.CompletedTask; }, "Cloud registration rejects local/HTTP URL");
 
-    async Task<(string Html, int Requests)> RenderProduct(bool enabled, int status, int productId = 102)
+    async Task<(string Html, int Requests)> RenderProduct(bool enabled, int status, int productId = 102, Exception? failure = null, bool generationEnabled = false, bool savedPreview = false)
     {
-        using var imageHandler = new ClientHandler { Status=status };
+        using var imageHandler = new ClientHandler { Status=status, Failure=failure };
         using var generationHttp = new HttpClient();
-        using var galleryHttp = new HttpClient();
+        if (generationEnabled) generationHttp.BaseAddress = new Uri("http://localhost:5145/");
+        using var galleryHttp = new HttpClient(new SavedPreviewHandler());
+        if (savedPreview) galleryHttp.BaseAddress = new Uri("http://localhost:5145/");
         var services = new ServiceCollection().AddLogging();
+        services.AddSingleton<Microsoft.JSInterop.IJSRuntime>(new NoDisplayJs());
         services.AddApprovedArtworkClient(enabled, "https://offline.invalid/");
         services.AddHttpClient<ApprovedArtworkApiService>().ConfigurePrimaryHttpMessageHandler(() => imageHandler);
         services.AddSingleton<IProductService>(new DisplayProducts(productId));
@@ -244,16 +247,46 @@ try
         "Null canonical image retains separate original placeholder area");
     Check(!rendered.Html.Contains("crater-controls") && !rendered.Html.Contains("Saved Crater artwork"),
         "Approved display does not expose generation or private history");
+    Check(!rendered.Html.Contains("fm-floating-comet") && !rendered.Html.Contains("<dialog"),
+        "Disabled generation exposes neither invitation nor floating comet");
     Check(rendered.Requests == 1,"Enabled Product Detail requests only its approved image");
+    var pilot = await RenderProduct(true,200,generationEnabled:true);
+    Check(pilot.Html.Split("id=\"crater-controls\"").Length == 2 && pilot.Html.Split("id=\"crater-style\"").Length == 2,
+        "Enabled Product Detail has exactly one generation control section and style picker");
+    Check(pilot.Html.IndexOf("fm-creative-tools",StringComparison.Ordinal) < pilot.Html.IndexOf("fm-detail-information",StringComparison.Ordinal) &&
+        pilot.Html.Contains("fm-floating-comet") && pilot.Html.Contains("aria-haspopup=\"dialog\""),
+        "Controls sit beside artwork with an accessible gated invitation entry point");
+    Check(pilot.Html.Contains("Fancy inventing a picture?") && pilot.Html.Contains("No thanks, not right now") &&
+        pilot.Html.Contains("It usually takes less than a minute.") && CraterItPromptBuilder.Presets.All(p => pilot.Html.Contains(p.Name)),
+        "Invitation copy and all five existing presets render");
+    var floatingStart = pilot.Html.IndexOf("class=\"fm-floating-comet\"", StringComparison.Ordinal);
+    var floatingHtml = pilot.Html.Substring(floatingStart, pilot.Html.IndexOf("</button>", floatingStart, StringComparison.Ordinal) - floatingStart);
+    Check(floatingHtml.Contains("<svg") && floatingHtml.Contains("fill=\"#ef6351\""),
+        "Floating comet reuses the existing CraterComet vector and colours");
+    var fixtureOption = Array.IndexOf(args, "--ux-fixture");
+    if (fixtureOption >= 0) await File.WriteAllTextAsync(args[fixtureOption + 1], pilot.Html);
     var unapproved = await RenderProduct(true,404,88);
-    Check(!unapproved.Html.Contains("data:image/jpeg;base64,") && !unapproved.Html.Contains("temporarily unavailable") &&
+    Check(!unapproved.Html.Contains("data:image/jpeg;base64,") && !unapproved.Html.Contains("could not be loaded") &&
         unapproved.Html.Contains("product-placeholder.png"), "Unapproved product remains normal without extra image or error");
     var disabled = await RenderProduct(false,200);
     Check(disabled.Requests == 0 && !disabled.Html.Contains("data:image/jpeg;base64,"),
         "Web flag disabled makes no approved artwork request");
     var unavailable = await RenderProduct(true,503);
-    Check(unavailable.Html.Contains("temporarily unavailable") && unavailable.Html.Contains("product-placeholder.png"),
+    Check(unavailable.Html.Contains("Approved artwork could not be loaded right now.") && unavailable.Html.Contains("product-placeholder.png"),
         "Artwork API failure preserves Product Detail and original placeholder");
+    foreach (var failure in new Exception[] { new HttpRequestException("Offline"), new OperationCanceledException("Timed out") })
+    {
+        var failed = await RenderProduct(true,200,failure:failure);
+        Check(failed.Html.Contains("Approved artwork could not be loaded right now.") && failed.Html.Contains("product-placeholder.png") &&
+            failed.Html.Contains("Dynamo") && !failed.Html.Contains("data:image/jpeg;base64,"),
+            $"{failure.GetType().Name} preserves Product Detail and reports unavailable artwork");
+    }
+    var savedDuringOutage = await RenderProduct(true,503,savedPreview:true);
+    Check(savedDuringOutage.Html.Contains("Alien Exposure artwork inspired by Dynamo") && savedDuringOutage.Html.Contains("data:image/jpeg;base64,"),
+        "Approved API failure does not hide a valid saved Alien Exposure preview");
+    Check(savedDuringOutage.Html.Contains("Saved and generated previews are separate.") &&
+        !savedDuringOutage.Html.Contains("Approved creative artwork is temporarily unavailable"),
+        "Availability message is scoped to approved artwork independently of the saved preview");
 
     // Synthetic bytes exercise create-only transport; pinned-source validation remains separate.
     var copy = Path.Combine(root,"source"); Directory.CreateDirectory(copy);
@@ -301,15 +334,42 @@ sealed class CaptureProvider(List<string> messages) : ILoggerProvider
     public ILogger CreateLogger(string category) => new CaptureLogger<object>(messages);
     public void Dispose() { }
 }
+sealed class NoDisplayJs : Microsoft.JSInterop.IJSRuntime
+{
+    public ValueTask<T> InvokeAsync<T>(string identifier, object?[]? args) => throw new InvalidOperationException("No JS expected in static rendering");
+    public ValueTask<T> InvokeAsync<T>(string identifier, CancellationToken token, object?[]? args) => throw new InvalidOperationException("No JS expected in static rendering");
+}
+sealed class SavedPreviewHandler : HttpMessageHandler
+{
+    protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken token)
+    {
+        token.ThrowIfCancellationRequested();
+        if (request.Method != HttpMethod.Get || request.RequestUri!.Host != "localhost" ||
+            !request.Headers.Contains("X-CraterIt-Local")) throw new InvalidOperationException("Unexpected gallery request");
+        var artwork = new CraterArtwork(Guid.Parse("11111111-2222-3333-4444-555555555555"), Guid.NewGuid(), 102,
+            "Dynamo", CraterStyle.AlienExposure, "Alien Exposure", DateTimeOffset.UtcNow,
+            "image/jpeg", "artwork.jpg", 1, "offline");
+        var response = new HttpResponseMessage(HttpStatusCode.OK);
+        if (request.RequestUri.AbsolutePath.EndsWith("/image"))
+        {
+            response.Content = new ByteArrayContent([255,216,255,7]);
+            response.Content.Headers.ContentType = new("image/jpeg");
+        }
+        else response.Content = System.Net.Http.Json.JsonContent.Create(new[] { artwork });
+        return Task.FromResult(response);
+    }
+}
 sealed class ClientHandler : HttpMessageHandler
 {
     public int Status=200; public byte[] Bytes=[255,216,255,7];
+    public Exception? Failure;
     public int Calls;
     public HttpMethod? Method; public string? Path; public bool LocalHeader;
     protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request,CancellationToken token)
     {
         Calls++;
         Method=request.Method; Path=request.RequestUri!.AbsolutePath; LocalHeader=request.Headers.Contains("X-CraterIt-Local");
+        if (Failure is not null) return Task.FromException<HttpResponseMessage>(Failure);
         var response=new HttpResponseMessage((HttpStatusCode)Status){Content=new ByteArrayContent(Bytes)};
         response.Content.Headers.ContentType=new("image/jpeg"); return Task.FromResult(response);
     }

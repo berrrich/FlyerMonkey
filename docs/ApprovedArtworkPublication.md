@@ -111,3 +111,18 @@ The exact two-object Dynamo import has completed and the user reports the API id
 ## Future backlog
 
 - Read-only Crater Artwork Inventory tool: list local artwork IDs, ProductIDs, presets, creation dates and approval status. Report approval from the explicit publication manifest; do not infer it from preset or storage location. Backlog only; not implemented in this checkpoint.
+
+### Mission 009 closeout — deferred design ideas
+
+These are planning items only. They do not authorize implementation, account work,
+publication, production configuration changes or new generation access.
+
+- Reduce customer-facing technical text.
+- Explore an artwork-first Product Detail with creative captions.
+- Keep authentic product imagery separate from generated creative artwork.
+- Show current and historical offer prices with accurate retailer and validity dates.
+- Use "As low as" only when justified by available pricing data.
+- Invite signed-in users to request future sale notifications.
+- Move preset selection into a second comet-dialog stage with Back and Cancel.
+- Prepare Facebook-ready public artwork/product pages with suitable social previews.
+- Test read-only untethered cellular access against the published HTTPS API; keep generation restrictions intact.

@@ -21,8 +21,11 @@ public static class CraterClientRegistration
 
     public static IServiceCollection AddMauiCraterClients(this IServiceCollection services, bool androidDebug)
     {
-        // Never assign a generation address in MAUI, including Debug builds with gallery access.
-        services.AddHttpClient<ImageGenerationApiService>();
+        services.AddHttpClient<ImageGenerationApiService>(http =>
+        {
+            http.BaseAddress = androidDebug ? new Uri("http://localhost:5145/") : null;
+            http.Timeout = TimeSpan.FromMinutes(3);
+        }).ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
         // adb reverse tcp:5145 tcp:5145 forwards device localhost to the loopback-bound host API.
         AddGallery(services, androidDebug ? new Uri("http://localhost:5145/") : null);
         return services;

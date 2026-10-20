@@ -13,7 +13,7 @@
 }
 @if (_failed)
 {
-    <p role="status">Approved creative artwork is temporarily unavailable.</p>
+    <p role="status">Approved artwork could not be loaded right now. Saved and generated previews are separate.</p>
 }
 
 @code {
@@ -36,7 +36,7 @@
             if (!request.IsCancellationRequested && bytes is not null)
                 _preview = "data:image/jpeg;base64," + Convert.ToBase64String(bytes);
         }
-        catch (OperationCanceledException) { }
+        catch (OperationCanceledException) { if (!request.IsCancellationRequested) _failed = true; }
         catch (Exception) { if (!request.IsCancellationRequested) _failed = true; }
         finally { if (ReferenceEquals(_request, request)) _request = null; }
     }
