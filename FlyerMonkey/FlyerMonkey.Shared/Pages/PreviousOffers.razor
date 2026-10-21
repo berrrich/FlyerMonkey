@@ -40,7 +40,7 @@ else
                 <div class="offer-thumb">
     @if (!string.IsNullOrWhiteSpace(offer.ImageBlobPath))
     {
-        <img src="@($"https://flyermonkeyapi-g7htasdacxfzgbcd.australiaeast-01.azurewebsites.net/api/products/{offer.ProductID}/image")"
+        <img src="@PublicApiClientRegistration.ProductImageUrl(offer.ProductID)"
              alt="@offer.ProductName"
              onerror="this.onerror=null;this.src='/_content/FlyerMonkey.Shared/images/product-placeholder.png';"
              style="width:80px;height:80px;object-fit:contain;border-radius:8px;"

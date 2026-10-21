@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <UseAppHost>false</UseAppHost>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Azure.Storage.Blobs" Version="12.29.2" />
+    <PackageReference Include="OpenAI" Version="2.13.0" />
+    <Compile Include="../../FlyerMonkey.Reviewer.Windows/Services/ClassicImageGenerationService.cs" Link="ClassicImageGenerationService.cs" />
+    <Compile Include="../../FlyerMonkey.Reviewer.Windows/Services/ClassicImageValidation.cs" Link="ClassicImageValidation.cs" />
+    <Compile Include="../../FlyerMonkey.Reviewer.Windows/Services/ProductImageService.cs" Link="ProductImageService.cs" />
+    <Compile Include="../../FlyerMonkey.Reviewer.Windows/Models/ExtractedProduct.cs" Link="ExtractedProduct.cs" />
+    <Compile Include="../../FlyerMonkey.Reviewer.Windows/Services/ClassicImageFileService.cs" Link="ClassicImageFileService.cs" />
+    <Compile Include="../../FlyerMonkey.Reviewer.Windows/Services/ProductImageUploadService.cs" Link="ProductImageUploadService.cs" />
+  </ItemGroup>
+</Project>

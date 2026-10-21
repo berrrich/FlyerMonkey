@@ -1,5 +1,6 @@
-﻿using Azure.Storage.Blobs;
+using Azure.Storage.Blobs;
 using System.IO;
+using Azure;
 
 namespace FlyerMonkey.Reviewer.Windows.Services;
 
@@ -10,9 +11,11 @@ public class ProductImageUploadService
     private readonly BlobServiceClient _blobServiceClient;
 
     public ProductImageUploadService(string connectionString)
+        : this(new BlobServiceClient(connectionString)) { }
+
+    public ProductImageUploadService(BlobServiceClient blobServiceClient)
     {
-        _blobServiceClient =
-            new BlobServiceClient(connectionString);
+        _blobServiceClient = blobServiceClient;
     }
 
     public async Task<string> UploadAsync(
@@ -42,10 +45,25 @@ public class ProductImageUploadService
         var blobClient =
             containerClient.GetBlobClient(blobName);
 
-        await blobClient.UploadAsync(
-            localFilePath,
-            overwrite: true,
-            cancellationToken);
+        try
+        {
+            await blobClient.UploadAsync(
+                localFilePath,
+                overwrite: true,
+                cancellationToken);
+        }
+        catch (RequestFailedException ex)
+        {
+            // Never expose raw Azure messages, URLs or credentials.
+            var code = ex.ErrorCode is { Length: > 0 and <= 80 } value &&
+                value.All(char.IsAsciiLetterOrDigit) ? value : "unavailable";
+            throw new InvalidOperationException(
+                $"Azure Blob upload to product-images failed: HTTP {(ex.Status > 0 ? ex.Status.ToString() : "unavailable")}; Azure error code {code}.");
+        }
+        catch (OperationCanceledException)
+        {
+            throw new InvalidOperationException("Azure Blob upload to product-images timed out or was canceled; HTTP status unavailable.");
+        }
 
         return $"{ContainerName}/{blobName}";
     }

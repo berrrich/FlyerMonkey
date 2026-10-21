@@ -37,7 +37,7 @@ else
     @if (_offer.ProductID > 0)
     {
         <img
-            src="@($"https://flyermonkeyapi-g7htasdacxfzgbcd.australiaeast-01.azurewebsites.net/api/products/{_offer.ProductID}/image")"
+            src="@PublicApiClientRegistration.ProductImageUrl(_offer.ProductID)"
             alt="@_offer.ProductName"
             onerror="this.onerror=null;this.src='/_content/FlyerMonkey.Shared/images/product-placeholder.png';" />
     }

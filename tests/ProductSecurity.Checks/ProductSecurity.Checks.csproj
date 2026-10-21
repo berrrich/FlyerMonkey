@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable><UseAppHost>false</UseAppHost></PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Azure.Storage.Blobs" Version="12.29.2" />
+    <Compile Include="../../FlyerMonkey.Api/Controllers/ProductsController.cs" Link="ProductsController.cs" />
+    <Compile Include="../../FlyerMonkey.Api/Controllers/OffersController.cs" Link="OffersController.cs" />
+    <Compile Include="../../FlyerMonkey.Api/Services/ProductService.cs" Link="ProductService.cs" />
+    <Compile Include="../../FlyerMonkey.Api/Services/ProductImageService.cs" Link="ProductImageService.cs" />
+    <Compile Include="../../SQLServerConnection/Data/IProductRepository.cs" Link="IProductRepository.cs" />
+    <Compile Include="../../FlyerMonkey/FlyerMonkey.Shared/Services/IOfferRepository.cs" Link="IOfferRepository.cs" />
+    <Compile Include="../../FlyerMonkey/FlyerMonkey.Shared/Model/Product.cs" Link="Product.cs" />
+    <Compile Include="../../FlyerMonkey/FlyerMonkey.Shared/Model/OfferSummary.cs" Link="OfferSummary.cs" />
+  </ItemGroup>
+</Project>

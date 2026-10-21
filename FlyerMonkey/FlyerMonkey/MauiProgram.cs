@@ -2,7 +2,6 @@
 using Microsoft.Extensions.Logging;
 using Syncfusion.Blazor;
 using Microsoft.Extensions.DependencyInjection;
-using AppProductService = FlyerMonkey.Shared.Services.IProductService;
 
 namespace FlyerMonkey
 {
@@ -22,27 +21,18 @@ namespace FlyerMonkey
             
             builder.Services.AddSyncfusionBlazor();
 
-            var apiBaseUrl =
-                "https://flyermonkeyapi-g7htasdacxfzgbcd.australiaeast-01.azurewebsites.net/";
-
-#if ANDROID && DEBUG
-            // Read-only approved artwork uses HTTPS independently of the local Crater gallery.
-            builder.Services.AddApprovedArtworkClient(enabled: true, apiBaseUrl: apiBaseUrl);
-            builder.Services.AddMauiCraterClients(androidDebug: true);
+#if ANDROID
+            // Both Android configurations browse the published read-only HTTPS API.
+            builder.Services.AddMauiPublicApiClients(android: true);
 #else
-            builder.Services.AddApprovedArtworkClient();
-            builder.Services.AddMauiCraterClients(androidDebug: false);
+            builder.Services.AddMauiPublicApiClients(android: false);
 #endif
 
-            builder.Services.AddHttpClient<AppProductService, ProductApiService>(client =>
-            {
-                client.BaseAddress = new Uri(apiBaseUrl);
-            });
-
-            builder.Services.AddHttpClient<IOfferService, OfferApiService>(client =>
-            {
-                client.BaseAddress = new Uri(apiBaseUrl);
-            });
+#if ANDROID && DEBUG
+            builder.Services.AddMauiCraterClients(androidDebug: true);
+#else
+            builder.Services.AddMauiCraterClients(androidDebug: false);
+#endif
             builder.Services.AddMauiBlazorWebView();
 
 #if DEBUG

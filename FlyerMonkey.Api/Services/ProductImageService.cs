@@ -4,6 +4,7 @@ namespace FlyerMonkey.Api.Services;
 
 public sealed class ProductImageService
 {
+    private const string ContainerName = "product-images";
     private readonly BlobServiceClient _blobServiceClient;
 
     public ProductImageService(IConfiguration configuration)
@@ -16,26 +17,29 @@ public sealed class ProductImageService
         _blobServiceClient = new BlobServiceClient(connectionString);
     }
 
+    internal ProductImageService(BlobServiceClient blobServiceClient)
+    {
+        _blobServiceClient = blobServiceClient;
+    }
+
     public async Task<Stream?> GetImageAsync(
         string imageBlobPath,
         CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(imageBlobPath))
+        // Treat stored paths as untrusted too. Never select a container from data.
+        // Reject URI/escape/traversal forms rather than normalizing them.
+        if (string.IsNullOrWhiteSpace(imageBlobPath) ||
+            !imageBlobPath.StartsWith(ContainerName + "/", StringComparison.Ordinal) ||
+            imageBlobPath.Any(c => char.IsControl(c) || c is '\\' or '%' or '?' or '#' or ':'))
             return null;
 
-        var parts = imageBlobPath.Split(
-            '/',
-            2,
-            StringSplitOptions.RemoveEmptyEntries);
-
-        if (parts.Length != 2)
+        var blobName = imageBlobPath[(ContainerName.Length + 1)..];
+        if (blobName.Split('/').Any(segment => string.IsNullOrWhiteSpace(segment) ||
+            segment is "." or ".." || segment != segment.Trim()))
             return null;
-
-        var containerName = parts[0];
-        var blobName = parts[1];
 
         var containerClient =
-            _blobServiceClient.GetBlobContainerClient(containerName);
+            _blobServiceClient.GetBlobContainerClient(ContainerName);
 
         var blobClient =
             containerClient.GetBlobClient(blobName);

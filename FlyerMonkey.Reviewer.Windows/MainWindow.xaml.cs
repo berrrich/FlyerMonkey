@@ -50,6 +50,14 @@ namespace FlyerMonkey.Reviewer.Windows
     /// </summary>
     public partial class MainWindow : Window
     {
+        private readonly CancellationTokenSource _classicGenerationLifetime = new();
+
+        protected override void OnClosed(EventArgs e)
+        {
+            _classicGenerationLifetime.Cancel();
+            _classicGenerationLifetime.Dispose();
+            base.OnClosed(e);
+        }
         private FlyerFile? _selectedFlyer;
         private FlyerPage? _selectedPage;
         private BitmapImage CreateThumbnail(string pdfPath)
@@ -805,38 +813,32 @@ namespace FlyerMonkey.Reviewer.Windows
             var imageService = new ProductImageService();
             var prompt = imageService.BuildImagePrompt(product);
 
-            var apiService = new ImageGenerationApiService();
-
             try
             {
                 button.IsEnabled = false;
                 button.Content = "☄ Cratering...";
 
+                var generationService = new ClassicImageGenerationService();
                 var imageBytes =
-                    await apiService.GenerateImageAsync(prompt);
+                    await generationService.GenerateImageAsync(prompt, _classicGenerationLifetime.Token);
 
                 var imageFolder =
     @"C:\Users\richa\source\repos\FlyerMonkey\DATA\ProductImages";
 
-                Directory.CreateDirectory(imageFolder);
-
-                var fileName =
-                    $"{Guid.NewGuid():N}.jpg";
-
                 var imagePath =
-                    Path.Combine(imageFolder, fileName);
-
-                await File.WriteAllBytesAsync(
-    imagePath,
-    imageBytes);
+                    await ClassicImageFileService.SaveAsync(imageFolder, imageBytes);
 
                 product.ImageFilePath = imagePath;
+            }
+            catch (OperationCanceledException) when (_classicGenerationLifetime.IsCancellationRequested)
+            {
+                // Closing the Reviewer cancels the request without opening another dialog.
             }
             catch (Exception ex)
             {
                 MessageBox.Show(
                     ex.Message,
-                    "Image generation failed",
+                    "Classic image operation failed",
                     MessageBoxButton.OK,
                     MessageBoxImage.Error);
             }

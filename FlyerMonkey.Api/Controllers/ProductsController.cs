@@ -71,21 +71,6 @@ public class ProductsController : ControllerBase
         return File(imageStream, "image/jpeg");
     }
 
-    [HttpPost]
-    public async Task<ActionResult<Product>> Create(
-        Product product,
-        CancellationToken cancellationToken)
-    {
-        var id =
-            await _productService.AddAsync(
-                product,
-                cancellationToken);
-
-        product.ID = id;
-
-        return CreatedAtAction(
-            nameof(Get),
-            new { id = product.ID },
-            product);
-    }
+    // Catalog API is read-only. Administrative writes use the Windows Reviewer's
+    // direct SQL/Blob workflow; do not expose that privilege through this API.
 }

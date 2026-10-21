@@ -51,7 +51,7 @@ else
                 <div class="offer-thumb">
     @if (offer.ProductID > 0)
     {
-        <img src="@($"https://flyermonkeyapi-g7htasdacxfzgbcd.australiaeast-01.azurewebsites.net/api/products/{offer.ProductID}/image")"
+        <img src="@PublicApiClientRegistration.ProductImageUrl(offer.ProductID)"
              alt="@offer.ProductName"
              loading="lazy"
              onerror="this.onerror=null;this.src='/_content/FlyerMonkey.Shared/images/product-placeholder.png';"

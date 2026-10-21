@@ -215,7 +215,44 @@ try
         Check(!provider.GetRequiredService<ApprovedArtworkApiService>().IsEnabled,"Actual default registration remains disabled");
     await Reject<InvalidOperationException>(() => { new ServiceCollection().AddApprovedArtworkClient(true,"http://localhost:5145/"); return Task.CompletedTask; }, "Cloud registration rejects local/HTTP URL");
 
-    async Task<(string Html, int Requests)> RenderProduct(bool enabled, int status, int productId = 102, Exception? failure = null, bool generationEnabled = false, bool savedPreview = false)
+    foreach (var android in new[] { true, false })
+    {
+        var publicServices = new ServiceCollection().AddLogging();
+        publicServices.AddMauiPublicApiClients(android).AddMauiCraterClients(androidDebug:false);
+        var publicHandler = new PublicReadHandler();
+        publicServices.AddHttpClient<IProductService,ProductApiService>().ConfigurePrimaryHttpMessageHandler(() => publicHandler);
+        publicServices.AddHttpClient<IOfferService,OfferApiService>().ConfigurePrimaryHttpMessageHandler(() => publicHandler);
+        using var publicProvider = publicServices.BuildServiceProvider();
+        var products = await publicProvider.GetRequiredService<IProductService>().GetProductsAsync();
+        var offers = publicProvider.GetRequiredService<IOfferService>();
+        Check(products.Single().ID == 102 && products[0].Name == "Dynamo", "MAUI published product JSON maps to existing model");
+        Check((await offers.GetOffersAsync()).Single().AdvertisedPrice == 4.50m &&
+            (await offers.GetCurrentOffersAsync()).Single().ValidTo == new DateTime(2026,10,25) &&
+            (await offers.GetPreviousOffersAsync()).Single().ProductID == 102, "All public offer routes deserialize price/date/product fields");
+        Check(publicProvider.GetRequiredService<ApprovedArtworkApiService>().IsEnabled == android,
+            "Approved HTTPS artwork enabled for Android independently of Debug; other MAUI platforms retain default off");
+        Check(!publicProvider.GetRequiredService<ImageGenerationApiService>().IsEnabled &&
+            !publicProvider.GetRequiredService<CraterArtworkApiService>().IsEnabled,
+            "Public MAUI registration never enables Release generation or private saved history");
+        Check(publicHandler.Paths.SequenceEqual(new[] {"/api/products","/api/offers","/api/offers/current","/api/offers/previous"}),
+            "Untethered MAUI catalog makes only expected published HTTPS GET requests");
+    }
+    using (var publicProvider = new ServiceCollection().AddLogging().AddMauiPublicApiClients(true).BuildServiceProvider())
+    {
+        foreach (var name in new[] { nameof(IProductService),nameof(IOfferService),nameof(ApprovedArtworkApiService) })
+        {
+            var configured = publicProvider.GetRequiredService<IHttpClientFactory>().CreateClient(name);
+            var pipeline = publicProvider.GetRequiredService<IHttpMessageHandlerFactory>().CreateHandler(name);
+            while (pipeline is DelegatingHandler link) pipeline = link.InnerHandler!;
+            Check(configured.BaseAddress?.AbsoluteUri == PublicApiClientRegistration.ApiBaseUrl &&
+                configured.Timeout == TimeSpan.FromSeconds(30) && pipeline is HttpClientHandler { AllowAutoRedirect:false },
+                "Published MAUI clients use explicit HTTPS, bounded timeout and no redirects");
+        }
+    }
+    Check(PublicApiClientRegistration.ProductImageUrl(102) == PublicApiClientRegistration.ApiBaseUrl + "api/products/102/image",
+        "Canonical image routing shares the published HTTPS root");
+
+    async Task<(string Html, int Requests)> RenderProduct(bool enabled, int status, int productId = 102, Exception? failure = null, bool generationEnabled = false, bool savedPreview = false, bool productFailure = false, bool productList = false)
     {
         using var imageHandler = new ClientHandler { Status=status, Failure=failure };
         using var generationHttp = new HttpClient();
@@ -226,7 +263,7 @@ try
         services.AddSingleton<Microsoft.JSInterop.IJSRuntime>(new NoDisplayJs());
         services.AddApprovedArtworkClient(enabled, "https://offline.invalid/");
         services.AddHttpClient<ApprovedArtworkApiService>().ConfigurePrimaryHttpMessageHandler(() => imageHandler);
-        services.AddSingleton<IProductService>(new DisplayProducts(productId));
+        services.AddSingleton<IProductService>(productFailure ? new FailedProducts() : new DisplayProducts(productId == 0 ? 102 : productId));
         services.AddSingleton(new ImageGenerationApiService(generationHttp));
         services.AddSingleton(new CraterArtworkApiService(galleryHttp));
         services.AddSingleton<NavigationManager>(new DisplayNavigation());
@@ -234,8 +271,9 @@ try
         await using var renderer = new HtmlRenderer(provider,provider.GetRequiredService<ILoggerFactory>());
         var html = await renderer.Dispatcher.InvokeAsync(async () =>
         {
-            var result = await renderer.RenderComponentAsync<ProductDetail>(ParameterView.FromDictionary(
-                new Dictionary<string,object?> { [nameof(ProductDetail.Id)]=productId }));
+            var result = productList ? await renderer.RenderComponentAsync<Products>() :
+                await renderer.RenderComponentAsync<ProductDetail>(ParameterView.FromDictionary(
+                    new Dictionary<string,object?> { [nameof(ProductDetail.Id)]=productId }));
             return result.ToHtmlString();
         });
         return (html,imageHandler.Calls);
@@ -287,6 +325,15 @@ try
     Check(savedDuringOutage.Html.Contains("Saved and generated previews are separate.") &&
         !savedDuringOutage.Html.Contains("Approved creative artwork is temporarily unavailable"),
         "Availability message is scoped to approved artwork independently of the saved preview");
+    foreach (var list in new[] { false,true })
+    {
+        var failedProduct = await RenderProduct(true,200,productFailure:true,productList:list);
+        Check(failedProduct.Html.Contains("could not be loaded. Check your connection") && failedProduct.Html.Contains("Retry") && failedProduct.Requests == 0,
+            "Product list/detail network failure renders a safe retry state without artwork calls");
+    }
+    var missingProduct = await RenderProduct(true,200,productId:0);
+    Check(missingProduct.Html.Contains("Product not found.") && missingProduct.Requests == 0,
+        "Missing product does not remain on an indefinite loading screen");
 
     // Synthetic bytes exercise create-only transport; pinned-source validation remains separate.
     var copy = Path.Combine(root,"source"); Directory.CreateDirectory(copy);
@@ -358,6 +405,26 @@ sealed class SavedPreviewHandler : HttpMessageHandler
         else response.Content = System.Net.Http.Json.JsonContent.Create(new[] { artwork });
         return Task.FromResult(response);
     }
+}
+sealed class PublicReadHandler : HttpMessageHandler
+{
+    public List<string> Paths { get; } = [];
+    protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken token)
+    {
+        token.ThrowIfCancellationRequested();
+        if (request.Method != HttpMethod.Get || request.RequestUri?.Scheme != "https" ||
+            request.RequestUri.Host != new Uri(PublicApiClientRegistration.ApiBaseUrl).Host || request.Headers.Contains("X-CraterIt-Local"))
+            throw new InvalidOperationException("Unexpected public request");
+        Paths.Add(request.RequestUri.AbsolutePath);
+        var json = request.RequestUri.AbsolutePath == "/api/products" ? "[{\"id\":102,\"name\":\"Dynamo\",\"categories\":[]}]" :
+            "[{\"offerID\":1,\"productID\":102,\"productName\":\"Dynamo\",\"advertisedPrice\":4.50,\"validTo\":\"2026-10-25T00:00:00\"}]";
+        return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(json, Encoding.UTF8, "application/json") });
+    }
+}
+sealed class FailedProducts : IProductService
+{
+    public Task<List<Product>> GetProductsAsync(CancellationToken cancellationToken = default) =>
+        throw new HttpRequestException("Synthetic offline failure");
 }
 sealed class ClientHandler : HttpMessageHandler
 {

@@ -8,7 +8,12 @@
 <PageTitle>Products</PageTitle>
 <h1>Products</h1>
 
-@if (_products is null)
+@if (_loadError is not null)
+{
+    <p role="alert">@_loadError</p>
+    <button type="button" class="btn btn-outline-secondary" @onclick="LoadProductsAsync">Retry</button>
+}
+else if (_products is null)
 {
     <p>Loading...</p>
 }
@@ -25,7 +30,7 @@ else
                 <a class="fm-card-image" href="@($"/products/{product.ID}")">
                     @if (!string.IsNullOrWhiteSpace(product.ImageBlobPath))
                     {
-                        <img src="@($"https://flyermonkeyapi-g7htasdacxfzgbcd.australiaeast-01.azurewebsites.net/api/products/{product.ID}/image")"
+                        <img src="@PublicApiClientRegistration.ProductImageUrl(product.ID)"
                              alt="@product.Name" loading="lazy"
                              onerror="this.onerror=null;this.src='/_content/FlyerMonkey.Shared/images/product-placeholder.png';" />
                     }
@@ -52,9 +57,15 @@ else
 
 @code {
     private List<Product>? _products;
+    private string? _loadError;
 
-    protected override async Task OnInitializedAsync()
+    protected override Task OnInitializedAsync() => LoadProductsAsync();
+
+    private async Task LoadProductsAsync()
     {
-        _products = await ProductService.GetProductsAsync();
+        _products = null;
+        _loadError = null;
+        try { _products = await ProductService.GetProductsAsync(); }
+        catch (Exception) { _loadError = "Products could not be loaded. Check your connection and try again."; }
     }
 }

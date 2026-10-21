@@ -12,7 +12,13 @@
 
 <PageTitle>Product Details</PageTitle>
 
-@if (_product is null)
+@if (_productLoadError is not null)
+{
+    <p role="alert">@_productLoadError</p>
+    <button type="button" class="btn btn-outline-secondary" @onclick="LoadProductAsync">Retry</button>
+    <a href="/products">Back to Products</a>
+}
+else if (_product is null)
 {
     <p>Loading product...</p>
 }
@@ -32,7 +38,7 @@ else
                     <div class="fm-product-image">
                         @if (!string.IsNullOrWhiteSpace(_product.ImageBlobPath))
                         {
-                            <img src="@($"https://flyermonkeyapi-g7htasdacxfzgbcd.australiaeast-01.azurewebsites.net/api/products/{_product.ID}/image")"
+                            <img src="@PublicApiClientRegistration.ProductImageUrl(_product.ID)"
                                  alt="@_product.Name"
                                  onerror="this.onerror=null;this.src='/_content/FlyerMonkey.Shared/images/product-placeholder.png';" />
                         }
@@ -302,6 +308,7 @@ else
     }
 
     private Product? _product;
+    private string? _productLoadError;
     private CancellationTokenSource? _generation;
     private string? _preview;
     private string? _previewStyle;
@@ -463,7 +470,9 @@ else
         CancelGeneration();
     }
 
-    protected override async Task OnParametersSetAsync()
+    protected override Task OnParametersSetAsync() => LoadProductAsync();
+
+    private async Task LoadProductAsync()
     {
         CancelGeneration();
         _generation = null;
@@ -483,12 +492,21 @@ else
         var version = ++_loadVersion;
         var productId = Id;
         _product = null;
+        _productLoadError = null;
 
-        var products = await ProductService.GetProductsAsync();
+        List<Product> products;
+        try { products = await ProductService.GetProductsAsync(); }
+        catch (Exception)
+        {
+            if (!_disposed && version == _loadVersion)
+                _productLoadError = "This product could not be loaded. Check your connection and try again.";
+            return;
+        }
 
         if (!_disposed && version == _loadVersion)
         {
             _product = products.FirstOrDefault(p => p.ID == productId);
+            if (_product is null) _productLoadError = "Product not found.";
             if (_product is not null && ArtworkGallery.IsEnabled)
             {
                 _historyLoading = true;
