@@ -4,6 +4,7 @@ using FlyerMonkey.Shared.Services;
 
 namespace FlyerMonkey.Api.Controllers;
 
+[Microsoft.AspNetCore.Authorization.AllowAnonymous]
 [ApiController]
 [Route("api/[controller]")]
 public class OffersController : ControllerBase

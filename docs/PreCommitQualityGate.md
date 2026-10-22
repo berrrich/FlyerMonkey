@@ -21,6 +21,7 @@ Review changes, stage only intended files, then run the command immediately befo
 3. Tracked and staged Git whitespace/conflict-marker checks.
 4. PowerShell repository regression checks using synthetic values in isolated temporary Git repositories.
 5. CraterIt.Checks: at least 100 checks (including Android read-only gallery behavior and the default-off Development fixture endpoint) and successful process exit.
+   Mission 010B additionally requires the offline API authentication (47+), Web authentication/logout (57+) and product security (47+) suites. These use synthetic identities/transports, not real Entra or paid-provider calls.
 6. Existing CraterArtwork.AzureChecks: at least 54 checks and successful process exit. These exercise rejection of the canonical product-images container, private-container enforcement, create-only writes and Development-only Azure selection.
 7. Sequential API, Web, Windows MAUI, Windows Reviewer and Android Debug builds. Shared/SQL projects build through their references. The cross-platform solution is intentionally not built wholesale because its iOS/MacCatalyst targets require other hosts/toolchains.
 

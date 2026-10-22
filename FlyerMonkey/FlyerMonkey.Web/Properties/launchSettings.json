@@ -1,6 +1,21 @@
 {
   "$schema": "https://json.schemastore.org/launchsettings.json",
   "profiles": {
+    "operator-local": {
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "launchBrowser": false,
+      "applicationUrl": "https://localhost:7094",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "Authentication__Enabled": "false",
+        "Authentication__TenantId": "4112a2a6-70d8-47f0-a0fe-352edd57cc04",
+        "Authentication__ApiClientId": "52691bc6-97d4-4abc-bc11-19b3d198a288",
+        "Authentication__WebClientId": "fcadb3a5-2941-4b27-946a-785608758ff1",
+        "Authentication__ApiBaseUrl": "https://localhost:7255/",
+        "CraterIt__Enabled": "false"
+      }
+    },
     "https": {
       "commandName": "Project",
       "dotnetRunMessages": true,

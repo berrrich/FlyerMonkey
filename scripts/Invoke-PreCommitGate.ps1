@@ -81,6 +81,9 @@ try {
         }
         Write-Host "  $($Matches[0])"
     }
+    Invoke-DotnetCheck 'Authentication.Checks (offline API policies, ownership and Production generation denial)' @('run','--project','tests/Authentication.Checks/Authentication.Checks.csproj','--no-restore','--no-launch-profile') '(?m)^(?<count>\d+) checks passed' 47
+    Invoke-DotnetCheck 'WebAuthentication.Checks (offline OIDC, local logout and session revocation)' @('run','--project','tests/WebAuthentication.Checks/WebAuthentication.Checks.csproj','--no-restore','--no-launch-profile') '(?m)^(?<count>\d+) offline Web challenge/cookie/antiforgery checks passed' 57
+    Invoke-DotnetCheck 'ProductSecurity.Checks (offline public reads and removed writes)' @('run','--project','tests/ProductSecurity.Checks/ProductSecurity.Checks.csproj','--no-restore','--no-launch-profile') '(?m)^(?<count>\d+) checks passed' 47
     Invoke-DotnetCheck 'CraterIt.Checks' @('run','--project','tests/CraterIt.Checks/CraterIt.Checks.csproj','--no-restore','--no-launch-profile','-p:UseAppHost=false') '(?m)^(?<count>\d+) checks passed' 100
     Invoke-DotnetCheck 'ApprovedArtwork.Checks (offline publication boundary and import)' @('run','--project','tests/ApprovedArtwork.Checks/ApprovedArtwork.Checks.csproj','--no-restore','--no-launch-profile') '(?m)^(?<count>\d+) approved artwork checks passed' 60
     # This suite also tests container isolation, private access, create-only writes and non-Development denial.

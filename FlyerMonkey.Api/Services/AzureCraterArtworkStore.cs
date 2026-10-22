@@ -65,6 +65,10 @@ public sealed class AzureCraterArtworkStore(
         return null;
     }
 
+    public Task<CraterArtwork?> GetMetadataAsync(Guid artworkId, CancellationToken token) =>
+        artworkId == Guid.Empty ? Task.FromResult<CraterArtwork?>(null) :
+            WithContainerAsync(() => ManifestAsync(artworkId, token), token);
+
     private async Task<List<CraterArtwork>> ManifestsAsync(CancellationToken token)
     {
         var items = new List<CraterArtwork>();

@@ -1,6 +1,7 @@
 using FlyerMonkey.Shared.Services;
 using FlyerMonkey.Web.Components;
 using Syncfusion.Blazor;
+using FlyerMonkey.Web.Services;
 using AppProductService =
     FlyerMonkey.Shared.Services.IProductService;
 
@@ -8,6 +9,8 @@ using WebProductApiService =
     FlyerMonkey.Shared.Services.ProductApiService;
 
 var builder = WebApplication.CreateBuilder(args);
+var operatorAuthentication = FlyerMonkey.Web.Services.OperatorAuthentication.AddOperatorAuthentication(
+    builder.Services, builder.Configuration, builder.Environment);
 
 // Add services to the container.
 builder.Services.AddRazorComponents()
@@ -50,6 +53,12 @@ if (!app.Environment.IsDevelopment())
     app.UseHttpsRedirection();
 }
 
+if (operatorAuthentication)
+{
+    app.UseAuthentication();
+    app.UseAuthorization();
+    app.MapOperatorAuthentication();
+}
 app.UseAntiforgery();
 
 app.MapStaticAssets();

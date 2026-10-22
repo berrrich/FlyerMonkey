@@ -36,7 +36,8 @@ try
         Check(response.StatusCode == HttpStatusCode.MethodNotAllowed, "POST disabled");
     }
     Check(repository.Writes == 0, "No SQL writes");
-    foreach (var invalid in new[] { "crater-artwork/artwork/private/artwork.jpg", "other/image.jpg", "", "product-images/", "/product-images/a.jpg", "PRODUCT-IMAGES/a.jpg", "product-images/../crater-artwork/a.jpg", "product-images/a/../../a", "product-images/%2e%2e/a", "product-images/a%2fb", "product-images/a\\b", "product-images//a", "product-images/./a", "product-images/a?sig=x", "product-images/a#x", "https://offline.invalid/product-images/a", "product-images/ a", "product-images/a\n" })
+    // Unmistakable placeholder: still exercises query/signature rejection before any storage request.
+    foreach (var invalid in new[] { "crater-artwork/artwork/private/artwork.jpg", "other/image.jpg", "", "product-images/", "/product-images/a.jpg", "PRODUCT-IMAGES/a.jpg", "product-images/../crater-artwork/a.jpg", "product-images/a/../../a", "product-images/%2e%2e/a", "product-images/a%2fb", "product-images/a\\b", "product-images//a", "product-images/./a", "product-images/a?sig=EXAMPLE_NOT_A_SECRET", "product-images/a#x", "https://offline.invalid/product-images/a", "product-images/ a", "product-images/a\n" })
     {
         repository.Path = invalid;
         var before = handler.Calls;

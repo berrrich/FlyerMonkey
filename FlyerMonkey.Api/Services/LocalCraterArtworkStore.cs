@@ -43,6 +43,8 @@ public sealed class LocalCraterArtworkStore(string root, ILogger<LocalCraterArtw
         }
     }
 
+    public Task<CraterArtwork?> GetMetadataAsync(Guid artworkId, CancellationToken token) => MetadataAsync(artworkId, token, false);
+
     private async Task<List<CraterArtwork>> AllAsync(CancellationToken token, bool requireImage = true)
     {
         var items = new List<CraterArtwork>();

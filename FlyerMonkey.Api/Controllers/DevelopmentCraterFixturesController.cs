@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace FlyerMonkey.Api.Controllers;
 
 [ApiController]
+[Microsoft.AspNetCore.Authorization.Authorize(Policy = CraterPermissions.Admin)]
 [Route("api/images/artwork/development-fixture")]
 public sealed class DevelopmentCraterFixturesController : ControllerBase
 {
@@ -21,7 +22,8 @@ public sealed class DevelopmentCraterFixturesController : ControllerBase
         CancellationToken cancellationToken)
     {
         // All guards run before product, storage or provider resolution. No image-generation service is used here.
-        if (!CraterItLocalAccess.Allows(HttpContext, environment, configuration) ||
+        if (configuration.GetValue<bool>("Authentication:Enabled") ||
+            !CraterItLocalAccess.Allows(HttpContext, environment, configuration) ||
             !configuration.GetValue<bool>("CraterIt:FixtureImportEnabled") ||
             configuration["CraterArt:Provider"] != "Azure" ||
             !int.TryParse(configuration["CraterIt:FixtureProductId"], out var allowedProduct) || allowedProduct <= 0)

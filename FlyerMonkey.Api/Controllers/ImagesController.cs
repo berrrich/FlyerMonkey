@@ -7,6 +7,8 @@ using System.Security.Cryptography;
 using System.Text.Json;
 using System.Diagnostics;
 using System.Globalization;
+using Microsoft.AspNetCore.Authorization;
+using System.Security.Claims;
 
 namespace FlyerMonkey.Api.Controllers;
 
@@ -17,6 +19,7 @@ public class ImagesController : ControllerBase
     private static readonly SemaphoreSlim GenerationSlot = CraterArtworkWriteSlot.Instance;
 
     [HttpPost("generate")]
+    [Authorize(Policy = CraterPermissions.Generate)]
     public async Task<ActionResult> Generate(
         GenerateImageRequest request,
         [FromServices] IWebHostEnvironment environment,
@@ -47,6 +50,8 @@ public class ImagesController : ControllerBase
             var existing = await store.FindRequestAsync(request.RequestId, cancellationToken);
             if (existing is not null)
             {
+                if (configuration.GetValue<bool>("Authentication:Enabled") && !CraterPermissions.Owns(User, existing))
+                    return Conflict("Request ID unavailable.");
                 if (existing.RequestFingerprint != fingerprint) return Conflict("Request ID already used.");
                 if (await store.ReadAsync(existing.ArtworkId, cancellationToken) is null)
                     return StatusCode(503, new ProblemDetails { Status = 503, Title = "Previously saved artwork is missing. No new image was generated." });
@@ -59,7 +64,11 @@ public class ImagesController : ControllerBase
             var generationMs = phase.Elapsed.TotalMilliseconds;
             var artwork = new CraterArtwork(Guid.NewGuid(), request.RequestId, request.ProductID,
                 request.ProductName, request.Preset, CraterItPromptBuilder.GetPreset(request.Preset).Name,
-                DateTimeOffset.UtcNow, "image/jpeg", "artwork.jpg", 1, fingerprint);
+                DateTimeOffset.UtcNow, "image/jpeg", "artwork.jpg", 1, fingerprint)
+            {
+                OwnerTenantId = configuration.GetValue<bool>("Authentication:Enabled") ? Guid.Parse(User.FindFirstValue("tid")!) : null,
+                OwnerObjectId = configuration.GetValue<bool>("Authentication:Enabled") ? Guid.Parse(User.FindFirstValue("oid")!) : null
+            };
             // Once bytes exist, browser cancellation must not discard them. Bound disk work independently.
             using var saveTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
             phase.Restart();
@@ -88,25 +97,37 @@ public class ImagesController : ControllerBase
     }
 
     [HttpGet("artwork")]
+    [Authorize(Policy = CraterPermissions.ViewOwn)]
     public async Task<ActionResult> List(int productId, [FromServices] IWebHostEnvironment environment,
         [FromServices] IConfiguration configuration, CancellationToken cancellationToken)
     {
-        if (!CraterItLocalAccess.Allows(HttpContext, environment, configuration)) return NotFound();
+        if (!CanReadPrivate(HttpContext, environment, configuration)) return NotFound();
         Response.Headers.CacheControl = "no-store";
         if (productId <= 0) return BadRequest("Invalid product ID.");
         var store = HttpContext.RequestServices.GetRequiredService<ICraterArtworkStore>();
-        return Ok(await store.ListAsync(productId, cancellationToken));
+        var items = await store.ListAsync(productId, cancellationToken);
+        return Ok(configuration.GetValue<bool>("Authentication:Enabled")
+            ? items.Where(item => CraterPermissions.Owns(User, item)).ToArray() : items);
     }
 
     [HttpGet("artwork/{artworkId}/image")]
+    [Authorize(Policy = CraterPermissions.ViewOwn)]
     public async Task<ActionResult> Image(string artworkId, [FromServices] IWebHostEnvironment environment,
         [FromServices] IConfiguration configuration, CancellationToken cancellationToken)
     {
-        if (!CraterItLocalAccess.Allows(HttpContext, environment, configuration)) return NotFound();
+        if (!CanReadPrivate(HttpContext, environment, configuration)) return NotFound();
         Response.Headers.CacheControl = "no-store";
         if (!Guid.TryParseExact(artworkId, "N", out var id) || id == Guid.Empty) return NotFound();
         var store = HttpContext.RequestServices.GetRequiredService<ICraterArtworkStore>();
+        if (configuration.GetValue<bool>("Authentication:Enabled") &&
+            (await store.GetMetadataAsync(id, cancellationToken) is not { } metadata || !CraterPermissions.Owns(User, metadata)))
+            return NotFound();
         var bytes = await store.ReadAsync(id, cancellationToken);
         return bytes is null ? NotFound() : File(bytes, "image/jpeg");
     }
+
+    private static bool CanReadPrivate(HttpContext context, IWebHostEnvironment environment, IConfiguration configuration) =>
+        configuration.GetValue<bool>("Authentication:Enabled")
+            ? configuration.GetValue<bool>("CraterIt:PrivateAccessEnabled") && context.User.Identity?.IsAuthenticated == true
+            : CraterItLocalAccess.Allows(context, environment, configuration);
 }

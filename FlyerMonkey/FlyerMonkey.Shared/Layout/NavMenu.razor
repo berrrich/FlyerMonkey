@@ -7,7 +7,11 @@
 <input type="checkbox" title="Navigation menu" class="navbar-toggler" />
 
 <div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
-    <nav class="nav flex-column">        
+    <nav class="nav flex-column">
+        @if (Services.GetService(typeof(FlyerMonkey.Shared.Services.IOperatorSession)) is FlyerMonkey.Shared.Services.IOperatorSession { IsEnabled: true })
+        {
+            <div class="nav-item px-3"><NavLink class="nav-link" href="operator/mobile">Operator</NavLink></div>
+        }
         <div class="nav-item px-3">
             @* <NavLink class="nav-link" href="">
                 <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> This Week's Offers
@@ -15,4 +19,6 @@
         </div>
     </nav>
 </div>
+
+@inject IServiceProvider Services
 

@@ -1,0 +1,50 @@
+@page "/operator/mobile"
+@using FlyerMonkey.Shared.Services
+@using System.Net.Http.Json
+@inject IServiceProvider Services
+@implements IDisposable
+
+<h1>Operator</h1>
+@if (Session is { IsEnabled: true })
+{
+    <button @onclick="SignIn" disabled="@busy">Sign in</button>
+    <button @onclick="SignOut" disabled="@busy">Sign out</button>
+    <label>Product ID <input type="number" @bind="productId" min="1" /></label>
+    <button @onclick="Load" disabled="@busy">View my artwork</button>
+    @foreach (var item in artwork)
+    {
+        <p>@item.ProductName — @item.PresetName — @item.CreatedUtc</p>
+    }
+}
+else
+{
+    <p>Operator sign-in is not enabled for this build.</p>
+}
+<p>@message</p>
+
+@code {
+    private IOperatorSession? Session => Services.GetService(typeof(IOperatorSession)) as IOperatorSession;
+    private OperatorArtworkClient? client;
+    private int productId = 1;
+    private bool busy;
+    private string message = "";
+    private List<FlyerMonkey.Shared.Model.CraterArtwork> artwork = [];
+    private async Task Run(Func<Task> work)
+    {
+        busy = true;
+        message = "";
+        try { await work(); }
+        catch { artwork = []; message = "Operator request failed. Check sign-in and access permissions."; }
+        finally { busy = false; }
+    }
+    private Task SignIn() => Run(async () => { artwork = []; await Session!.SignInAsync(); message = "Signed in. API permissions are checked on each request."; });
+    private Task SignOut() => Run(async () => { artwork = []; await Session!.SignOutAsync(); message = "Signed out of this app."; });
+    private Task Load() => Run(async () =>
+    {
+        if (productId <= 0) throw new InvalidOperationException();
+        client ??= Services.GetService(typeof(OperatorArtworkClient)) as OperatorArtworkClient ?? throw new InvalidOperationException();
+        using var response = await client.GetAsync($"api/images/artwork?productId={productId}");
+        artwork = await response.Content.ReadFromJsonAsync<List<FlyerMonkey.Shared.Model.CraterArtwork>>() ?? [];
+    });
+    public void Dispose() => client?.Dispose();
+}

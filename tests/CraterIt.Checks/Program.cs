@@ -41,9 +41,11 @@ async Task<ActionResult> Call(string environment = "Development", bool enabled =
     string remote = "127.0.0.1", string host = "localhost:5000", bool header = true,
     string prompt = "product", ImageGenerationService? service = null,
     CancellationToken token = default, GenerateImageRequest? input = null, ICraterArtworkStore? storage = null,
-    string operation = "generate", string artworkId = "bad")
+    string operation = "generate", string artworkId = "bad", bool authenticated = false)
 {
     var context = new DefaultHttpContext();
+    if (authenticated) context.User = new System.Security.Claims.ClaimsPrincipal(new System.Security.Claims.ClaimsIdentity(
+        [new("tid", "11111111-1111-4111-8111-111111111111"), new("oid", "22222222-2222-4222-8222-222222222222")], "offline"));
     context.Connection.RemoteIpAddress = IPAddress.Parse(remote);
     context.Request.Host = new HostString(host);
     if (header) context.Request.Headers["X-CraterIt-Local"] = "1";
@@ -53,7 +55,8 @@ async Task<ActionResult> Call(string environment = "Development", bool enabled =
             .AddSingleton<ICraterArtworkStore>(storage ?? store).BuildServiceProvider();
     var controller = new ImagesController { ControllerContext = new ControllerContext { HttpContext = context } };
     var configuration = new ConfigurationBuilder().AddInMemoryCollection(
-        new Dictionary<string, string?> { ["CraterIt:Enabled"] = enabled.ToString() }).Build();
+        new Dictionary<string, string?> { ["CraterIt:Enabled"] = enabled.ToString(),
+            ["Authentication:Enabled"] = authenticated.ToString(), ["CraterIt:PrivateAccessEnabled"] = authenticated.ToString() }).Build();
     if (operation == "list") return await controller.List(1, new TestEnvironment { EnvironmentName = environment }, configuration, token);
     if (operation == "image") return await controller.Image(artworkId, new TestEnvironment { EnvironmentName = environment }, configuration, token);
     var result = await controller.Generate(input ?? new GenerateImageRequest { Prompt = prompt, RequestId = Guid.NewGuid(), ProductID = 1, ProductName = "Product" },
@@ -80,6 +83,13 @@ Check(await Call(prompt: new string('x', 2001)) is BadRequestObjectResult, "Long
 var fake = new ImageGenerationService();
 var input = new GenerateImageRequest { RequestId = Guid.NewGuid(), ProductID = 1, ProductName = "Asparagus", Prompt = "product" };
 var saved = (CraterArtwork)((OkObjectResult)await Call(service: fake, input: input)).Value!;
+var owned = (CraterArtwork)((OkObjectResult)await Call(service: new ImageGenerationService(), authenticated: true)).Value!;
+Check(owned.OwnerTenantId == Guid.Parse("11111111-1111-4111-8111-111111111111") &&
+    owned.OwnerObjectId == Guid.Parse("22222222-2222-4222-8222-222222222222"), "Generated ownership comes from validated claims, not request fields");
+Check(await store.GetMetadataAsync(owned.ArtworkId, default) is { OwnerObjectId: not null, OwnerTenantId: not null }, "Owner metadata survives actual local persistence");
+Check(await Call(service: fake, input: input, authenticated: true) is ConflictObjectResult, "Ownerless legacy replay denied without generation");
+Check(await Call(storage: store, authenticated: true, operation: "image", artworkId: saved.ArtworkId.ToString("N")) is NotFoundResult,
+    "Ownerless legacy image denied through controller");
 Check((await store.ReadAsync(saved.ArtworkId, default))!.Length == 3 && saved.ProductName == "Asparagus" &&
     saved.CreatedUtc.Offset == TimeSpan.Zero, "Success follows committed JPEG and UTC metadata");
 fake.Work = _ => throw new Exception("Duplicate called provider");

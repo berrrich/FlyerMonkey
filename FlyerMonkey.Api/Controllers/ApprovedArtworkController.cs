@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace FlyerMonkey.Api.Controllers;
 
+[Microsoft.AspNetCore.Authorization.AllowAnonymous]
 [ApiController]
 [Route("api/products/{productId:int}/approved-artwork/image")]
 public sealed class ApprovedArtworkController : ControllerBase

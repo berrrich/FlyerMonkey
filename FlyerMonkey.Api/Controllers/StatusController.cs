@@ -2,6 +2,7 @@
 
 namespace FlyerMonkey.Api.Controllers
 {
+    [Microsoft.AspNetCore.Authorization.AllowAnonymous]
     [ApiController]
     [Route("api/[controller]")]
     public class StatusController : ControllerBase

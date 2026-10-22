@@ -4,6 +4,7 @@ using SQLServerConnection.Data;
 using Microsoft.Data.SqlClient;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddFlyerMonkeyAuthentication(builder.Configuration);
 
 var rawConnectionString =
     Environment.GetEnvironmentVariable(
@@ -58,6 +59,7 @@ if (!app.Environment.IsDevelopment())
     app.UseHttpsRedirection();
 }
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
