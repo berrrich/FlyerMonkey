@@ -252,7 +252,7 @@ try
     Check(PublicApiClientRegistration.ProductImageUrl(102) == PublicApiClientRegistration.ApiBaseUrl + "api/products/102/image",
         "Canonical image routing shares the published HTTPS root");
 
-    async Task<(string Html, int Requests)> RenderProduct(bool enabled, int status, int productId = 102, Exception? failure = null, bool generationEnabled = false, bool savedPreview = false, bool productFailure = false, bool productList = false)
+    async Task<(string Html, int Requests)> RenderProduct(bool enabled, int status, int productId = 102, Exception? failure = null, bool generationEnabled = false, bool savedPreview = false, bool productFailure = false, bool productList = false, bool? websiteAuthenticated = null)
     {
         using var imageHandler = new ClientHandler { Status=status, Failure=failure };
         using var generationHttp = new HttpClient();
@@ -260,6 +260,8 @@ try
         using var galleryHttp = new HttpClient(new SavedPreviewHandler());
         if (savedPreview) galleryHttp.BaseAddress = new Uri("http://localhost:5145/");
         var services = new ServiceCollection().AddLogging();
+        if (websiteAuthenticated is { } authenticated)
+            services.AddSingleton<IWebsiteCraterSession>(new WebsiteSession(authenticated));
         services.AddSingleton<Microsoft.JSInterop.IJSRuntime>(new NoDisplayJs());
         services.AddApprovedArtworkClient(enabled, "https://offline.invalid/");
         services.AddHttpClient<ApprovedArtworkApiService>().ConfigurePrimaryHttpMessageHandler(() => imageHandler);
@@ -279,6 +281,21 @@ try
         return (html,imageHandler.Calls);
     }
     var rendered = await RenderProduct(true,200);
+    foreach (var authenticated in new[] { false, true })
+    {
+        var websiteEntry = await RenderProduct(false, 200, generationEnabled:true, savedPreview:true,
+            websiteAuthenticated:authenticated);
+        var html = System.Net.WebUtility.HtmlDecode(websiteEntry.Html);
+        Check(html.Contains("☄️ Crater It") && html.Contains("Product ID: 102") && html.Contains("Compare Offers"),
+            "Web product detail keeps the public product, offers and product-associated Crater entry");
+        Check(html.Contains(authenticated ? "ViewOwn does not grant Generate" : "Generation is not available yet"),
+            "Real product detail renders the appropriate anonymous/operator explanation");
+        Check(!html.Contains("crater-style") && !html.Contains("<dialog") && !html.Contains("Saved Crater artwork") &&
+            !html.Contains("/operator/signin") && websiteEntry.Requests == 0,
+            "Website entry suppresses legacy generation/history even with local development clients enabled");
+        Check(html.Contains("action=\"/products/102\""),
+            "Product detail uses canonical local form and return targets");
+    }
     Check(rendered.Html.Contains("data:image/jpeg;base64,") && rendered.Html.Contains("Approved Crater creative artwork"),
         "Production Product Detail renders approved HTTPS artwork with creative caption");
     Check(rendered.Html.Contains("product-placeholder.png") && rendered.Html.Contains("Original product image"),
@@ -490,4 +507,9 @@ sealed class OfflineHandler : HttpMessageHandler
         if(request.Method!=HttpMethod.Get && request.Method!=HttpMethod.Head)throw new Exception("Unexpected write");
         return Blobs.TryGetValue(name,out var bytes)?Response(200,bytes):Response(404,code:"BlobNotFound");
     }
+}
+
+sealed class WebsiteSession(bool authenticated) : IWebsiteCraterSession
+{
+    public Task<bool> IsAuthenticatedAsync() => Task.FromResult(authenticated);
 }

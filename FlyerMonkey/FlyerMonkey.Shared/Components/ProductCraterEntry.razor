@@ -1,0 +1,47 @@
+@using FlyerMonkey.Shared.Services
+@inject IWebsiteCraterSession Session
+
+<section class="card card-body my-3" aria-labelledby="product-crater-title">
+    <h2 id="product-crater-title">Crater It</h2>
+    <p>Create something playful inspired by this product. Generation is not available yet.</p>
+    <form method="get" action="@ProductPath">
+        <input type="hidden" name="crater" value="true" />
+        <button type="submit" class="btn btn-outline-primary" aria-describedby="product-crater-context">☄️ Crater It</button>
+    </form>
+    <p id="product-crater-context" class="text-muted mt-2">Product ID: @ProductId</p>
+    @if (Expanded)
+    {
+        <div role="status" class="mt-3">
+            @if (_authenticated)
+            {
+                <p>You are signed in as an operator. Generation is restricted and disabled here.
+                    ViewOwn allows viewing your own artwork; it does not grant Generate permission.</p>
+            }
+            else
+            {
+                <p>You will need a customer account to use Crater It. Public customer sign-in is coming later.
+                    For now, you can keep browsing products and offers.</p>
+            }
+            <button type="button" class="btn btn-secondary" disabled>Generation unavailable</button>
+            <p class="mt-2"><a href="@ProductPath">Back to this product</a> · <a href="/offers">Browse offers</a></p>
+        </div>
+    }
+    else if (_authenticated)
+    {
+        <p class="mt-2">Operator access is restricted. Generation is disabled; ViewOwn does not grant Generate.</p>
+    }
+</section>
+
+@code {
+    [Parameter] public int ProductId { get; set; }
+    [Parameter] public bool Expanded { get; set; }
+    // Construct the only return destination ourselves. Never consume returnUrl or a browser-provided URI.
+    private string ProductPath => $"/products/{ProductId.ToString(System.Globalization.CultureInfo.InvariantCulture)}";
+    private bool _authenticated;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (ProductId <= 0) throw new ArgumentOutOfRangeException(nameof(ProductId));
+        _authenticated = await Session.IsAuthenticatedAsync();
+    }
+}

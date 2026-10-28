@@ -7,6 +7,7 @@
 @inject IProductService ProductService
 @inject ImageGenerationApiService ImageGeneration
 @inject CraterArtworkApiService ArtworkGallery
+@inject IServiceProvider Services
 @inject Microsoft.JSInterop.IJSRuntime JS
 @implements IDisposable
 
@@ -24,7 +25,7 @@ else if (_product is null)
 }
 else
 {
-    <div class="container py-4 fm-detail-page @(ImageGeneration.IsEnabled ? "fm-has-comet" : "")">
+    <div class="container py-4 fm-detail-page @(CanGenerate ? "fm-has-comet" : "")">
 
         <a href="/products" class="d-inline-block mb-4">
             ← Back to Products
@@ -64,6 +65,12 @@ else
                 }
             </section>
                 <div class="fm-creative-tools">
+                    @if (IsWebsite)
+                    {
+                        <ProductCraterEntry ProductId="@_product.ID" Expanded="@OpenCrater" />
+                    }
+                    else
+                    {
                     @if (ArtworkGallery.IsEnabled)
                     {
                         <section aria-labelledby="crater-gallery-title">
@@ -89,7 +96,7 @@ else
                             }
                         </section>
                     }
-                    @if (ImageGeneration.IsEnabled)
+                    @if (CanGenerate)
                     {
                         <section id="crater-controls" aria-labelledby="crater-title" tabindex="-1" @ref="_craterControls">
                             <h2 id="crater-title">Crater It!</h2>
@@ -132,6 +139,7 @@ else
                         <p class="text-muted">Crater It! is available for local development testing only.</p>
                     }
 
+                    }
                 </div>
             </div>
             <div class="fm-detail-information">
@@ -203,7 +211,7 @@ else
         </section>
 
     </div>
-    @if (ImageGeneration.IsEnabled)
+    @if (CanGenerate)
     {
         <button type="button" class="fm-floating-comet" aria-label="Fancy inventing a picture?"
                 aria-haspopup="dialog" aria-controls="crater-invitation" @ref="_floatingComet" @onclick="OpenInvitationAsync">
@@ -228,6 +236,9 @@ else
     [SupplyParameterFromQuery(Name = "crater")]
     public bool OpenCrater { get; set; }
 
+    private bool IsWebsite => Services.GetService(typeof(IWebsiteCraterSession)) is not null;
+    private bool CanGenerate => !IsWebsite && ImageGeneration.IsEnabled;
+
     private ElementReference _craterControls;
     private ElementReference _floatingComet;
     private ElementReference _invitation;
@@ -238,7 +249,7 @@ else
 
     private async Task InvitationAsync(string action, params object?[] arguments)
     {
-        if (_disposed || _product is null || !ImageGeneration.IsEnabled) return;
+        if (_disposed || _product is null || !CanGenerate) return;
         var version = _loadVersion;
         try
         {
@@ -300,7 +311,7 @@ else
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (_focusCrater && _product is not null && ImageGeneration.IsEnabled)
+        if (_focusCrater && _product is not null && CanGenerate)
         {
             _focusCrater = false;
             await _craterControls.FocusAsync();
@@ -369,7 +380,7 @@ else
 
     private async Task GenerateAsync()
     {
-        if (_disposed || _generation is not null || _product is null || !ImageGeneration.IsEnabled)
+        if (_disposed || _generation is not null || _product is null || !CanGenerate)
             return;
 
         var productId = Id;
@@ -507,7 +518,7 @@ else
         {
             _product = products.FirstOrDefault(p => p.ID == productId);
             if (_product is null) _productLoadError = "Product not found.";
-            if (_product is not null && ArtworkGallery.IsEnabled)
+            if (_product is not null && !IsWebsite && ArtworkGallery.IsEnabled)
             {
                 _historyLoading = true;
                 using var retrieval = new CancellationTokenSource();

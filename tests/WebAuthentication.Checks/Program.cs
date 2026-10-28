@@ -232,7 +232,7 @@ try
     }
     var apiProfile = LocalProfile("FlyerMonkey.Api/Properties/launchSettings.json");
     var webProfile = LocalProfile("FlyerMonkey/FlyerMonkey.Web/Properties/launchSettings.json");
-    Check(!apiProfile.GetValue<bool>("Authentication:Enabled") && !webProfile.GetValue<bool>("Authentication:Enabled"), "Operator-local profiles default authentication off");
+    Check(apiProfile.GetValue<bool>("Authentication:Enabled") && webProfile.GetValue<bool>("Authentication:Enabled"), "Explicit operator-local profiles enable authentication");
     Check(apiProfile["Authentication:TenantId"] == webProfile["Authentication:TenantId"] &&
         apiProfile["Authentication:ApiClientId"] == webProfile["Authentication:ApiClientId"] &&
         apiProfile.GetSection("Authentication:AllowedClientIds").Get<string[]>() is [var allowed] && allowed == webProfile["Authentication:WebClientId"],
@@ -241,11 +241,51 @@ try
         apiProfile.GetValue<bool>("Authentication:ViewOwnOnly"), "Local pilot grants/caps only ViewOwn");
     Check(apiProfile["Authentication:OperatorObjectId"] is null && webProfile["Authentication:OperatorObjectId"] is null &&
         webProfile["Authentication:WebClientSecret"] is null, "Owner ID and Web credential stay outside launch profiles");
+    async Task<string> RenderCrater(bool authenticated, bool expanded, int productId = 102)
+    {
+        var services = new ServiceCollection().AddLogging();
+        services.AddSingleton<IWebsiteCraterSession>(new CraterSession(authenticated));
+        await using var provider = services.BuildServiceProvider();
+        await using var renderer = new Microsoft.AspNetCore.Components.Web.HtmlRenderer(provider,
+            provider.GetRequiredService<Microsoft.Extensions.Logging.ILoggerFactory>());
+        return await renderer.Dispatcher.InvokeAsync(async () =>
+        {
+            var component = await renderer.RenderComponentAsync<FlyerMonkey.Shared.Components.ProductCraterEntry>(
+                Microsoft.AspNetCore.Components.ParameterView.FromDictionary(new Dictionary<string, object?>
+                { ["ProductId"] = productId, ["Expanded"] = expanded }));
+            return WebUtility.HtmlDecode(component.ToHtmlString());
+        });
+    }
+    var anonymousEntry = await RenderCrater(false, false);
+    Check(anonymousEntry.Contains("☄️ Crater It") && anonymousEntry.Contains("type=\"submit\""), "Anonymous product entry has a working submit button");
+    Check(anonymousEntry.Contains("method=\"get\" action=\"/products/102\"") &&
+        anonymousEntry.Contains("name=\"crater\" value=\"true\""), "Crater click opens explanation on the same product without a private API request");
+    var anonymousExplanation = await RenderCrater(false, true);
+    Check(anonymousExplanation.Contains("Public customer sign-in is coming later") &&
+        anonymousExplanation.Contains("keep browsing products and offers"), "Anonymous explanation describes future customer sign-in and continued public browsing");
+    Check(!anonymousExplanation.Contains("/operator") && !anonymousExplanation.Contains("login.microsoftonline"), "Customer entry never links or redirects to private operator login");
+    Check(anonymousExplanation.Contains("Product ID: 102") && anonymousExplanation.Contains("href=\"/products/102\""), "Product ID and canonical local return destination are preserved");
+    var operatorEntry = await RenderCrater(true, false);
+    var operatorExplanation = await RenderCrater(true, true);
+    Check(operatorEntry.Contains("Generation is disabled") && operatorExplanation.Contains("does not grant Generate permission"), "Operator ViewOwn never implies generation permission");
+    Check(operatorExplanation.Contains("disabled") && operatorExplanation.Contains("Generation unavailable"), "Operator generation action remains disabled");
+    var otherProduct = await RenderCrater(false, true, 139);
+    Check(otherProduct.Contains("action=\"/products/139\"") && otherProduct.Contains("href=\"/products/139\"") &&
+        !otherProduct.Contains("/products/102"), "Return navigation follows the selected product and uses no caller-supplied URL");
+    try { await RenderCrater(false, true, -1); throw new Exception("Expected invalid product rejection"); }
+    catch (ArgumentOutOfRangeException) { Check(true, "Invalid product context is rejected"); }
+    using (var publicServices = new ServiceCollection().BuildServiceProvider())
+        Check(!await new WebsiteCraterSession(publicServices).IsAuthenticatedAsync(), "Web entry works anonymously with authentication services disabled");
     Console.WriteLine($"{checks} offline Web challenge/cookie/antiforgery checks passed. No real Entra sign-in tested.");
     return 0;
 }
 catch (Exception ex) { Console.Error.WriteLine(ex); return 1; }
 finally { await app.StopAsync(); }
+
+sealed class CraterSession(bool authenticated) : IWebsiteCraterSession
+{
+    public Task<bool> IsAuthenticatedAsync() => Task.FromResult(authenticated);
+}
 
 sealed class NoNetwork : HttpMessageHandler
 {
