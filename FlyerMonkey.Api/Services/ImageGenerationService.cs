@@ -1,28 +1,26 @@
 ﻿using OpenAI.Images;
 
+using OpenAI;
+using System.ClientModel;
+
 namespace FlyerMonkey.Api.Services;
 
 public class ImageGenerationService
 {
-    private readonly string _apiKey;
+    public const string DefaultModel = "gpt-image-1.5";
+    public string Model { get; }
     private readonly ImageClient _imageClient;
-    public ImageGenerationService(IConfiguration configuration)
+    public ImageGenerationService(IConfiguration configuration, OpenAIClientOptions? clientOptions = null)
     {
-        _apiKey = configuration["OpenAI:ApiKey"]
-            ?? throw new InvalidOperationException(
-                "OpenAI API key is not configured.");
-        _imageClient = new ImageClient(
-    model: "gpt-image-1",
-    apiKey: _apiKey);
+        Model = configuration["OpenAI:ImageModel"]?.Trim() ?? DefaultModel;
+        if (string.IsNullOrWhiteSpace(Model))
+            throw new InvalidOperationException("OpenAI:ImageModel must not be blank.");
+        var apiKey = configuration["OpenAI:ApiKey"];
+        if (string.IsNullOrWhiteSpace(apiKey))
+            throw new InvalidOperationException("OpenAI API key is not configured.");
+        _imageClient = new ImageClient(Model, new ApiKeyCredential(apiKey), clientOptions ?? new OpenAIClientOptions());
     }
 
-    /*public async Task<BinaryData> GenerateAsync(string prompt)
-    {
-        var result =
-            await _imageClient.GenerateImageAsync(prompt);
-
-        return result.Value.ImageBytes;
-    }*/
     public async Task<BinaryData> GenerateAsync(string prompt, CancellationToken cancellationToken = default)
     {
 #pragma warning disable OPENAI001

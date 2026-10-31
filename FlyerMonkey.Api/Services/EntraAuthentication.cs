@@ -54,6 +54,7 @@ public static class EntraAuthentication
         });
         services.AddAuthorization(options =>
         {
+            options.AddPolicy(CraterPermissions.LocalDevelopmentGenerate, policy => policy.RequireAuthenticatedUser().AddRequirements(new CraterPermission(CraterPermissions.LocalDevelopmentGenerate)));
             options.FallbackPolicy = new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build();
             foreach (var permission in CraterPermissions.All)
                 options.AddPolicy(permission, policy => policy.AddRequirements(new CraterPermission(permission)));

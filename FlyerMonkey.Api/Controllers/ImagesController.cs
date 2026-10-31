@@ -18,6 +18,19 @@ public class ImagesController : ControllerBase
 {
     private static readonly SemaphoreSlim GenerationSlot = CraterArtworkWriteSlot.Instance;
 
+    [HttpPost("local-development/generate")]
+    [Authorize(Policy = CraterPermissions.LocalDevelopmentGenerate)]
+    public async Task<ActionResult> GenerateLocalDevelopment(GenerateImageRequest request,
+        [FromServices] IWebHostEnvironment environment, [FromServices] IConfiguration configuration,
+        [FromServices] IAuthorizationService authorization, CancellationToken cancellationToken)
+    {
+        if (!environment.IsDevelopment() || !configuration.GetValue<bool>("CraterIt:LocalDevelopmentGenerationEnabled"))
+            return NotFound();
+        if (!(await authorization.AuthorizeAsync(User, HttpContext, CraterPermissions.LocalDevelopmentGenerate)).Succeeded)
+            return Forbid();
+        return await Generate(request, environment, configuration, cancellationToken);
+    }
+
     [HttpPost("generate")]
     [Authorize(Policy = CraterPermissions.Generate)]
     public async Task<ActionResult> Generate(
@@ -82,6 +95,12 @@ public class ImagesController : ControllerBase
             HttpContext.RequestServices.GetRequiredService<ILogger<ImagesController>>()
                 .LogError(ex, "Crater artwork persistence failed for request {RequestId}", request.RequestId);
             return StatusCode(503, new ProblemDetails { Status = 503, Title = "Artwork could not be saved. No success was recorded." });
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            HttpContext.RequestServices.GetRequiredService<ILogger<ImagesController>>()
+                .LogError(ex, "Generation failed for request {RequestId}", request.RequestId);
+            return StatusCode(502, new ProblemDetails { Status = 502, Title = "Image generation failed. Check local API configuration and provider status before trying again." });
         }
         finally
         {

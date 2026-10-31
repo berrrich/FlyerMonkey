@@ -10,6 +10,7 @@ using WebProductApiService =
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddScoped<IWebsiteCraterSession, WebsiteCraterSession>();
+builder.Services.AddScoped<ILocalDevelopmentGeneration, LocalDevelopmentGeneration>();
 var operatorAuthentication = FlyerMonkey.Web.Services.OperatorAuthentication.AddOperatorAuthentication(
     builder.Services, builder.Configuration, builder.Environment);
 

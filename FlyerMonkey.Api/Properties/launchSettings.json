@@ -35,7 +35,8 @@
         "Authentication__OperatorPermissions__0": "Crater.ViewOwn",
         "CraterIt__Enabled": "false",
         "CraterIt__PrivateAccessEnabled": "true",
-        "CraterArt__Provider": "Local"
+        "CraterArt__Provider": "Local",
+        "CraterIt__LocalDevelopmentGenerationEnabled": "false"
       }
     }
   }

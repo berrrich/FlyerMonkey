@@ -33,7 +33,8 @@
         "Authentication__ApiClientId": "52691bc6-97d4-4abc-bc11-19b3d198a288",
         "Authentication__WebClientId": "fcadb3a5-2941-4b27-946a-785608758ff1",
         "Authentication__ApiBaseUrl": "https://localhost:7255/",
-        "CraterIt__Enabled": "false"
+        "CraterIt__Enabled": "false",
+        "CraterIt__LocalDevelopmentGenerationEnabled": "false"
       }
     }
   }

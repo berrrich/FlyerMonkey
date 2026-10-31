@@ -5,6 +5,7 @@ namespace FlyerMonkey.Api.Services;
 
 public static class CraterPermissions
 {
+    public const string LocalDevelopmentGenerate = "Crater.LocalDevelopmentGenerate";
     public const string Generate = "Crater.Generate";
     public const string ViewOwn = "Crater.ViewOwn";
     public const string Approve = "Crater.Approve";
@@ -25,6 +26,15 @@ public sealed class CraterPermissionHandler(IConfiguration configuration, IWebHo
 {
     protected override Task HandleRequirementAsync(AuthorizationHandlerContext context, CraterPermission requirement)
     {
+        var permissionName = requirement.Name;
+        if (permissionName == CraterPermissions.LocalDevelopmentGenerate)
+        {
+            if (!configuration.GetValue<bool>("Authentication:Enabled") ||
+                !configuration.GetValue<bool>("CraterIt:LocalDevelopmentGenerationEnabled") ||
+                context.Resource is not HttpContext local || !CraterItLocalAccess.Allows(local, environment, configuration))
+                return Task.CompletedTask;
+            permissionName = CraterPermissions.ViewOwn;
+        }
         // Preserve only the existing explicitly opted-in loopback development workflow.
         // Enabling identity disables this bypass, including for the local header.
         if (!configuration.GetValue<bool>("Authentication:Enabled"))
@@ -36,7 +46,7 @@ public sealed class CraterPermissionHandler(IConfiguration configuration, IWebHo
 
         var user = context.User;
         // A local read-only pilot cannot acquire write/admin grants from stale configuration entries.
-        if (configuration.GetValue<bool>("Authentication:ViewOwnOnly") && requirement.Name != CraterPermissions.ViewOwn)
+        if (configuration.GetValue<bool>("Authentication:ViewOwnOnly") && permissionName != CraterPermissions.ViewOwn)
             return Task.CompletedTask;
         if (user.Identity?.IsAuthenticated == true && user.FindFirstValue("ver") == "2.0" &&
             Guid.TryParse(configuration["Authentication:TenantId"], out var expectedTenant) && expectedTenant != Guid.Empty &&
@@ -47,7 +57,7 @@ public sealed class CraterPermissionHandler(IConfiguration configuration, IWebHo
             configuration.GetSection("Authentication:AllowedClientIds").Get<string[]>()?.Any(client =>
                 Guid.TryParse(client, out var allowed) && allowed != Guid.Empty &&
                 Guid.TryParse(user.FindFirstValue("azp"), out var actual) && allowed == actual) == true &&
-            configuration.GetSection("Authentication:OperatorPermissions").Get<string[]>()?.Contains(requirement.Name, StringComparer.Ordinal) == true)
+            configuration.GetSection("Authentication:OperatorPermissions").Get<string[]>()?.Contains(permissionName, StringComparer.Ordinal) == true)
             context.Succeed(requirement);
         return Task.CompletedTask;
     }

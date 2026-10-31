@@ -130,6 +130,10 @@ var rejectedRequest = new GenerateImageRequest { RequestId = Guid.NewGuid(), Pro
     ProductName = "Asparagus", Preset = (CraterStyle)999, Prompt = "product" };
 Check(await Call(service: fake, input: rejectedRequest) is BadRequestObjectResult, "Unknown API preset rejected");
 fake.Work = _ => Task.FromResult<byte[]>([255, 216, 255]);
+fake.Work = _ => throw new InvalidOperationException("Offline provider failure");
+Check(await Call(service: fake) is ObjectResult { StatusCode: 502, Value: ProblemDetails { Title: not null } },
+    "Provider failure returns a useful safe error and releases generation slot");
+fake.Work = _ => Task.FromResult<byte[]>([255, 216, 255]);
 Check(await Call(service: fake, storage: new FaultStore()) is ObjectResult { StatusCode: 503 },
     "Write failure never reports generation success");
 using var lateCancellation = new CancellationTokenSource();

@@ -241,10 +241,11 @@ try
         apiProfile.GetValue<bool>("Authentication:ViewOwnOnly"), "Local pilot grants/caps only ViewOwn");
     Check(apiProfile["Authentication:OperatorObjectId"] is null && webProfile["Authentication:OperatorObjectId"] is null &&
         webProfile["Authentication:WebClientSecret"] is null, "Owner ID and Web credential stay outside launch profiles");
-    async Task<string> RenderCrater(bool authenticated, bool expanded, int productId = 102)
+    async Task<string> RenderCrater(bool authenticated, bool expanded, int productId = 102, ILocalDevelopmentGeneration? generation = null)
     {
         var services = new ServiceCollection().AddLogging();
         services.AddSingleton<IWebsiteCraterSession>(new CraterSession(authenticated));
+        if (generation is not null) services.AddSingleton(generation);
         await using var provider = services.BuildServiceProvider();
         await using var renderer = new Microsoft.AspNetCore.Components.Web.HtmlRenderer(provider,
             provider.GetRequiredService<Microsoft.Extensions.Logging.ILoggerFactory>());
@@ -252,7 +253,8 @@ try
         {
             var component = await renderer.RenderComponentAsync<FlyerMonkey.Shared.Components.ProductCraterEntry>(
                 Microsoft.AspNetCore.Components.ParameterView.FromDictionary(new Dictionary<string, object?>
-                { ["ProductId"] = productId, ["Expanded"] = expanded }));
+                { ["ProductId"] = productId, ["Expanded"] = expanded,
+                  ["Product"] = new FlyerMonkey.Shared.Model.Product { ID = productId, Name = "Test product" } }));
             return WebUtility.HtmlDecode(component.ToHtmlString());
         });
     }
@@ -276,11 +278,52 @@ try
     catch (ArgumentOutOfRangeException) { Check(true, "Invalid product context is rejected"); }
     using (var publicServices = new ServiceCollection().BuildServiceProvider())
         Check(!await new WebsiteCraterSession(publicServices).IsAuthenticatedAsync(), "Web entry works anonymously with authentication services disabled");
+    var generation = new FakeLocalGeneration();
+    var localEntry = await RenderCrater(true, true, 139, generation);
+    Check(localEntry.Contains("LOCAL DEVELOPMENT") && localEntry.Contains("Ready") && localEntry.Contains("Optional creative prompt") &&
+        localEntry.Contains("Generate image") && generation.Calls == 0,
+        "Enabled local UI is Ready with optional prompt and never generates on render");
+    var localAnonymous = await RenderCrater(false, true, 139, generation);
+    Check(localAnonymous.Contains("Public customer sign-in is coming later") && !localAnonymous.Contains("Generate image"),
+        "Anonymous messaging retained even with local generation configured");
+    var generationState = new LocalDevelopmentGenerationState();
+    Check(generationState.Status == "Ready", "Local generation starts Ready without provider call");
+    var selected = new FlyerMonkey.Shared.Model.Product { ID = 139, Name = "Test product" };
+    var attempt = generationState.GenerateAsync(generation, selected, "comet");
+    Check(generationState.Status == "Generating", "Generating state visible while awaiting image");
+    await generationState.GenerateAsync(generation, selected, "comet");
+    Check(generation.Calls == 1 && generation.ProductId == 139, "Duplicate click blocked and selected product preserved");
+    generation.Completion.SetResult("data:image/jpeg;base64,/9j/");
+    await attempt;
+    Check(generationState.Status == "Success" && generationState.Image is not null, "Success exposes image preview");
+    await generationState.GenerateAsync(generation, selected, "comet");
+    Check(generation.Calls == 1, "Completed attempt cannot accidentally generate again");
+    var failedGeneration = new FakeLocalGeneration();
+    failedGeneration.Completion.SetException(new HttpRequestException("offline provider failure"));
+    var failedState = new LocalDevelopmentGenerationState();
+    await failedState.GenerateAsync(failedGeneration, selected, "comet");
+    Check(failedState.Status == "Failure" && failedState.Error!.Contains("local API logs") && failedState.Image is null,
+        "Failure displays useful guidance without success preview");
+    await failedState.GenerateAsync(failedGeneration, selected, "comet");
+    Check(failedGeneration.Calls == 1, "Failure does not automatically repeat paid attempt");
     Console.WriteLine($"{checks} offline Web challenge/cookie/antiforgery checks passed. No real Entra sign-in tested.");
     return 0;
 }
 catch (Exception ex) { Console.Error.WriteLine(ex); return 1; }
 finally { await app.StopAsync(); }
+
+sealed class FakeLocalGeneration : ILocalDevelopmentGeneration
+{
+    public bool Enabled => true;
+    public int Calls;
+    public int ProductId;
+    public TaskCompletionSource<string> Completion = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    public Task<string> GenerateAsync(Guid requestId, FlyerMonkey.Shared.Model.Product product, string prompt)
+    {
+        Calls++; ProductId = product.ID;
+        return Completion.Task;
+    }
+}
 
 sealed class CraterSession(bool authenticated) : IWebsiteCraterSession
 {

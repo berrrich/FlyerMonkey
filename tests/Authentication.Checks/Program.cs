@@ -116,9 +116,9 @@ try
     builder.Configuration["CraterIt:PrivateAccessEnabled"] = "false";
     Check((await Get("api/images/artwork?productId=1", valid)).StatusCode == HttpStatusCode.NotFound, "Private switch defaults closed");
     builder.Configuration["CraterIt:PrivateAccessEnabled"] = "true";
-    async Task<HttpResponseMessage> Generate(string? token, Guid requestId)
+    async Task<HttpResponseMessage> Generate(string? token, Guid requestId, bool localDevelopment = false)
     {
-        using var request = new HttpRequestMessage(HttpMethod.Post, "api/images/generate")
+        using var request = new HttpRequestMessage(HttpMethod.Post, localDevelopment ? "api/images/local-development/generate" : "api/images/generate")
         { Content = JsonContent.Create(new { RequestId = requestId, ProductID = 1, ProductName = "Test", Prompt = "test", Preset = 0 }) };
         if (token is not null) request.Headers.Authorization = new("Bearer", token);
         request.Headers.Add("X-CraterIt-Local", "1");
@@ -126,7 +126,23 @@ try
     }
     Check((await Generate(null, Guid.NewGuid())).StatusCode == HttpStatusCode.Unauthorized, "Local header cannot bypass enabled auth");
     Check((await Generate(valid, Guid.NewGuid())).StatusCode == HttpStatusCode.NotFound && providerResolutions == 0, "Production generation denied even with every grant and enabled flag");
+    builder.Configuration["CraterIt:LocalDevelopmentGenerationEnabled"] = "true";
+    Check((await Generate(valid, Guid.NewGuid(), true)).StatusCode == HttpStatusCode.Forbidden && providerResolutions == 0,
+        "Production rejects local development policy even when explicitly enabled");
     app.Environment.EnvironmentName = "Development";
+    Check((await Generate(null, Guid.NewGuid(), true)).StatusCode == HttpStatusCode.Unauthorized,
+        "Anonymous local development generation denied");
+    builder.Configuration["Authentication:ViewOwnOnly"] = "true";
+    Check((await Generate(valid, storage.Foreign.RequestId, true)).StatusCode == HttpStatusCode.Conflict && providerResolutions == 0,
+        "Local development generation enabled for allowlisted ViewOwn operator reaches replay ownership check");
+    Check((await Generate(Token(subject: other), Guid.NewGuid(), true)).StatusCode == HttpStatusCode.Forbidden,
+        "Local development generation denies non-allowlisted operator");
+    Check((await Generate(Token(actor: other), Guid.NewGuid(), true)).StatusCode == HttpStatusCode.Forbidden,
+        "Local development generation denies non-allowlisted client");
+    builder.Configuration["CraterIt:LocalDevelopmentGenerationEnabled"] = "false";
+    Check((await Generate(valid, Guid.NewGuid(), true)).StatusCode == HttpStatusCode.Forbidden && providerResolutions == 0,
+        "Disabled local development generation never resolves provider");
+    builder.Configuration["Authentication:ViewOwnOnly"] = "false";
     Check((await Generate(valid, storage.Foreign.RequestId)).StatusCode == HttpStatusCode.Conflict && providerResolutions == 0,
         "Cross-owner replay never returns artwork or calls provider");
     using var removedPost = new HttpRequestMessage(HttpMethod.Post, "api/products") { Content = JsonContent.Create(new { Name = "Injected" }) };
