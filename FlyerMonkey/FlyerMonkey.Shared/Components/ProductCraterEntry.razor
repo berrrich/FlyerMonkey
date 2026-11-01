@@ -29,6 +29,15 @@
                 <p>You are signed in as an operator. Generation is restricted and disabled here.
                     ViewOwn allows viewing your own artwork; it does not grant Generate permission.</p>
             }
+            else if (_customer.SignedIn)
+            {
+                <p>Signed in as a customer. Customer Crater It generation is disabled.</p>
+                <a href="/customer/account" data-enhance-nav="false">Customer account / Sign out</a>
+            }
+            else if (_customer.Enabled)
+            {
+                <CustomerSignInDrawer ProductId="@ProductId" />
+            }
             else
             {
                 <p>You will need a customer account to use Crater It. Public customer sign-in is coming later.
@@ -54,6 +63,7 @@
     // Construct the only return destination ourselves. Never consume returnUrl or a browser-provided URI.
     private string ProductPath => $"/products/{ProductId.ToString(System.Globalization.CultureInfo.InvariantCulture)}";
     private bool _authenticated;
+    private FlyerMonkey.Shared.Model.CustomerSessionState _customer = new(false, false);
     private ILocalDevelopmentGeneration? _generation;
     private LocalDevelopmentGenerationState _state = new();
     private string _prompt = "";
@@ -68,5 +78,6 @@
         _generation = Services.GetService(typeof(ILocalDevelopmentGeneration)) as ILocalDevelopmentGeneration;
         if (_stateProductId != ProductId) { _state = new(); _prompt = ""; _stateProductId = ProductId; }
         _authenticated = await Session.IsAuthenticatedAsync();
+        _customer = await Session.GetCustomerAsync();
     }
 }

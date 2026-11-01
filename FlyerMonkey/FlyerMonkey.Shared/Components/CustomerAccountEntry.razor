@@ -1,0 +1,18 @@
+@using FlyerMonkey.Shared.Services
+@inject IServiceProvider Services
+
+@if (_customer.Enabled)
+{
+    <a href="@(_customer.SignedIn ? "/customer/account" : "/customer/signin")" data-enhance-nav="false">
+        @(_customer.SignedIn ? "Customer account / Sign out" : "Customer sign in")
+    </a>
+}
+
+@code {
+    private FlyerMonkey.Shared.Model.CustomerSessionState _customer = new(false, false);
+    protected override async Task OnInitializedAsync()
+    {
+        if (Services.GetService(typeof(ICustomerSession)) is ICustomerSession session)
+            _customer = await session.GetCustomerAsync();
+    }
+}

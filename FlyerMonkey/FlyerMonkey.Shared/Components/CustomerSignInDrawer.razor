@@ -1,0 +1,13 @@
+<aside class="customer-signin-drawer" aria-labelledby="customer-signin-title">
+    <a class="customer-drawer-close" href="@ProductPath" aria-label="Close sign-in panel">Close</a>
+    <h3 id="customer-signin-title">Sign in to FlyerMonkey</h3>
+    <p>Sign in or create a customer account to continue with Crater It. Customer image generation is currently disabled.</p>
+    <a class="btn btn-primary" href="@SignInPath" data-enhance-nav="false">Sign in or create an account</a>
+    <p class="mt-2">You will return to this product. Signing in never generates an image.</p>
+</aside>
+
+@code {
+    [Parameter] public int ProductId { get; set; }
+    private string ProductPath => $"/products/{ProductId.ToString(System.Globalization.CultureInfo.InvariantCulture)}";
+    private string SignInPath => "/customer/signin?returnUrl=" + Uri.EscapeDataString(ProductPath + "?crater=true");
+}

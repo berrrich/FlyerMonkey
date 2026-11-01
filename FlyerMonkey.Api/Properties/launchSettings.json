@@ -33,6 +33,7 @@
         "Authentication__ApiClientId": "52691bc6-97d4-4abc-bc11-19b3d198a288",
         "Authentication__AllowedClientIds__0": "fcadb3a5-2941-4b27-946a-785608758ff1",
         "Authentication__OperatorPermissions__0": "Crater.ViewOwn",
+        "CustomerAuthentication__Enabled": "true",
         "CraterIt__Enabled": "false",
         "CraterIt__PrivateAccessEnabled": "true",
         "CraterArt__Provider": "Local",

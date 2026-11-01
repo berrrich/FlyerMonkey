@@ -5,6 +5,7 @@ using Microsoft.Data.SqlClient;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddFlyerMonkeyAuthentication(builder.Configuration);
+var customerAuthentication = builder.Services.AddCustomerAuthentication(builder.Configuration);
 
 var rawConnectionString =
     Environment.GetEnvironmentVariable(
@@ -20,6 +21,9 @@ var connectionStringBuilder =
 
 var sqlConnectionString =
     connectionStringBuilder.ConnectionString;
+
+if (customerAuthentication)
+    builder.Services.AddSingleton<ICustomerRepository>(new CustomerRepository(sqlConnectionString));
 
 builder.Services.AddSingleton<IProductRepository>(
     new ProductRepository(sqlConnectionString));

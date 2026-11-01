@@ -2,6 +2,7 @@ using FlyerMonkey.Shared.Services;
 using FlyerMonkey.Web.Components;
 using Syncfusion.Blazor;
 using FlyerMonkey.Web.Services;
+using Microsoft.AspNetCore.Components.Web;
 using AppProductService =
     FlyerMonkey.Shared.Services.IProductService;
 
@@ -9,13 +10,17 @@ using WebProductApiService =
     FlyerMonkey.Shared.Services.ProductApiService;
 
 var builder = WebApplication.CreateBuilder(args);
-builder.Services.AddScoped<IWebsiteCraterSession, WebsiteCraterSession>();
+builder.Services.AddScoped<WebsiteCraterSession>();
+builder.Services.AddScoped<IWebsiteCraterSession>(sp => sp.GetRequiredService<WebsiteCraterSession>());
+builder.Services.AddScoped<ICustomerSession>(sp => sp.GetRequiredService<WebsiteCraterSession>());
 builder.Services.AddScoped<ILocalDevelopmentGeneration, LocalDevelopmentGeneration>();
 var operatorAuthentication = FlyerMonkey.Web.Services.OperatorAuthentication.AddOperatorAuthentication(
     builder.Services, builder.Configuration, builder.Environment);
+var customerAuthentication = builder.Services.AddCustomerAuthentication(builder.Configuration, builder.Environment);
 
 // Add services to the container.
 builder.Services.AddRazorComponents()
+    .RegisterPersistentService<WebsiteCraterSession>(RenderMode.InteractiveServer)
     .AddInteractiveServerComponents();
 
 builder.Services.AddSyncfusionBlazor();
@@ -55,11 +60,12 @@ if (!app.Environment.IsDevelopment())
     app.UseHttpsRedirection();
 }
 
-if (operatorAuthentication)
+if (operatorAuthentication || customerAuthentication)
 {
     app.UseAuthentication();
     app.UseAuthorization();
-    app.MapOperatorAuthentication();
+    if (operatorAuthentication) app.MapOperatorAuthentication();
+    if (customerAuthentication) app.MapCustomerAuthentication();
 }
 app.UseAntiforgery();
 
