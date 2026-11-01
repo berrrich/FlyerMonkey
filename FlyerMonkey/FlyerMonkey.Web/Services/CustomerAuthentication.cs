@@ -121,6 +121,11 @@ public static class CustomerAuthentication
             client.BaseAddress = ApiUri(configuration, environment);
             client.Timeout = TimeSpan.FromSeconds(15);
         }).ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
+        services.AddHttpClient("CustomerCraterApi", client =>
+        {
+            client.BaseAddress = ApiUri(configuration, environment);
+            client.Timeout = TimeSpan.FromMinutes(3);
+        }).ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
         return true;
     }
 

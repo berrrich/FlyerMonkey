@@ -31,8 +31,12 @@
             }
             else if (_customer.SignedIn)
             {
-                <p>Signed in as a customer. Customer Crater It generation is disabled.</p>
+                <p>Signed in as a customer. Customer generation requires explicit server permission and is disabled by default.</p>
                 <a href="/customer/account" data-enhance-nav="false">Customer account / Sign out</a>
+                @if (ProductId == 139)
+                {
+                    <p><a href="/customer/crater/139" data-enhance-nav="false">Check customer generation eligibility / private attempt</a></p>
+                }
             }
             else if (_customer.Enabled)
             {

@@ -65,7 +65,11 @@ if (operatorAuthentication || customerAuthentication)
     app.UseAuthentication();
     app.UseAuthorization();
     if (operatorAuthentication) app.MapOperatorAuthentication();
-    if (customerAuthentication) app.MapCustomerAuthentication();
+    if (customerAuthentication)
+    {
+        app.MapCustomerAuthentication();
+        app.MapCustomerCrater();
+    }
 }
 app.UseAntiforgery();
 
