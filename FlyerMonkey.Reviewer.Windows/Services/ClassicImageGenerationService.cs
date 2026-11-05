@@ -28,7 +28,7 @@ public sealed class ClassicImageGenerationService
         if (string.IsNullOrWhiteSpace(key))
             throw new InvalidOperationException("Classic image generation is not configured: set FLYERMONKEY_OPENAI_KEY in the workstation environment before starting the Reviewer.");
         _timeout = timeout;
-        _client = new ImageClient("gpt-image-1", new ApiKeyCredential(key), new OpenAIClientOptions
+        _client = new ImageClient("gpt-image-1.5", new ApiKeyCredential(key), new OpenAIClientOptions
         {
             RetryPolicy = new ClientRetryPolicy(0),
             Transport = new HttpClientPipelineTransport(http),
@@ -64,7 +64,7 @@ public sealed class ClassicImageGenerationService
         catch (ClientResultException ex)
         {
             throw new HttpRequestException(ex.Status > 0
-                ? $"{Operation} returned HTTP {ex.Status}. No automatic retry was made."
+                ? $"{Operation} returned HTTP {ex.Status}.{SafeProviderError(ex)} No automatic retry was made. Product editing, saving, committing and navigation remain available."
                 : $"{Operation} failed during HTTP transport; no HTTP status is available. No automatic retry was made.",
                 null, ex.Status > 0 ? (System.Net.HttpStatusCode)ex.Status : null);
         }
@@ -81,6 +81,54 @@ public sealed class ClassicImageGenerationService
         catch (Exception ex) when (ex is JsonException or FormatException or ArgumentException)
         {
             throw new InvalidDataException("Classic image generation response validation failed: unexpected provider response. No image was saved.");
+        }
+    }
+
+    private static string SafeProviderError(ClientResultException exception)
+    {
+        // Provider text may echo a prompt or credential. Emit only known protocol
+        // identifiers and a normalized message; never retain the raw exception/body.
+        try
+        {
+            var content = exception.GetRawResponse()?.Content;
+            if (content is null || content.ToMemory().Length > 32_768)
+                return " Provider error details unavailable.";
+            using var document = JsonDocument.Parse(content.ToMemory());
+            if (!document.RootElement.TryGetProperty("error", out var error) || error.ValueKind != JsonValueKind.Object)
+                return " Provider error details unavailable.";
+            string? Read(string name) => error.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String
+                ? value.GetString() : null;
+            var code = Read("code") switch
+            {
+                "invalid_value" => "invalid_value",
+                "model_not_found" => "model_not_found",
+                "unsupported_parameter" => "unsupported_parameter",
+                "unknown_parameter" => "unknown_parameter",
+                "invalid_parameter" => "invalid_parameter",
+                "content_policy_violation" => "content_policy_violation",
+                "insufficient_quota" => "insufficient_quota",
+                _ => "unavailable"
+            };
+            var parameter = Read("param") switch
+            {
+                "model" => "model",
+                "size" => "size",
+                "quality" => "quality",
+                "response_format" => "response_format",
+                "output_format" => "output_format",
+                "output_compression" => "output_compression",
+                "prompt" => "prompt",
+                "n" => "n",
+                _ => "unavailable"
+            };
+            var message = parameter != "unavailable"
+                ? $"Provider rejected request parameter '{parameter}'; check its value and model compatibility."
+                : "Provider rejected the request; free-form provider message withheld.";
+            return $" Provider error code: {code}; parameter: {parameter}. Sanitized message: {message}";
+        }
+        catch (Exception ex) when (ex is JsonException or InvalidOperationException)
+        {
+            return " Provider error details unavailable.";
         }
     }
 }

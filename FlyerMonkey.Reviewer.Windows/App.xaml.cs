@@ -7,6 +7,7 @@ namespace FlyerMonkey.Reviewer.Windows
     {
         public App()
         {
+            Syncfusion.Telemetry.Telemetry.Disable();
             var syncfusionKey =
                 Environment.GetEnvironmentVariable(
                     "FLYERMONKEY_SYNCFUSION_KEY");

@@ -53,6 +53,15 @@ public class SqlCommitService
 
         return products ?? new List<ExtractedProduct>();
     }
+    public async Task ClaimAsync(long id)
+    {
+        using var connection = new SqliteConnection(_sqliteConnectionString);
+        await connection.OpenAsync();
+        using var command = connection.CreateCommand();
+        command.CommandText = "UPDATE ExtractionRuns SET Status = 'Committing' WHERE ID = $id AND Status = 'Saved' AND NOT EXISTS (SELECT 1 FROM ExtractionRuns other WHERE other.ID <> $id AND other.Retailer = ExtractionRuns.Retailer AND other.FlyerFileName = ExtractionRuns.FlyerFileName AND other.PageFileName = ExtractionRuns.PageFileName AND other.Status <> 'Saved');";
+        command.Parameters.AddWithValue("$id", id);
+        if (await command.ExecuteNonQueryAsync() != 1) throw new InvalidOperationException("Batch already claimed or committed. Reconcile its outcome before retrying.");
+    }
     public async Task MarkCommittedAsync(long extractionRunId)
     {
         using var connection =
@@ -68,13 +77,13 @@ public class SqlCommitService
             Status = 'Committed',
             CommittedUtc = CURRENT_TIMESTAMP
         WHERE ID = $id
-          AND Status = 'Saved';
+          AND Status = 'Committing';
         """;
 
         command.Parameters.AddWithValue(
             "$id",
             extractionRunId);
 
-        await command.ExecuteNonQueryAsync();
+        if (await command.ExecuteNonQueryAsync() != 1) throw new InvalidOperationException("SQL succeeded but local acknowledgement failed. Reconciliation required; do not retry.");
     }
 }

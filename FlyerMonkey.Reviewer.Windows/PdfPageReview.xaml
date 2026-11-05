@@ -1,0 +1,16 @@
+<UserControl x:Class="FlyerMonkey.Reviewer.Windows.PdfPageReview"
+ xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+ <DockPanel ClipToBounds="True">
+  <StackPanel DockPanel.Dock="Top">
+   <TextBlock x:Name="PageName" TextWrapping="Wrap" FontWeight="SemiBold" Margin="0,0,0,5"/>
+   <WrapPanel Margin="0,0,0,6">
+    <Button x:Name="ZoomOutButton" Content="-" ToolTip="Zoom out" Width="30" Height="30" Click="ZoomOut_Click" IsEnabled="False"/>
+    <TextBlock x:Name="ZoomText" Text="100%" VerticalAlignment="Center" Margin="6,0"/>
+    <Button x:Name="ZoomInButton" Content="+" ToolTip="Zoom in" Width="30" Height="30" Click="ZoomIn_Click" IsEnabled="False"/>
+    <Button x:Name="FitWidthButton" Content="Fit width" ToolTip="Fit page width to review area" Padding="8,4" Margin="6,0,0,0" Click="FitWidth_Click" IsEnabled="False"/>
+   </WrapPanel>
+   <TextBlock x:Name="PreviewStatus" Text="Select a split PDF page or a saved extraction." TextWrapping="Wrap" Margin="0,0,0,6"/>
+  </StackPanel>
+  <ContentControl x:Name="ViewerHost" ClipToBounds="True" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"/>
+ </DockPanel>
+</UserControl>

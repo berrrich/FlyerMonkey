@@ -6,9 +6,12 @@
 # Visual Studio
 .vs/
 *.user
+/.artifacts/mobile-customer-trust/
 *.suo
 
 # Build outputs
+/.artifacts/
+**/publish/
 **/bin/
 **/obj/
 

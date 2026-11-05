@@ -1,5 +1,43 @@
 # Windows Reviewer Classic image generation
 
+## Classic compatibility restoration — November 4, 2026
+
+The Classic adapter still requested `gpt-image-1`. The current
+[official Images reference](https://developers.openai.com/api/reference/resources/images/methods/generate)
+records that model's shutdown on October 23, 2026 and lists `gpt-image-1.5`
+as supported. Changed only the Classic adapter's model to `gpt-image-1.5`;
+the existing prompt, 1024x1024 JPEG, compression 80, direct provider endpoint,
+zero retries, validation, image association, approval and storage flow remain.
+No customer Crater It configuration or implementation is shared by this fix.
+
+The old handler discarded the provider error body, so the exact original Classic
+HTTP 400 code/message cannot be recovered from it. Retirement of the requested
+model is a confirmed request incompatibility; matching it to that specific live
+response remains unverified. No paid diagnostic request was made. Offline SDK
+inspection confirms `response_format` is absent from the outgoing request.
+
+The handler now extracts known error codes and request parameter names from the
+SDK response, reports HTTP status, and supplies a normalized sanitized message.
+Raw provider text, exceptions, prompts and credentials never leave the adapter.
+Unknown identifiers are reported as unavailable; malformed bodies are safe.
+An in-memory 400 fixture verifies `invalid_value`, parameter `model` and the
+sanitized message; this fixture is not a captured live provider response.
+
+Validation: 114 offline ReviewerClassic.Checks passed; isolated Reviewer build
+passed with zero warnings/errors. Checks exercise the real SDK with socket-free
+HTTP handlers, including request shape, JPEG validation/storage, HTTP failures,
+redaction, cancellation and no retries. Source inspection confirms generation
+failure leaves the prior image association intact, catches the error and restores
+the generation button in finally. Editing/save/commit/navigation controls are not
+disabled by generation. Interactive workflow regression testing remains pending.
+
+Build output: `FlyerMonkey.Reviewer.Windows/bin/ClassicCompatibilityVerification`.
+Test output: `tests/ReviewerClassic.Checks/bin/ClassicCompatibility`.
+The older Stage 2 account/model-access caveat below now applies to the replacement
+model. A single live image test requires owner approval; do not retry automatically,
+upload or commit to SQL as part of that test. No paid calls, Azure deployment,
+SQL mutation or Git operations were performed.
+
 Stage 2 is implemented. Classic generation uses the workstation's OpenAI SDK
 client directly. It does not call the published FlyerMonkey generation API.
 No paid generation, deployment, SQL schema, production configuration or Crater

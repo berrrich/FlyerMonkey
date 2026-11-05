@@ -61,7 +61,9 @@ public class ExtractionSaveService
         // Update an existing uncommitted extraction,
         // or insert a new extraction if none exists.
 
+        using var transaction = connection.BeginTransaction(deferred: false);
         var save = connection.CreateCommand();
+        save.Transaction = transaction;
 
         save.CommandText = """
     UPDATE ExtractionRuns
@@ -94,6 +96,7 @@ public class ExtractionSaveService
             // Do not silently create a second batch
             // for a page already committed to SQL.
             var check = connection.CreateCommand();
+            check.Transaction = transaction;
 
             check.CommandText = """
         SELECT COUNT(*)
@@ -101,7 +104,7 @@ public class ExtractionSaveService
         WHERE Retailer = $retailer
           AND FlyerFileName = $flyerFileName
           AND PageFileName = $pageFileName
-          AND Status = 'Committed';
+          AND Status <> 'Saved';
         """;
 
             check.Parameters.AddWithValue("$retailer", flyer.Retailer);
@@ -119,6 +122,7 @@ public class ExtractionSaveService
             }
 
             var insert = connection.CreateCommand();
+            insert.Transaction = transaction;
 
             insert.CommandText = """
         INSERT INTO ExtractionRuns
@@ -152,6 +156,7 @@ public class ExtractionSaveService
 
         } // Closes if (rowsUpdated == 0)
 
+        transaction.Commit();
     } // Closes SaveAsync()
 
     public async Task UpdateSavedExtractionAsync(

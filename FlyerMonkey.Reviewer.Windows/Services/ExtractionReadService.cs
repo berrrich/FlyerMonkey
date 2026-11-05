@@ -81,7 +81,7 @@ public sealed class ExtractionReadService
         SavedUtc,
         Status
     FROM ExtractionRuns
-    WHERE Status IN ('Saved', 'Committed')
+    WHERE Status IN ('Saved', 'Committing', 'Committed')
     ORDER BY ID DESC;
     """;
 

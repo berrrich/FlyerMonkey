@@ -11,14 +11,14 @@ public static class ClassicImageFileService
         try
         {
             Directory.CreateDirectory(folder);
-            await File.WriteAllBytesAsync(path, jpeg);
+            await using var stream = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.Read);
+            await stream.WriteAsync(jpeg);
             return path;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
         {
-            try { File.Delete(path); }
-            catch (Exception cleanup) when (cleanup is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException) { }
-            throw new IOException("Classic image local saving failed in DATA/ProductImages. Check folder access and available disk space.");
+            // Retain partial collateral for inspection. Never overwrite or clean up image files automatically.
+            throw new IOException("Classic image local saving failed in DATA/ProductImages. Check folder access and available disk space. Any partial collateral is retained.");
         }
     }
 }

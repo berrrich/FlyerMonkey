@@ -6,6 +6,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
   </PropertyGroup>
 
   <ItemGroup>
@@ -14,6 +15,8 @@
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4258.31" />
     <PackageReference Include="OpenAI" Version="2.13.0" />
     <PackageReference Include="PDFtoImage" Version="5.4.0" />
+    <PackageReference Include="Syncfusion.PdfViewer.WPF" Version="35.1.37" />
+    <PackageReference Include="Syncfusion.Pdf.Wpf" Version="35.1.37" Aliases="ViewerPdf" />
     <PackageReference Include="Syncfusion.Pdf.Net.Core" Version="34.2.5" />
   </ItemGroup>
 

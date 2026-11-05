@@ -61,8 +61,15 @@ public sealed class OfferRepository
             lastException);
     }
     public async Task<int> AddOfferAsync(
-    Offer offer,
-    CancellationToken cancellationToken = default)
+        Offer offer, CancellationToken cancellationToken = default)
+    {
+        await using var connection = await OpenConnectionWithRetryAsync(cancellationToken);
+        return await AddOfferAsync(offer, connection, null, cancellationToken);
+    }
+
+    public async Task<int> AddOfferAsync(
+        Offer offer, SqlConnection connection, SqlTransaction? transaction,
+        CancellationToken cancellationToken = default)
     {
         const string sql = """
         INSERT INTO Offers
@@ -114,11 +121,8 @@ public sealed class OfferRepository
         );
         """;
 
-        await using var connection =
-            await OpenConnectionWithRetryAsync(cancellationToken);
-
-        await using var command =
-            new SqlCommand(sql, connection);
+await using var command =
+            new SqlCommand(sql, connection, transaction);
 
         command.Parameters.AddWithValue("@ProductID", offer.ProductID);
         command.Parameters.AddWithValue("@RetailerID", offer.RetailerID);

@@ -28,17 +28,15 @@ public class ProductExtractorService
     }
 
     public async Task<List<ExtractedProduct>> ExtractProductsAsync(
-        string pdfPath)
+        string pdfPath, CancellationToken cancellationToken = default)
     {
-        using var pdfStream = File.OpenRead(pdfPath);
-        using var imageStream = new MemoryStream();
-
-        Conversion.SavePng(
-            imageStream,
-            pdfStream,
-            page: 0);
-
-        var imageBytes = imageStream.ToArray();
+        var imageBytes = await Task.Run(() => {
+            using var pdfStream = File.OpenRead(pdfPath);
+            using var imageStream = new MemoryStream();
+            Conversion.SavePng(imageStream, pdfStream, page: 0);
+            return imageStream.ToArray();
+        }, cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
 
         var messages = new List<ChatMessage>
         {
@@ -55,6 +53,7 @@ Return ONLY valid JSON in this exact shape:
     "brand": "string",
     "variant": "string",
     "packSizeText": "string",
+    "packSizeEvidence": "exact printed package-size wording, empty if no actual package size is printed",
     "category": "string",
     "barcode": "string",
     "price": "string",
@@ -87,6 +86,7 @@ Rules:
 - Do not use "variety" or "varieties" alone as the variant when the actual
   varieties are visible.
 - Put visible size or quantity information in packSizeText, for example "200g", "2 Litre", "30 Pack".
+- For fresh meat, poultry and deli meat, leave packSizeText empty unless an actual package size is explicitly printed. Never infer size from price per kg, unit price, advertised price, saving or estimated weight. Copy genuine wording into packSizeEvidence (e.g. 500g sliced ham pack or 1kg chicken tray).
 - Use a simple grocery category such as Biscuits, Soft Drinks, Laundry, Produce, Meat, Dairy, Frozen, Snacks, Baby, Pantry, or similar.
 - Only include barcode if it is actually visible.
 When reference product packaging is visible:
@@ -105,7 +105,7 @@ When reference product packaging is visible:
         };
 
         var response =
-            await _client.CompleteChatAsync(messages);
+            await _client.CompleteChatAsync(messages, cancellationToken: cancellationToken);
 
         var raw =
             response.Value.Content[0].Text;
@@ -123,6 +123,8 @@ When reference product packaging is visible:
 
         var result =
     products ?? new List<ExtractedProduct>();
+
+        foreach (var product in result) { product.PackSizeManuallyCorrected = false; ExtractionNormalizationService.NormalizeFresh(product); }
 
         // 🐒 Strawberry operates here
         string databasePath =

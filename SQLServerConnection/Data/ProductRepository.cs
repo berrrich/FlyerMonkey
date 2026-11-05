@@ -8,8 +8,15 @@ public sealed class ProductRepository : IProductRepository
 {
     private readonly string _connectionString;
     public async Task<int> AddProductAsync(
-    Product product,
-    CancellationToken cancellationToken = default)
+        Product product, CancellationToken cancellationToken = default)
+    {
+        await using var connection = await OpenConnectionWithRetryAsync(cancellationToken);
+        return await AddProductAsync(product, connection, null, cancellationToken);
+    }
+
+    public async Task<int> AddProductAsync(
+        Product product, SqlConnection connection, SqlTransaction? transaction,
+        CancellationToken cancellationToken = default)
     {
         const string sql = """
 INSERT INTO Products
@@ -35,11 +42,8 @@ VALUES
 );
 """;
 
-        await using var connection =
-            await OpenConnectionWithRetryAsync(cancellationToken);
-
-        await using var command =
-            new SqlCommand(sql, connection)
+await using var command =
+            new SqlCommand(sql, connection, transaction)
             {
                 CommandType = CommandType.Text
             };
@@ -78,9 +82,16 @@ VALUES
     }
 
     public async Task SaveProductCategoriesAsync(
-        int productId,
-        string? primaryCategory,
-        IEnumerable<string>? categories,
+        int productId, string? primaryCategory, IEnumerable<string>? categories, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(primaryCategory) && !(categories?.Any(c => !string.IsNullOrWhiteSpace(c)) ?? false))
+            return;
+        await using var connection = await OpenConnectionWithRetryAsync(cancellationToken);
+        await SaveProductCategoriesAsync(productId, primaryCategory, categories, connection, null, cancellationToken);
+    }
+
+    public async Task SaveProductCategoriesAsync(
+        int productId, string? primaryCategory, IEnumerable<string>? categories, SqlConnection connection, SqlTransaction? transaction,
         CancellationToken cancellationToken = default)
     {
         var categoryNames = (categories ?? Enumerable.Empty<string>())
@@ -126,13 +137,10 @@ VALUES
           );
         """;
 
-        await using var connection =
-            await OpenConnectionWithRetryAsync(cancellationToken);
-
-        foreach (var categoryName in categoryNames)
+foreach (var categoryName in categoryNames)
         {
             await using var command =
-                new SqlCommand(sql, connection);
+                new SqlCommand(sql, connection, transaction);
 
             command.Parameters.AddWithValue(
                 "@ProductID", productId);

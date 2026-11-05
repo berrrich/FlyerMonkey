@@ -16,5 +16,6 @@
     <Compile Include="../../FlyerMonkey.Reviewer.Windows/Models/ExtractedProduct.cs" Link="ExtractedProduct.cs" />
     <Compile Include="../../FlyerMonkey.Reviewer.Windows/Services/ClassicImageFileService.cs" Link="ClassicImageFileService.cs" />
     <Compile Include="../../FlyerMonkey.Reviewer.Windows/Services/ProductImageUploadService.cs" Link="ProductImageUploadService.cs" />
+    <Compile Include="../../FlyerMonkey.Reviewer.Windows/Services/ProductValidationService.cs" Link="ProductValidationService.cs" />
   </ItemGroup>
 </Project>

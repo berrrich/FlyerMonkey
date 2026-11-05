@@ -36,12 +36,12 @@ encoder.Save(encoded);
 var jpeg = encoded.ToArray();
 var extracted = new ExtractedProduct { Brand = "Brand", ProductName = "Milk", Variant = "Full cream", PackSizeText = "2L" };
 var classicPrompt = new ProductImageService().BuildImagePrompt(extracted);
-Check(classicPrompt == "Create a clean product image for Brand Milk, Full cream, 2L.", "Existing Classic prompt behavior");
+Check(classicPrompt.StartsWith("Create a clean product image for Brand Milk, Full cream, 2L.") && classicPrompt.Contains("Product accuracy:"), "Existing Classic product facts retained with accuracy guard");
 ClassicImageValidation.ValidateJpeg("IMAGE/JPEG", jpeg);
 Check(true, "Real JPEG decodes");
 
 ClassicImageGenerationService Service(HttpClient http) => new(() => "offline-test-key", http, TimeSpan.FromSeconds(10));
-foreach (var status in new[] { 404, 401, 429, 500, 503, 302 })
+foreach (var status in new[] { 400, 404, 401, 429, 500, 503, 302 })
 {
     using var handler = new FakeHandler(_ => new HttpResponseMessage((HttpStatusCode)status)
         { Content = new StringContent("{\"error\":{\"message\":\"SECRET response\",\"type\":\"test\"}}", Encoding.UTF8, "application/json") });
@@ -55,6 +55,24 @@ foreach (var sample in new[] { ("application/json", Encoding.UTF8.GetBytes("{\"S
     ("image/jpeg", Encoding.UTF8.GetBytes("{\"SECRET\":1}")),
     ("image/png", jpeg), ("image/jpeg", new byte[] { 255, 216, 255, 0 }) })
     await Fails(() => { ClassicImageValidation.ValidateJpeg(sample.Item1, sample.Item2); return Task.CompletedTask; }, "validation failed");
+
+foreach (var body in new[] {
+    "{\"error\":{\"code\":\"invalid_value\",\"param\":\"model\",\"message\":\"SECRET credential and prompt\"}}",
+    "{\"error\":{\"code\":\"SECRET\",\"param\":\"SECRET\",\"message\":\"SECRET\"}}",
+    "{\"error\":{\"code\":null,\"param\":null,\"message\":\"SECRET\"}}", "[]", "{SECRET" })
+{
+    using var handler = new FakeHandler(_ => new HttpResponseMessage(HttpStatusCode.BadRequest)
+        { Content = new StringContent(body, Encoding.UTF8, "application/json") });
+    using var http = new HttpClient(handler);
+    var ex = await Fails(() => Service(http).GenerateImageAsync("SECRET prompt"), "HTTP 400");
+    Check(handler.Count == 1, "Bad requests never retry");
+    Check(ex.InnerException is null, "Raw provider exception never escapes");
+    if (body.Contains("invalid_value"))
+    {
+        Check(ex.Message.Contains("Provider error code: invalid_value; parameter: model"), "Capture safe 400 code and exact parameter");
+        Check(ex.Message.Contains("Sanitized message: Provider rejected request parameter 'model'"), "Normalize provider message without echoed credentials");
+    }
+}
 
 using (var handler = new FakeHandler(_ => throw new HttpRequestException("SECRET transport")))
 using (var http = new HttpClient(handler))
@@ -84,7 +102,8 @@ using (var handler = new FakeHandler(request => {
     Check(request.Method == HttpMethod.Post && request.RequestUri!.AbsoluteUri == "https://api.openai.com/v1/images/generations", "Direct fixed provider route");
     using var payload = JsonDocument.Parse(request.Content!.ReadAsStringAsync().GetAwaiter().GetResult());
     var root = payload.RootElement;
-    Check(root.GetProperty("model").GetString() == "gpt-image-1", "Existing model");
+    Check(!root.TryGetProperty("response_format", out _), "GPT image request must omit unsupported response_format");
+    Check(root.GetProperty("model").GetString() == "gpt-image-1.5", "Supported Classic model replaces retired gpt-image-1");
     Check(root.GetProperty("prompt").GetString() == classicPrompt, "Prompt preserved exactly");
     Check(root.GetProperty("size").GetString() == "1024x1024" &&
         root.GetProperty("output_format").GetString() == "jpeg" && root.GetProperty("output_compression").GetInt32() == 80, "JPEG settings preserved");

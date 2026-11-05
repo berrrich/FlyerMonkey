@@ -1,4 +1,4 @@
-﻿using FlyerMonkey.Reviewer.Windows.Models;
+using FlyerMonkey.Reviewer.Windows.Models;
 using FlyerMonkey.Reviewer.Windows.Services;
 using FlyerMonkey.Shared.Model;
 using Microsoft.Data.Sqlite;
@@ -51,13 +51,86 @@ namespace FlyerMonkey.Reviewer.Windows
     public partial class MainWindow : Window
     {
         private readonly CancellationTokenSource _classicGenerationLifetime = new();
+        private readonly OperationProgress _progress = new();
+        private System.Windows.Threading.DispatcherTimer? _progressTimer;
+        private bool _windowClosed;
+        private readonly Func<string, CancellationToken, Task<byte[]>> _generateClassic;
+        private readonly string _imageFolder;
+        private readonly ArtworkArchive _artworkArchive;
+        public OperationProgress Progress => _progress;
+        private void RefreshResponsiveLayout()
+        {
+            if (FlyerColumn == null || ActualWidth <= 0) return;
+            var columns = ReviewerWindowLayout.Columns(Math.Max(0, ActualWidth - 16));
+            FlyerColumn.Width = new GridLength(columns.Flyers); PagesColumn.Width = new GridLength(columns.Pages);
+            ProductColumn.Width = new GridLength(columns.Products); SavedColumn.Width = new GridLength(columns.Saved);
+            SelectedPageReview.RefreshForDisplayChange();
+        }
+        protected override void OnDpiChanged(DpiScale oldDpi, DpiScale newDpi)
+        {
+            base.OnDpiChanged(oldDpi, newDpi);
+            Dispatcher.BeginInvoke(new Action(() => { if (_windowClosed) return; ReviewerWindowLayout.ConstrainToCurrentMonitor(this,newDpi); RefreshResponsiveLayout(); }));
+        }
 
         protected override void OnClosed(EventArgs e)
         {
+            _windowClosed = true; _processingCancellation?.Cancel(); _progressTimer?.Stop();
+            SelectedPageReview.Dispose();
             _classicGenerationLifetime.Cancel();
             _classicGenerationLifetime.Dispose();
             base.OnClosed(e);
         }
+        private bool _processing;
+        private static readonly SemaphoreSlim ImageRequests = new(2, 2);
+        private readonly Dictionary<ExtractedProduct, CancellationTokenSource> _craterJobs = new();
+        private async Task<byte[]> GenerateLimitedAsync(string prompt, CancellationToken token, Action? started = null)
+        {
+            await ImageRequests.WaitAsync(token);
+            try
+            {
+                token.ThrowIfCancellationRequested();
+                if (started != null) await Dispatcher.InvokeAsync(started);
+                // Includes synchronous provider setup/validation without blocking WPF.
+                return await Task.Run(() => { token.ThrowIfCancellationRequested(); return _generateClassic(prompt, token); });
+            }
+            finally { ImageRequests.Release(); }
+        }
+        private long? _activeCommitId;
+        private bool _restoringSavedSelection;
+        private bool CanEditCurrentExtraction => SavedExtractionList.SelectedItem is not SavedExtraction extraction || extraction.Status == "Saved";
+        private readonly ProcessingGate _processingGate = new();
+        private CancellationTokenSource? _processingCancellation;
+        private OperationSession? BeginProcessing(bool cancellable = false, string operation = "Processing")
+        {
+            if (_windowClosed) return null;
+            if (_craterJobs.Count != 0)
+            {
+                EditingContextText.Text = "Finish or cancel pending card images before " + operation + ". Completed working images still require Save.";
+                return null;
+            }
+            var lease = _processingGate.TryEnter();
+            if (lease == null) return null;
+            _processing = true;
+            _processingCancellation = new();
+            var progress = _progress.Start(operation);
+            foreach (var c in new UIElement[] { SplitFlyerButton, GetDataButton, SaveDataButton, CommitButton, FlyerList, PageList, SavedExtractionList, ProductList, AddOfferButton }) c.IsEnabled = false;
+            CancelProcessingButton.Content = "Cancel " + (operation.Contains("image", StringComparison.OrdinalIgnoreCase) ? "image" : "extraction");
+            CancelProcessingButton.IsEnabled = cancellable;
+            return new OperationSession(progress, () => {
+                lease.Dispose();
+                _processing = false;
+                _processingCancellation.Dispose();
+                _processingCancellation = null;
+                if (_windowClosed) return;
+                foreach (var c in new UIElement[] { SplitFlyerButton, GetDataButton, SaveDataButton, FlyerList, PageList, SavedExtractionList, ProductList, AddOfferButton }) c.IsEnabled = true;
+                CommitButton.IsEnabled = SavedExtractionList.SelectedItem is SavedExtraction item && item.Status == "Saved";
+                SaveDataButton.IsEnabled = CanEditCurrentExtraction;
+                AddOfferButton.IsEnabled = CanEditCurrentExtraction;
+                CancelProcessingButton.IsEnabled = false;
+            });
+        }
+        private sealed class ProcessingLease(Action release) : IDisposable { public void Dispose() => release(); }
+        private void CancelProcessing_Click(object sender, RoutedEventArgs e) => _processingCancellation?.Cancel();
         private FlyerFile? _selectedFlyer;
         private FlyerPage? _selectedPage;
         private BitmapImage CreateThumbnail(string pdfPath)
@@ -182,18 +255,29 @@ namespace FlyerMonkey.Reviewer.Windows
     object sender,
     SelectionChangedEventArgs e)
         {
+            if (_restoringSavedSelection) return;
             if (PageList.SelectedItem is not FlyerPage page)
             {
                 _selectedPage = null;
+                SelectedPageReview.Clear();
+                GetDataButton.Visibility = Visibility.Collapsed;
                 return;
             }
 
             _selectedPage = page;
+            SavedExtractionList.SelectedItem = null;
+            _products.Clear();
+            EditingContextText.Text = "";
+            AddOfferButton.IsEnabled = !_processing;
 
-            SelectedPageWebView.Visibility = Visibility.Visible;
-            SelectedPageWebView.Source = new Uri(page.FullPath);
+            SelectedPageReview.LoadPage(page.FullPath);
 
             GetDataButton.Visibility = Visibility.Visible;
+            if (page.ExtractionRunId.HasValue && SavedExtractionList.ItemsSource is IEnumerable<SavedExtraction> entries)
+            {
+                var entry = entries.FirstOrDefault(x => x.Id == page.ExtractionRunId.Value);
+                if (entry != null) SavedExtractionList.SelectedItem = entry;
+            }
         }
         private async Task LoadSplitPagesAsync(FlyerFile flyer)
         {
@@ -204,7 +288,7 @@ namespace FlyerMonkey.Reviewer.Windows
             PageList.Items.Clear();
 
             string splitRoot =
-                @"C:\Users\richa\source\repos\FlyerMonkey\DATA\Flyers\Split";
+                _splitRoot;
 
             string flyerFolder = Path.Combine(
                 splitRoot,
@@ -221,7 +305,7 @@ namespace FlyerMonkey.Reviewer.Windows
             if (pageFiles.Count > 0)
             {
                 string sqlitePath =
-                    @"C:\Users\richa\source\repos\FlyerMonkey\DATA\FlyerMonkey.db";
+                    _databasePath;
 
                 var extractionReadService =
                     new ExtractionReadService(sqlitePath);
@@ -236,7 +320,7 @@ namespace FlyerMonkey.Reviewer.Windows
                         PageNumber = PageList.Items.Count + 1,
                         FileName = Path.GetFileName(pageFile),
                         FullPath = pageFile,
-                        Thumbnail = CreateThumbnail(pageFile)
+                        Thumbnail = await Task.Run(() => CreateThumbnail(pageFile))
                     };
 
                     var extractionState =
@@ -250,6 +334,7 @@ namespace FlyerMonkey.Reviewer.Windows
                         page.ExtractionRunId = extractionState.Id;
                     }
 
+                    if (_windowClosed) return;
                     PageList.Items.Add(page);
                 }
 
@@ -277,31 +362,37 @@ namespace FlyerMonkey.Reviewer.Windows
             string fileNameWithoutExtension =
                 Path.GetFileNameWithoutExtension(sourcePdf);
 
-            string splitRoot =
-                @"C:\Users\richa\source\repos\FlyerMonkey\DATA\Flyers\Split";
+            string splitRoot = _splitRoot;
 
             string outputFolder =
                 Path.Combine(splitRoot, fileNameWithoutExtension);
 
-            Directory.CreateDirectory(outputFolder);
+            if (Directory.Exists(outputFolder)) throw new InvalidOperationException("Split pages already exist. Existing completed work was preserved.");
+            Directory.CreateDirectory(splitRoot);
+            var stagingFolder = outputFolder + ".pending-" + Guid.NewGuid().ToString("N");
+            Directory.CreateDirectory(stagingFolder);
 
             using var pdfStream = File.OpenRead(sourcePdf);
 
             var splitter = new PdfSplitService();
             var pages = splitter.SplitPdf(pdfStream);
 
+            try {
             for (int i = 0; i < pages.Count; i++)
             {
                 string outputPath = Path.Combine(
-                    outputFolder,
+                    stagingFolder,
                     $"page-{i + 1:000}.pdf");
 
                 File.WriteAllBytes(outputPath, pages[i]);
             }
+            Directory.Move(stagingFolder, outputFolder);
+            } catch { throw new IOException($"Split was not published. Existing work is preserved; staged files remain at {stagingFolder}."); }
         }
 
         private void AddOfferButton_Click(object sender, RoutedEventArgs e)
         {
+            if (!CanEditCurrentExtraction) return;
             var result = MessageBox.Show(
                 "Add a new offer?",
                 "Add Offer",
@@ -325,6 +416,7 @@ namespace FlyerMonkey.Reviewer.Windows
     object sender,
     RoutedEventArgs e)
         {
+            if (!CanEditCurrentExtraction) return;
             if (sender is not Button button ||
                 button.Tag is not ExtractedProduct product)
                 return;
@@ -338,7 +430,8 @@ namespace FlyerMonkey.Reviewer.Windows
             if (result != MessageBoxResult.Yes)
                 return;
 
-            if (_selectedPage?.ExtractionRunId == null)
+            var targetId = (SavedExtractionList.SelectedItem as SavedExtraction)?.Id ?? _selectedPage?.ExtractionRunId;
+            if (targetId == null)
             {
                 MessageBox.Show(
                     "This extraction has not been saved yet.",
@@ -352,13 +445,13 @@ namespace FlyerMonkey.Reviewer.Windows
             _products.Remove(product);
 
             string databasePath =
-                @"C:\Users\richa\source\repos\FlyerMonkey\DATA\FlyerMonkey.db";
+                _databasePath;
 
             var saver =
                 new ExtractionSaveService(databasePath);
 
             await saver.UpdateProductsAsync(
-                (int)_selectedPage.ExtractionRunId.Value,
+                checked((int)targetId.Value),
                 _products);
 
             await LoadSavedExtractionsAsync();
@@ -368,6 +461,7 @@ namespace FlyerMonkey.Reviewer.Windows
     object sender,
     MouseButtonEventArgs e)
         {
+            if (!CanEditCurrentExtraction) return;
             if (sender is not TextBlock textBlock)
                 return;
 
@@ -391,6 +485,7 @@ namespace FlyerMonkey.Reviewer.Windows
     object sender,
     MouseButtonEventArgs e)
         {
+            if (!CanEditCurrentExtraction) return;
             if (sender is not TextBlock textBlock)
                 return;
 
@@ -488,6 +583,7 @@ namespace FlyerMonkey.Reviewer.Windows
             object sender,
             RoutedEventArgs e)
         {
+            if (!CanEditCurrentExtraction) return;
             if (sender is not Button button)
                 return;
 
@@ -594,6 +690,7 @@ namespace FlyerMonkey.Reviewer.Windows
             if (display is null)
                 return;
 
+            if (BindingOperations.GetBinding(editor, TextBox.TextProperty)?.Path.Path == "PackSizeText" && editor.DataContext is ExtractedProduct edited) edited.PackSizeManuallyCorrected = true;
             editor.Visibility = Visibility.Collapsed;
             display.Visibility = Visibility.Visible;
         }
@@ -622,6 +719,8 @@ namespace FlyerMonkey.Reviewer.Windows
             object sender,
             RoutedEventArgs e)
         {
+            using var processing = BeginProcessing(false, "Committing to SQL");
+            if (processing == null) return;
             if (SavedExtractionList.SelectedItem is not SavedExtraction saved)
             {
                 MessageBox.Show(
@@ -637,7 +736,7 @@ namespace FlyerMonkey.Reviewer.Windows
             if (saved.Status != "Saved")
             {
                 MessageBox.Show(
-                    "This extraction has already been committed.",
+                    saved.Status == "Committing" ? "Recovery Required. This batch has an uncertain SQL outcome and cannot be retried." : "This extraction has already been committed.",
                     "Commit",
                     MessageBoxButton.OK,
                     MessageBoxImage.Information);
@@ -645,6 +744,11 @@ namespace FlyerMonkey.Reviewer.Windows
                 return;
             }
 
+            var currentProducts = _products.ToList();
+            var errors = ProductValidationService.ValidateBatch(currentProducts);
+            if (string.IsNullOrWhiteSpace(saved.Retailer)) errors.Add("Retailer is required.");
+            if (string.IsNullOrWhiteSpace(saved.PageFileName)) errors.Add("Source page is required.");
+            if (errors.Count > 0) { MessageBox.Show(string.Join("\n", errors), "Fix errors before Commit"); return; }
             var confirm = MessageBox.Show(
                 $"Commit {saved.ProductCount} products from {saved.PageFileName} to SQL?",
                 "Commit to SQL",
@@ -657,16 +761,18 @@ namespace FlyerMonkey.Reviewer.Windows
             // Existing try block continues here...
 
 
+            bool sqlPersisted = false, acknowledged = false;
+            string completedSummary = "SQL batch persisted.";
             try
             {
                 string sqlitePath =
-                    @"C:\Users\richa\source\repos\FlyerMonkey\DATA\FlyerMonkey.db";
+                    _databasePath;
 
                 var commitService =
                     new SqlCommitService(sqlitePath);
 
-                var products =
-                    await commitService.LoadProductsAsync(saved);
+                await new ExtractionSaveService(sqlitePath).UpdateSavedExtractionAsync(saved.Id, currentProducts);
+                var products = await commitService.LoadProductsAsync(saved);
 
                 var sqlConnectionString =
     Environment.GetEnvironmentVariable(
@@ -674,7 +780,7 @@ namespace FlyerMonkey.Reviewer.Windows
     ?? throw new InvalidOperationException(
         "FLYERMONKEY_SQL_CONNECTION is not set.");
 
-                var blobConnectionString =
+var blobConnectionString =
     Environment.GetEnvironmentVariable(
         "FLYERMONKEY_BLOB_CONNECTION")
     ?? throw new InvalidOperationException(
@@ -683,12 +789,6 @@ namespace FlyerMonkey.Reviewer.Windows
                 var imageUploadService =
                     new ProductImageUploadService(
                         blobConnectionString);
-
-                var repository =
-                    new ProductRepository(sqlConnectionString);
-
-                var offerRepository =
-    new OfferRepository(sqlConnectionString);
 
                 var retailerRepository =
     new RetailerRepository(sqlConnectionString);
@@ -711,6 +811,11 @@ namespace FlyerMonkey.Reviewer.Windows
                         retailerId.Value,
                         "Butler");
 
+                await commitService.ClaimAsync(saved.Id);
+                _activeCommitId = saved.Id;
+                saved.IsCommitActive = true;
+                saved.Status = "Committing";
+                await using var sqlBatch = await ReviewerSqlBatch.OpenAsync(sqlConnectionString);
                 var addedCount = 0;
 
                 foreach (var extractedProduct in products)
@@ -737,9 +842,9 @@ namespace FlyerMonkey.Reviewer.Windows
                     };
 
                     var productId =
-    await repository.AddProductAsync(product);
+    await sqlBatch.AddProductAsync(product);
 
-                    await repository.SaveProductCategoriesAsync(
+                    await sqlBatch.SaveProductCategoriesAsync(
                         productId,
                         extractedProduct.PrimaryCategory
                             ?? extractedProduct.Category,
@@ -770,11 +875,16 @@ namespace FlyerMonkey.Reviewer.Windows
                         UnitPriceText = extractedProduct.UnitPrice
                     };
 
-                    await offerRepository.AddOfferAsync(offer);
+                    await sqlBatch.AddOfferAsync(offer);
 
                     addedCount++;
                 }
+                await sqlBatch.CommitAsync();
+                sqlPersisted = true;
                 await commitService.MarkCommittedAsync(saved.Id);
+                saved.Status = "Committed";
+                acknowledged = true; completedSummary = $"SQL batch committed and SQLite acknowledged: {addedCount} offers.";
+                processing.Report("SQL and SQLite persisted; refreshing the Reviewer...");
 
                 if (_selectedFlyer is not null)
                 {
@@ -782,73 +892,71 @@ namespace FlyerMonkey.Reviewer.Windows
                 }
 
                 await LoadSavedExtractionsAsync();
+                processing.Success(completedSummary);
 
-                MessageBox.Show(
-                    $"SQL write succeeded.\n\nProducts added: {addedCount}",
-                    "Commit complete",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Information);
+
 
             }
             catch (Exception ex)
             {
-                MessageBox.Show(
-                    ex.Message,
-                    "SQL commit failed",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Error);
-            }
-        }
-
-        private async void CraterItButton_Click(
-    object sender,
-    RoutedEventArgs e)
-        {
-            if (sender is not Button button ||
-                button.Tag is not ExtractedProduct product)
-            {
-                return;
-            }
-
-            var imageService = new ProductImageService();
-            var prompt = imageService.BuildImagePrompt(product);
-
-            try
-            {
-                button.IsEnabled = false;
-                button.Content = "☄ Cratering...";
-
-                var generationService = new ClassicImageGenerationService();
-                var imageBytes =
-                    await generationService.GenerateImageAsync(prompt, _classicGenerationLifetime.Token);
-
-                var imageFolder =
-    @"C:\Users\richa\source\repos\FlyerMonkey\DATA\ProductImages";
-
-                var imagePath =
-                    await ClassicImageFileService.SaveAsync(imageFolder, imageBytes);
-
-                product.ImageFilePath = imagePath;
-            }
-            catch (OperationCanceledException) when (_classicGenerationLifetime.IsCancellationRequested)
-            {
-                // Closing the Reviewer cancels the request without opening another dialog.
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show(
-                    ex.Message,
-                    "Classic image operation failed",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Error);
+                // Refresh durable state, including a claim acquired by another Reviewer.
+                try { await LoadSavedExtractionsAsync(); } catch { /* Keep the original failure visible. */ }
+                if (acknowledged) processing.Success(completedSummary + " Refresh issue: " + ex.Message);
+                else processing.Fail((sqlPersisted ? "SQL succeeded but SQLite acknowledgement failed. Recovery Required; do not retry. " : "Commit failed or is uncertain. Review recovery state; do not retry. ") + ex.Message);
             }
             finally
             {
-                button.Content = "☄ Crater It!";
-                button.IsEnabled = true;
+                _activeCommitId = null;
+                saved.IsCommitActive = false;
+                if (SavedExtractionList.ItemsSource is IEnumerable<SavedExtraction> entries)
+                    foreach (var entry in entries) entry.IsCommitActive = false;
             }
         }
-       
+
+        private async void CraterItButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (_windowClosed || _processing || !CanEditCurrentExtraction || sender is not Button button || button.Tag is not ExtractedProduct product
+                || !_products.Contains(product) || _craterJobs.ContainsKey(product)) return;
+            using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(_classicGenerationLifetime.Token);
+            _craterJobs.Add(product, cancellation);
+            product.IsCraterGenerating = true; product.CraterStatus = "Queued";
+            var workflow = new ClassicArtworkWorkflow(product, _artworkArchive,
+                (prompt, token) => GenerateLimitedAsync(prompt, token, () => { if (!cancellation.IsCancellationRequested) product.CraterStatus = "Generating"; }));
+            using var stopAssignment = cancellation.Token.Register(workflow.Close);
+            try
+            {
+                await Task.Run(() => workflow.GenerateAsync(null, true, cancellation.Token, deferAssignment: true));
+                cancellation.Token.ThrowIfCancellationRequested();
+                if (_windowClosed || !_products.Contains(product)) throw new OperationCanceledException();
+                // Assignment stays on WPF and targets the captured product, never a list index.
+                await Task.Run(() => workflow.AcceptAsync(async assign => { await Dispatcher.InvokeAsync(assign); }));
+                product.CraterStatus = "Complete — Save to persist";
+            }
+            catch (Exception) when (cancellation.IsCancellationRequested) { product.CraterStatus = "Cancelled — provider cancellation uncertain; returned artwork retained in archive"; }
+            catch (OperationCanceledException) { product.CraterStatus = "Cancelled — returned artwork retained in archive"; }
+            catch (Exception ex) { product.CraterStatus = "Failed — " + ex.Message; }
+            finally { workflow.Close(); _craterJobs.Remove(product); product.IsCraterGenerating = false; }
+        }
+        private void CancelCrater_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button { Tag: ExtractedProduct product } && _craterJobs.TryGetValue(product, out var cancellation))
+            { product.CraterStatus = "Cancelling — provider cancellation uncertain"; cancellation.Cancel(); }
+        }
+        private void EditImage_Click(object sender, RoutedEventArgs e)
+        {
+            if (!CanEditCurrentExtraction || _processing || sender is not Button button || button.Tag is not ExtractedProduct product) return;
+            var editor = new ClassicImageEditorWindow(product, _imageFolder, _classicGenerationLifetime.Token, (prompt,token) => GenerateLimitedAsync(prompt,token),
+                (name, cancellable) => BeginProcessing(cancellable,name), () => _processingCancellation?.Token ?? CancellationToken.None, _artworkArchive) { Owner = this };
+            editor.ShowDialog();
+        }
+        private async void RemoveImage_Click(object sender, RoutedEventArgs e)
+        {
+            if (!CanEditCurrentExtraction || sender is not Button button || button.Tag is not ExtractedProduct product) return;
+            using var processing = BeginProcessing(false,"Archiving image"); if(processing == null) return;
+            try { await _artworkArchive.DetachAsync(product); processing.Success("Image detached; archived artwork/provenance kept. Save to persist the draft reference."); }
+            catch(Exception ex) { processing.Fail(ex.Message); }
+        }
+
         private void ProductImage_Click(
     object sender,
     MouseButtonEventArgs e)
@@ -892,70 +1000,36 @@ namespace FlyerMonkey.Reviewer.Windows
 
             previewWindow.Show();
         }
-        private async void GetDataButton_Click(
-            object sender,
-            RoutedEventArgs e)
+        private async void GetDataButton_Click(object sender, RoutedEventArgs e)
         {
-            if (_selectedPage == null)
-                return;
-            string databasePath =
-    @"C:\Users\richa\source\repos\FlyerMonkey\DATA\FlyerMonkey.db";
-
-            var reader =
-                new ExtractionReadService(databasePath);
-
-            var savedProducts =
-                await reader.GetProductsAsync(
-                    _selectedFlyer!.FileName,
-                    _selectedPage.FileName);
-
-            if (savedProducts is { Count: > 0 })
-            {
-                _products.Clear();
-
-                foreach (var product in savedProducts)
-                {
-                    _products.Add(product);
-                }
-
-                return;
-            }
+            using var processing = BeginProcessing(true, "Extracting products");
+            if (processing == null || _selectedPage == null || _selectedFlyer == null) return;
+            var flyer = _selectedFlyer; var page = _selectedPage;
             try
             {
-                GetDataButton.IsEnabled = false;
-                GetDataButton.Content = "Getting Data...";
-
-                var extractor = new ProductExtractorService();
-
-                var products =
-    await extractor.ExtractProductsAsync(
-        _selectedPage.FullPath);
-
-                _products.Clear();
-
-                foreach (var product in products)
+                var savedProducts = await new ExtractionReadService(_databasePath).GetProductsAsync(flyer.FileName,page.FileName);
+                _processingCancellation!.Token.ThrowIfCancellationRequested();
+                if (_windowClosed) throw new OperationCanceledException();
+                if (savedProducts is { Count: > 0 })
                 {
-                    ProductValidationService.SanitizeProduct(product);
-                    _products.Add(product);
+                    _products.Clear(); foreach(var product in savedProducts) _products.Add(product);
+                    processing.Success($"Restored {savedProducts.Count} products from SQLite."); return;
                 }
-                
+                GetDataButton.Content = "Getting Data...";
+                var products = await ProcessingGate.CompleteAsync(_extractProducts(page.FullPath,_processingCancellation.Token),_processingCancellation.Token);
+                if (_windowClosed) throw new OperationCanceledException();
+                foreach(var product in products) { ExtractionNormalizationService.NormalizeFresh(product); ProductValidationService.SanitizeProduct(product); }
+                _products.Clear();foreach(var product in products)_products.Add(product);
+                processing.Success($"Extracted {products.Count} products; review and Save the draft.");
             }
-            catch (Exception ex)
-            {
-                MessageBox.Show(
-                    ex.Message,
-                    "Get Data failed",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Error);
-            }
-            finally
-            {
-                GetDataButton.Content = "Get Data";
-                GetDataButton.IsEnabled = true;
-            }
+            catch(OperationCanceledException) { processing.Cancel("Extraction cancelled. Previous products preserved; provider processing may already have occurred."); }
+            catch(Exception ex) { processing.Fail(ex.Message); }
+            finally { if(!_windowClosed) GetDataButton.Content = "Get Data"; }
         }
         private async void SplitFlyerButton_Click(object sender, RoutedEventArgs e)
         {
+            using var processing = BeginProcessing(false, "Splitting PDF pages");
+            if (processing == null) return;
             if (_selectedFlyer == null)
                 return;
 
@@ -968,24 +1042,19 @@ namespace FlyerMonkey.Reviewer.Windows
             if (result != MessageBoxResult.Yes)
                 return;
 
+            bool persisted = false;
             try
             {
-                SplitPdf(_selectedFlyer.FullPath);
+                var source = _selectedFlyer.FullPath;
+                await Task.Run(() => SplitPdf(source));
+                persisted = true; processing.Report("Split pages persisted; loading page previews...");
                 await LoadSplitPagesAsync(_selectedFlyer);
 
-                MessageBox.Show(
-                    "Flyer split successfully.",
-                    "Split Flyer",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Information);
+                processing.Success("Split PDF pages persisted successfully.");
             }
             catch (Exception ex)
             {
-                MessageBox.Show(
-                    $"Split failed:\n\n{ex.Message}",
-                    "Split Flyer",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Error);
+                if (persisted) processing.Success("Split pages saved. Preview refresh issue: " + ex.Message); else processing.Fail(ex.Message);
             }
         }
 
@@ -1001,16 +1070,31 @@ namespace FlyerMonkey.Reviewer.Windows
                 is not SavedExtraction saved)
             {
                 CommitButton.IsEnabled = false;
+                SaveDataButton.IsEnabled = !_processing;
                 return;
             }
 
-            // Only locally saved batches can be committed
-            CommitButton.IsEnabled = saved.Status == "Saved";
+            _restoringSavedSelection = true;
+            try
+            {
+                if (_selectedPage?.ExtractionRunId != saved.Id) { PageList.SelectedItem = null; _selectedPage = null; }
+            }
+            finally { _restoringSavedSelection = false; }
+            GetDataButton.Visibility = Visibility.Collapsed;
+            AddOfferButton.IsEnabled = false;
+            _products.Clear();
+            EditingContextText.Text = saved.Status == "Saved" ? "Editing saved draft. Save updates this extraction only."
+                : saved.Status == "Committed" ? "Committed: inspection only. SQL corrections are not supported."
+                : "Recovery Required: inspection only. No automatic retry.";
+            SelectedPageReview.LoadPage(_selectedPage?.FullPath ?? ResolveSavedPagePath(saved));
+            // Do not allow committing cards from the previously selected batch.
+            CommitButton.IsEnabled = false;
+            SaveDataButton.IsEnabled = false;
 
             try
             {
                 string sqlitePath =
-                    @"C:\Users\richa\source\repos\FlyerMonkey\DATA\FlyerMonkey.db";
+                    _databasePath;
 
                 var commitService = new SqlCommitService(sqlitePath);
 
@@ -1030,6 +1114,9 @@ namespace FlyerMonkey.Reviewer.Windows
                 {
                     _products.Add(product);
                 }
+                CommitButton.IsEnabled = !_processing && saved.Status == "Saved";
+                SaveDataButton.IsEnabled = !_processing && saved.Status == "Saved";
+                AddOfferButton.IsEnabled = !_processing && saved.Status == "Saved";
             }
             catch (Exception ex)
             {
@@ -1046,8 +1133,16 @@ namespace FlyerMonkey.Reviewer.Windows
             object sender,
             RoutedEventArgs e)
         {
+            using var processing = BeginProcessing(false, "Saving SQLite draft");
+            if (processing == null) return;
             var savedExtraction =
                 SavedExtractionList.SelectedItem as SavedExtraction;
+
+            if (savedExtraction != null && savedExtraction.Status != "Saved")
+            {
+                MessageBox.Show(savedExtraction.Status == "Committing" ? "Recovery Required. This batch cannot be saved or committed until its SQL outcome is reviewed." : "Committed extractions are inspection-only. SQL correction by ProductID/OfferID is not supported; no insertion or retry will be performed.");
+                return;
+            }
 
             bool editingSavedExtraction =
                 savedExtraction != null &&
@@ -1086,13 +1181,14 @@ namespace FlyerMonkey.Reviewer.Windows
                 return;
             }
 
+            bool persisted = false;
             try
             {
                 SaveDataButton.IsEnabled = false;
                 SaveDataButton.Content = "Saving...";
 
                 string databasePath =
-                    @"C:\Users\richa\source\repos\FlyerMonkey\DATA\FlyerMonkey.db";
+                    _databasePath;
 
                 var saver =
                     new ExtractionSaveService(databasePath);
@@ -1104,12 +1200,7 @@ namespace FlyerMonkey.Reviewer.Windows
                         savedExtraction!.Id,
                         productList);
 
-                    MessageBox.Show(
-                        $"Updated {productList.Count} products in " +
-                        $"{savedExtraction.PageFileName}.",
-                        "Save complete",
-                        MessageBoxButton.OK,
-                        MessageBoxImage.Information);
+                    persisted = true; processing.Report("SQLite draft persisted; refreshing the Reviewer...");
                 }
                 else
                 {
@@ -1118,6 +1209,7 @@ namespace FlyerMonkey.Reviewer.Windows
                         _selectedFlyer!,
                         _selectedPage!,
                         productList);
+                    persisted = true; processing.Report("SQLite draft persisted; refreshing page previews...");
 
                     if (PageList.SelectedItem is FlyerPage page)
                     {
@@ -1126,23 +1218,15 @@ namespace FlyerMonkey.Reviewer.Windows
 
                     await LoadSplitPagesAsync(_selectedFlyer!);
 
-                    MessageBox.Show(
-                        $"Saved {productList.Count} products from " +
-                        $"{_selectedPage?.FileName}.",
-                        "Save complete",
-                        MessageBoxButton.OK,
-                        MessageBoxImage.Information);
+                    processing.Report("SQLite draft persisted; refreshing saved extractions...");
                 }
 
                 await LoadSavedExtractionsAsync();
+                processing.Success($"Saved {productList.Count} products to SQLite.");
             }
             catch (Exception ex)
             {
-                MessageBox.Show(
-                    ex.Message,
-                    "Save failed",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Error);
+                if (persisted) processing.Success("SQLite draft saved. Refresh issue: " + ex.Message); else processing.Fail(ex.Message);
             }
             finally
             {
@@ -1155,7 +1239,7 @@ namespace FlyerMonkey.Reviewer.Windows
         private async Task LoadSavedExtractionsAsync()
         {
             string databasePath =
-                @"C:\Users\richa\source\repos\FlyerMonkey\DATA\FlyerMonkey.db";
+                _databasePath;
 
             var reader =
                 new ExtractionReadService(databasePath);
@@ -1163,15 +1247,55 @@ namespace FlyerMonkey.Reviewer.Windows
             var saved =
     await reader.GetAllAsync();
 
+            foreach (var entry in saved) entry.IsCommitActive = entry.Id == _activeCommitId;
+            var selectionId = (SavedExtractionList.SelectedItem as SavedExtraction)?.Id ?? _selectedPage?.ExtractionRunId;
             SavedExtractionList.ItemsSource = saved;
+            if (selectionId.HasValue) SavedExtractionList.SelectedItem = saved.FirstOrDefault(x => x.Id == selectionId);
         }
 
 
-        public MainWindow()
+        private const string DefaultDatabasePath = @"C:\Users\richa\source\repos\FlyerMonkey\DATA\FlyerMonkey.db";
+        private readonly string _databasePath;
+        private readonly string _splitRoot;
+        private string? ResolveSavedPagePath(SavedExtraction saved)
         {
+            if (string.IsNullOrWhiteSpace(saved.FlyerFileName) || string.IsNullOrWhiteSpace(saved.PageFileName)) return null;
+            return Path.Combine(_splitRoot, Path.GetFileNameWithoutExtension(Path.GetFileName(saved.FlyerFileName)), Path.GetFileName(saved.PageFileName));
+        }
+        private readonly Func<string, CancellationToken, Task<List<ExtractedProduct>>> _extractProducts;
+
+        public MainWindow() : this(DefaultDatabasePath) { }
+
+        // Explicit dependencies let validation exercise the real handlers without operator data or paid calls.
+        public MainWindow(string databasePath,
+            Func<string, CancellationToken, Task<List<ExtractedProduct>>>? extractProducts = null,
+            bool loadFlyers = true, string? splitRoot = null,
+            Func<string, CancellationToken, Task<byte[]>>? generateClassic = null, string? imageFolder = null)
+        {
+            _databasePath = databasePath;
+            _generateClassic = generateClassic ?? ((prompt,token) => new ClassicImageGenerationService().GenerateImageAsync(prompt,token));
+            _imageFolder = imageFolder ?? @"C:\Users\richa\source\repos\FlyerMonkey\DATA\ProductImages";
+            _splitRoot = splitRoot ?? @"C:\Users\richa\source\repos\FlyerMonkey\DATA\Flyers\Split";
+            _extractProducts = extractProducts ?? ((path, token) => new ProductExtractorService().ExtractProductsAsync(path, token));
+            _artworkArchive = new ArtworkArchive(_imageFolder, generateClassic == null ? "OpenAI / gpt-image-1.5" : "Injected provider");
             InitializeComponent();
+            StatusSpace.DataContext = _progress;
+            _progressTimer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(250) };
+            _progressTimer.Tick += (_,_) => _progress.RefreshElapsed(); _progressTimer.Start();
+            SizeChanged += (_,_) => RefreshResponsiveLayout();
+            Loaded += (_,_) => ReviewerWindowLayout.ConstrainToCurrentMonitor(this, VisualTreeHelper.GetDpi(this));
+            StateChanged += (_,_) => {
+                if (WindowState == WindowState.Normal)
+                    Dispatcher.BeginInvoke(new Action(() => {
+                        if (!_windowClosed) ReviewerWindowLayout.ConstrainToCurrentMonitor(this, VisualTreeHelper.GetDpi(this));
+                    }));
+            };
             ProductList.ItemsSource = _products;
-            LoadFlyers();
+            _products.CollectionChanged += (_,_) => {
+                foreach (var job in _craterJobs.ToArray())
+                    if (!_products.Contains(job.Key)) job.Value.Cancel();
+            };
+            if (loadFlyers) LoadFlyers();
 
             _ = LoadSavedExtractionsAsync();
         }
