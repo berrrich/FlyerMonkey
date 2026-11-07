@@ -1,8 +1,17 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk.Razor">
 
   <PropertyGroup>
+    <!-- Opt in for standalone APKs; SDK Install deploys current assemblies on constrained emulators. -->
+    <EmbedAssembliesIntoApk Condition="'$(FlyerMonkeyStandaloneAndroid)' == 'true' and $([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">true</EmbedAssembliesIntoApk>
+    <!-- Public registration ID approved for local Android customer testing. No credential. -->
+    <FlyerMonkeyCustomerClientId Condition="'$(Configuration)' == 'Debug' and '$(FlyerMonkeyCustomerClientId)' == ''">dbc3555c-669f-423e-acf3-f1cef013ce69</FlyerMonkeyCustomerClientId>
+    <FlyerMonkeyCustomerMsalScheme Condition="'$(Configuration)' == 'Debug' and '$(FlyerMonkeyCustomerMsalScheme)' == ''">msal$(FlyerMonkeyCustomerClientId)</FlyerMonkeyCustomerMsalScheme>
+    <FlyerMonkeyCustomerTrustDirectory>$(MSBuildThisFileDirectory)..\..\.artifacts\mobile-customer-trust</FlyerMonkeyCustomerTrustDirectory>
+    <FlyerMonkeyCustomerClientId Condition="'$(FlyerMonkeyCustomerClientId)' == ''"></FlyerMonkeyCustomerClientId>
+    <FlyerMonkeyCustomerMsalScheme Condition="'$(FlyerMonkeyCustomerMsalScheme)' == ''">flyermonkey-customer-unconfigured</FlyerMonkeyCustomerMsalScheme>
+    <FlyerMonkeyCustomerApiBaseUrl Condition="'$(FlyerMonkeyCustomerApiBaseUrl)' == ''">https://localhost:7255/</FlyerMonkeyCustomerApiBaseUrl>
     <FlyerMonkeyMsalScheme Condition="'$(FlyerMonkeyMsalScheme)' == ''">flyermonkey-unconfigured</FlyerMonkeyMsalScheme>
-    <AndroidManifestPlaceholders>flyermonkeyMsalScheme=$(FlyerMonkeyMsalScheme)</AndroidManifestPlaceholders>
+    <AndroidManifestPlaceholders>flyermonkeyMsalScheme=$(FlyerMonkeyMsalScheme);flyermonkeyCustomerMsalScheme=$(FlyerMonkeyCustomerMsalScheme)</AndroidManifestPlaceholders>
     <TargetFrameworks>net10.0-android;net10.0-ios;net10.0-maccatalyst</TargetFrameworks>
     <TargetFrameworks Condition="$([MSBuild]::IsOSPlatform('windows'))">$(TargetFrameworks);net10.0-windows10.0.19041.0</TargetFrameworks>
 
@@ -42,6 +51,18 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- Generated public certificate and domain-scoped trust are local Debug inputs only. -->
+    <AndroidResource Remove="Platforms\Android\Resources\xml\crater_debug_network_security_config.xml"
+      Condition="'$(Configuration)' == 'Debug' and Exists('$(FlyerMonkeyCustomerTrustDirectory)\res\xml\crater_debug_network_security_config.xml')" />
+    <AndroidResource Include="$(FlyerMonkeyCustomerTrustDirectory)\res\xml\crater_debug_network_security_config.xml"
+      Link="Resources\xml\crater_debug_network_security_config.xml"
+      Condition="'$(Configuration)' == 'Debug' and $([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android' and Exists('$(FlyerMonkeyCustomerTrustDirectory)\res\xml\crater_debug_network_security_config.xml')" />
+    <AndroidResource Include="$(FlyerMonkeyCustomerTrustDirectory)\res\raw\mobile_customer_dev_ca.cer"
+      Link="Resources\raw\mobile_customer_dev_ca.cer"
+      Condition="'$(Configuration)' == 'Debug' and $([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android' and Exists('$(FlyerMonkeyCustomerTrustDirectory)\res\raw\mobile_customer_dev_ca.cer')" />
+    <AssemblyMetadata Include="CustomerClientId" Value="$(FlyerMonkeyCustomerClientId)" />
+    <AssemblyMetadata Include="CustomerRedirectScheme" Value="$(FlyerMonkeyCustomerMsalScheme)" />
+    <AssemblyMetadata Include="CustomerApiBaseUrl" Value="$(FlyerMonkeyCustomerApiBaseUrl)" />
     <PackageReference Include="Microsoft.Identity.Client" Version="4.84.2" Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'" />
     <AndroidManifestOverlay Include="Platforms\Android\AndroidManifest.Debug.xml" Condition="'$(Configuration)' == 'Debug' and $([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'" />
     <AndroidResource Remove="Platforms\Android\Resources\xml\crater_debug_network_security_config.xml" Condition="'$(Configuration)' != 'Debug'" />

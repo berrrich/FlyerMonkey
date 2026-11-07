@@ -72,6 +72,7 @@ try
     builder.Services.AddDataProtection().UseEphemeralDataProtectionProvider();
     builder.Services.AddAntiforgery();
     builder.Services.AddRazorComponents().AddInteractiveServerComponents();
+    builder.Services.AddScoped<WebsiteCraterSession>();
     builder.Services.AddOperatorAuthentication(builder.Configuration, builder.Environment);
     builder.Services.AddFlyerMonkeyAuthentication(builder.Configuration);
     builder.Services.AddCustomerAuthentication(builder.Configuration, builder.Environment);
@@ -121,17 +122,31 @@ try
         defaults.DefaultSignInScheme == CookieAuthenticationDefaults.AuthenticationScheme,
         "Customer registration preserves operator Web defaults");
     app.UseAuthentication();
+    app.Use(async (context, next) =>
+    {
+        await context.RequestServices.GetRequiredService<WebsiteCraterSession>().CaptureCustomerAsync(context);
+        await next(context);
+    });
     app.UseAuthorization();
     app.UseAntiforgery();
     app.MapCustomerAuthentication();
     app.MapControllers();
     app.MapGet("/catalogue-fixture", () => Results.Ok()).AllowAnonymous();
+    app.MapGet("/presentation-fixture", async (HttpContext context, WebsiteCraterSession session) =>
+    {
+        // Real Kestrel response has started; component reads must not initialize a cookie handler here.
+        await context.Response.WriteAsync("started:");
+        await context.Response.Body.FlushAsync();
+        var state = await session.GetCustomerAsync();
+        await context.Response.WriteAsync(state.SignedIn ? "customer" : "anonymous");
+    }).AllowAnonymous();
     app.MapGet("/operator-fixture", () => Results.Ok()).RequireAuthorization(new Microsoft.AspNetCore.Authorization.AuthorizeAttribute { AuthenticationSchemes = CookieAuthenticationDefaults.AuthenticationScheme });
     // Test-only ticket issuance, never compiled into the application projects.
     app.MapGet("/issue-fixture", async (HttpContext context, bool expired, bool customerCookie) =>
     {
         var principal = new ClaimsPrincipal(new ClaimsIdentity(new[] {
-            new Claim("tid", CustomerIdentity.TenantId), new Claim("oid", "66666666-6666-4666-8666-666666666666") }, "offline"));
+            new Claim("tid", customerCookie ? CustomerIdentity.TenantId : "11111111-1111-4111-8111-111111111111"),
+            new Claim("oid", customerCookie ? "66666666-6666-4666-8666-666666666666" : "22222222-2222-4222-8222-222222222222") }, "offline"));
         await context.SignInAsync(customerCookie ? WebCustomer.Cookie : CookieAuthenticationDefaults.AuthenticationScheme, principal,
             new AuthenticationProperties { ExpiresUtc = expired ? DateTimeOffset.UtcNow.AddMinutes(-2) : DateTimeOffset.UtcNow.AddMinutes(5) });
         return Results.Ok();
@@ -159,16 +174,27 @@ try
                 new SigningCredentials(wrongKey ? badKey : key, SecurityAlgorithms.RsaSha256)));
         }
         Check((await Request("/catalogue-fixture")).StatusCode == HttpStatusCode.OK, "Anonymous browsing does not challenge customer login");
+        Check(await (await Request("/presentation-fixture")).Content.ReadAsStringAsync() == "started:anonymous", "Anonymous customer presentation remains readable after response starts");
         Check((await Request("/api/customers/me")).StatusCode == HttpStatusCode.Unauthorized, "Anonymous customer API denied");
         foreach (var token in new[] { Token(issuer:"https://evil.invalid"), Token(audience:CustomerIdentity.WebClientId), Token(expired:true), Token(wrongKey:true), "not-a-token" })
             Check((await Request("/api/customers/me", token)).StatusCode == HttpStatusCode.Unauthorized, "Invalid issuer/audience/expiry/signature/token rejected");
         foreach (var token in new[] { Token(scope:null), Token(scope:"Customer.Access.Other"), Token(tenant:"11111111-1111-4111-8111-111111111111"), Token(actor:"44444444-4444-4444-8444-444444444444") })
             Check((await Request("/api/customers/me", token)).StatusCode == HttpStatusCode.Forbidden, "Wrong customer scope/tenant/client denied");
         var customerToken = Token();
+        var mobileId = "77777777-7777-4777-8777-777777777777";
+        Check((await Request("/api/customers/me", Token(actor:mobileId))).StatusCode == HttpStatusCode.Forbidden, "Unconfigured mobile client denied");
+        builder.Configuration["CustomerAuthentication:MobileClientId"] = mobileId;
+        Check((await Request("/api/customers/me", Token(actor:mobileId))).StatusCode == HttpStatusCode.NotFound, "Explicit mobile client accepted without provisioning");
         Check((await Request("/api/customers/me", customerToken)).StatusCode == HttpStatusCode.NotFound, "Unprovisioned customer has no profile");
         var first = await (await Request("/api/customers/session", customerToken, post:true)).Content.ReadFromJsonAsync<CustomerAccount>();
         var repeat = await (await Request("/api/customers/session", customerToken, post:true)).Content.ReadFromJsonAsync<CustomerAccount>();
         Check(first?.CustomerId == repeat?.CustomerId && first?.CustomerId != Guid.Empty && repository.Created == 1, "First/repeat login provisions one internal customer");
+        var mobile = await (await Request("/api/customers/me", Token(actor:mobileId))).Content.ReadFromJsonAsync<CustomerAccount>();
+        Check(mobile?.CustomerId == first?.CustomerId && repository.Created == 1, "Mobile and Web share durable customer identity without duplicate provisioning");
+        Check((await Request("/api/operator/access", Token(actor:mobileId))).StatusCode == HttpStatusCode.Unauthorized, "Mobile customer token cannot enter operator endpoint");
+        builder.Configuration["CustomerAuthentication:MobileClientId"] = "invalid";
+        Check((await Request("/api/customers/me", Token(actor:mobileId))).StatusCode == HttpStatusCode.Forbidden, "Invalid mobile configuration fails closed");
+        builder.Configuration["CustomerAuthentication:MobileClientId"] = mobileId;
         Check(first?.CraterEnabled == false && first.Status == "Active", "New account receives no generation grant");
         repository.Account = repository.Account! with { Status = "Disabled" };
         Check((await Request("/api/customers/me", customerToken)).StatusCode == HttpStatusCode.Forbidden, "Disabled customer denied on every protected profile read");
@@ -195,6 +221,13 @@ try
         Check(issued.Headers.GetValues("Set-Cookie").Any(v => v.Contains("secure", StringComparison.OrdinalIgnoreCase) && v.Contains("httponly", StringComparison.OrdinalIgnoreCase)), "Customer cookie Secure and HttpOnly");
         var account = await Request("/customer/account", cookie:cookie);
         Check(account.StatusCode == HttpStatusCode.OK, "Customer cookie authenticates customer account");
+        Check(await (await Request("/presentation-fixture", cookie:cookie)).Content.ReadAsStringAsync() == "started:customer", "Captured customer cookie presentation remains readable after response starts");
+        var operatorIssued = await Request("/issue-fixture?expired=false&customerCookie=false");
+        var operatorCookie = operatorIssued.Headers.GetValues("Set-Cookie").First().Split(';')[0];
+        Check((await Request("/operator-fixture", cookie:operatorCookie)).StatusCode == HttpStatusCode.OK, "Operator cookie remains independently authenticated");
+        Check(await (await Request("/presentation-fixture", cookie:operatorCookie)).Content.ReadAsStringAsync() == "started:anonymous", "Operator cookie cannot supply customer presentation");
+        Check(await (await Request("/presentation-fixture", cookie:operatorCookie + "; " + cookie)).Content.ReadAsStringAsync() == "started:customer" &&
+            (await Request("/operator-fixture", cookie:operatorCookie + "; " + cookie)).StatusCode == HttpStatusCode.OK, "Both cookie identities remain separate in the same request");
         var completed = await Request("/customer/complete?returnUrl=" + Uri.EscapeDataString("/products/139?crater=true"), cookie:cookie);
         Check(completed.StatusCode == HttpStatusCode.Redirect && completed.Headers.Location?.OriginalString == "/products/139?crater=true",
             "Web completion provisions via API then returns to same product without generation");
@@ -216,6 +249,8 @@ try
             content:new FormUrlEncodedContent(new Dictionary<string,string> { [field.Groups[1].Value] = WebUtility.HtmlDecode(field.Groups[2].Value) }));
         Check(logout.StatusCode == HttpStatusCode.Redirect, "Explicit antiforgery-protected customer logout succeeds");
         Check((await Request("/customer/account", cookie:cookie)).StatusCode == HttpStatusCode.Unauthorized, "Logged-out customer ticket replay denied");
+        Check(await (await Request("/presentation-fixture", cookie:cookie)).Content.ReadAsStringAsync() == "started:anonymous", "New request after customer logout captures anonymous presentation");
+        Check((await Request("/operator-fixture", cookie:operatorCookie)).StatusCode == HttpStatusCode.OK, "Customer logout does not revoke operator cookie");
         var expired = await Request("/issue-fixture?expired=true&customerCookie=true");
         var expiredCookie = expired.Headers.GetValues("Set-Cookie").First().Split(';')[0];
         Check((await Request("/customer/account", cookie:expiredCookie)).StatusCode == HttpStatusCode.Unauthorized, "Expired customer ticket denied");
@@ -240,6 +275,45 @@ try
         var restoredPresentation = new WebsiteCraterSession(uiProvider) { CustomerPresentation = new(true, true) };
         Check((await restoredPresentation.GetCustomerAsync()).SignedIn && !await restoredPresentation.IsAuthenticatedAsync(),
             "Restored circuit presentation needs no HttpContext and never grants operator identity");
+        var captureAuthentication = new CaptureAuthentication();
+        using var captureServices = new ServiceCollection().AddSingleton<IConfiguration>(new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string,string?> { ["CustomerAuthentication:Enabled"] = "true" }).Build())
+            .AddSingleton<IAuthenticationService>(captureAuthentication).BuildServiceProvider();
+        var captureContext = new DefaultHttpContext { RequestServices = captureServices };
+        var captureSession = new WebsiteCraterSession(captureServices);
+        await captureSession.CaptureCustomerAsync(captureContext);
+        captureContext.Features.Set<Microsoft.AspNetCore.Http.Features.IHttpResponseFeature>(new StartedResponseFeature());
+        Check((await captureSession.GetCustomerAsync()).SignedIn && (await captureSession.GetCustomerAsync()).SignedIn && captureAuthentication.Calls == 1,
+            "Repeated rendering after response start never calls cookie authentication again");
+        var circuitSession = new WebsiteCraterSession(captureServices) { CustomerPresentation = captureSession.CustomerPresentation };
+        Check((await circuitSession.GetCustomerAsync()).SignedIn && captureAuthentication.Calls == 1,
+            "Restored enabled circuit consumes presentation snapshot without HTTP authentication");
+        var lateSession = new WebsiteCraterSession(captureServices);
+        try { await lateSession.CaptureCustomerAsync(captureContext); throw new Exception("Expected late capture rejection"); }
+        catch (InvalidOperationException) { Check(captureAuthentication.Calls == 1, "Late capture is rejected before the cookie handler can register OnStarting"); }
+        try { await lateSession.GetCustomerAsync(); throw new Exception("Expected missing capture rejection"); }
+        catch (InvalidOperationException) { Check(true, "Missing customer capture is an explicit error, never anonymous fallback"); }
+        captureAuthentication.Throw = true;
+        try { await new WebsiteCraterSession(captureServices).CaptureCustomerAsync(new DefaultHttpContext { RequestServices = captureServices }); throw new Exception("Expected authentication failure"); }
+        catch (InvalidOperationException ex) { Check(ex.Message == "offline authentication failed", "Authentication exceptions propagate instead of producing anonymous customer state"); }
+        var mobileUi = new MobileCustomerUi();
+        var mobileServices = new ServiceCollection().AddLogging().AddSingleton<IMobileCustomerSession>(mobileUi);
+        await using var mobileProvider = mobileServices.BuildServiceProvider();
+        await using var mobileRenderer = new Microsoft.AspNetCore.Components.Web.HtmlRenderer(mobileProvider, mobileProvider.GetRequiredService<ILoggerFactory>());
+        async Task<string> MobileHtml() => await mobileRenderer.Dispatcher.InvokeAsync(async () =>
+            (await mobileRenderer.RenderComponentAsync<FlyerMonkey.Shared.Components.MobileCustomerCraterEntry>(Microsoft.AspNetCore.Components.ParameterView.FromDictionary(
+                new Dictionary<string,object?> { ["ProductId"] = 139 }))).ToHtmlString());
+        var mobileAnonymous = await MobileHtml();
+        Check(mobileAnonymous.Contains("Sign in to Crater It") && !mobileAnonymous.Contains("Generate image"), "Mobile anonymous entry invites sign-in without generation");
+        mobileUi.SignedIn = true;
+        mobileUi.Account = new(Guid.NewGuid(), "Active", false);
+        var mobileSignedIn = await MobileHtml();
+        Check(mobileSignedIn.Contains("Generation is unavailable for your customer account") && mobileSignedIn.Contains("Sign out"), "Mobile server-denied eligibility is explained with sign-out access");
+        mobileUi.Account = null;
+        mobileUi.Message = "Cannot connect securely to the customer API.";
+        var mobileUnavailable = await MobileHtml();
+        Check(mobileUnavailable.Contains("eligibility could not be verified") && mobileUnavailable.Contains("Cannot connect securely"), "Mobile unavailable API never presents stale eligibility");
+        Check(mobileUi.Restores == 3, "Mobile presentation restores customer session without interactive sign-in");
         Console.WriteLine($"{checks} customer checks passed. Offline providers/storage only; no paid calls.");
     }
     finally { await app.StopAsync(); }
@@ -249,6 +323,41 @@ finally { Environment.SetEnvironmentVariable("CustomerAuthentication__ClientSecr
 sealed class NoNetwork : HttpMessageHandler
 {
     protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken token) => throw new Exception("Unexpected provider network call");
+}
+sealed class StartedResponseFeature : Microsoft.AspNetCore.Http.Features.HttpResponseFeature
+{
+    public override bool HasStarted => true;
+    public override void OnStarting(Func<object,Task> callback, object state) => throw new InvalidOperationException("OnStarting cannot be set because the response has already started.");
+}
+sealed class CaptureAuthentication : IAuthenticationService
+{
+    public int Calls;
+    public bool Throw;
+    public Task<AuthenticateResult> AuthenticateAsync(HttpContext context, string? scheme)
+    {
+        Calls++;
+        if (scheme != WebCustomer.Cookie) throw new Exception("Wrong authentication scheme");
+        if (Throw) throw new InvalidOperationException("offline authentication failed");
+        // Cookie handlers initialize a response callback even for a nominally read-only authenticate.
+        context.Response.OnStarting(() => Task.CompletedTask);
+        var principal = new ClaimsPrincipal(new ClaimsIdentity(new[] { new Claim("tid", CustomerIdentity.TenantId),
+            new Claim("oid", "66666666-6666-4666-8666-666666666666") }, "offline"));
+        return Task.FromResult(AuthenticateResult.Success(new AuthenticationTicket(principal, WebCustomer.Cookie)));
+    }
+    public Task ChallengeAsync(HttpContext context, string? scheme, AuthenticationProperties? properties) => throw new NotSupportedException();
+    public Task ForbidAsync(HttpContext context, string? scheme, AuthenticationProperties? properties) => throw new NotSupportedException();
+    public Task SignInAsync(HttpContext context, string? scheme, ClaimsPrincipal principal, AuthenticationProperties? properties) => throw new NotSupportedException();
+    public Task SignOutAsync(HttpContext context, string? scheme, AuthenticationProperties? properties) => throw new NotSupportedException();
+}
+sealed class MobileCustomerUi : IMobileCustomerSession
+{
+    public bool SignedIn { get; set; }
+    public CustomerAccount? Account { get; set; }
+    public string? Message { get; set; }
+    public int Restores;
+    public Task RestoreAsync() { Restores++; return Task.CompletedTask; }
+    public Task SignInAsync() => throw new Exception("Unexpected interactive authentication");
+    public Task SignOutAsync() => throw new Exception("Unexpected sign-out");
 }
 sealed class Customers : ICustomerRepository
 {

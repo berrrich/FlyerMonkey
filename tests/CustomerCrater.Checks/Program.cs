@@ -89,6 +89,11 @@ try {
     foreach(var setting in new[]{"CustomerCrater:Enabled","CraterIt:Enabled","CustomerAuthentication:Enabled"}) {
         builder.Configuration[setting]=null;
         Check((await Request(post:true,bearer:token)).StatusCode==HttpStatusCode.NotFound,"Absent gate fails closed");
+        builder.Configuration[setting]="false";
+        var readsBeforeFalseGate = customers.Reads;
+        Check((await Request(post:true,bearer:token)).StatusCode==HttpStatusCode.NotFound &&
+            customers.Reads==readsBeforeFalseGate && provider.Calls==0,
+            "Explicit false gate blocks an eligible authorized customer before SQL/provider");
         builder.Configuration[setting]="true";
     }
     builder.Configuration["CustomerCrater:Enabled"]="invalid";

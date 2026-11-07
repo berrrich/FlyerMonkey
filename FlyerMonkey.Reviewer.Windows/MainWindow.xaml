@@ -1,4 +1,4 @@
-﻿<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:local="clr-namespace:FlyerMonkey.Reviewer.Windows" x:Class="FlyerMonkey.Reviewer.Windows.MainWindow" Title="Flyer Monkey Reviewer" Height="800" Width="1400" WindowStartupLocation="CenterScreen" UseLayoutRounding="True" SnapsToDevicePixels="True">
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:local="clr-namespace:FlyerMonkey.Reviewer.Windows" x:Class="FlyerMonkey.Reviewer.Windows.MainWindow" Title="Flyer Monkey Reviewer" Height="800" Width="1400" WindowStartupLocation="CenterScreen" UseLayoutRounding="True" SnapsToDevicePixels="True">
     <Window.Resources>
         <!-- Shared extraction status colours -->
         <SolidColorBrush x:Key="SavedStatusBrush" Color="#70B8F0"/>
@@ -28,9 +28,9 @@
                     </Grid>
                 </Border>
                 <ListBox x:Name="FlyerList" Margin="10" BorderThickness="0" Background="Transparent" SelectionChanged="FlyerList_SelectionChanged">
-                    <ListBox.ItemTemplate>
+                    <ListBox.ItemContainerStyle><Style TargetType="ListBoxItem"><Setter Property="HorizontalContentAlignment" Value="Stretch"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ListBoxItem"><Border x:Name="SelectionFrame" BorderThickness="3" BorderBrush="Transparent" Padding="2"><ContentPresenter/></Border><ControlTemplate.Triggers><Trigger Property="IsSelected" Value="True"><Setter TargetName="SelectionFrame" Property="BorderBrush" Value="#174EA6"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style></ListBox.ItemContainerStyle><ListBox.ItemTemplate>
                         <DataTemplate>
-                            <Border Margin="0,0,0,10" Padding="12" BorderBrush="#D8D8D8" BorderThickness="1" CornerRadius="6" Background="White">
+                            <Border Margin="0,0,0,10" Padding="12" BorderBrush="#D8D8D8" BorderThickness="1" CornerRadius="6" Background="{Binding StatusColour}" ToolTip="{Binding StatusWarning}">
                                 <StackPanel>
                                     <TextBlock Text="{Binding Retailer}" FontSize="16" FontWeight="SemiBold"/>
                                     <TextBlock Text="{Binding FlyerDate}" Margin="0,4,0,0" Foreground="#555555"/>
@@ -299,6 +299,8 @@ PreviewMouseWheel="ProductList_PreviewMouseWheel" BorderThickness="0" Background
                 <TextBlock DockPanel.Dock="Top" Text="PAGE REVIEW" FontSize="20" FontWeight="Bold" Margin="0,0,0,15"/>
                 <StackPanel x:Name="PageActions" DockPanel.Dock="Bottom" Margin="0,15,0,0">
                     <Button x:Name="CancelProcessingButton" Content="Cancel extraction" IsEnabled="False" Height="38" Margin="0,0,0,6" Click="CancelProcessing_Click" ToolTip="Cancel local image generation or extraction. Provider processing may already have occurred. Save, Split and Commit cannot be cancelled."/>
+                    <TextBlock x:Name="FlyerStatusWarning" TextWrapping="Wrap" Foreground="#8A4100" Margin="0,0,0,6"/>
+                    <Button x:Name="FlyerCompletionButton" Content="Mark Complete" Height="38" Margin="0,0,0,6" Click="FlyerCompletion_Click"/>
                     <Button x:Name="SplitFlyerButton" Content="Split Flyer" Height="38" Margin="0,0,0,6" Click="SplitFlyerButton_Click"/>
                     <Button x:Name="GetDataButton" Content="Get Data" Height="38" Visibility="Collapsed" Click="GetDataButton_Click"/>
                 </StackPanel>

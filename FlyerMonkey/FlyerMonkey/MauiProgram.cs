@@ -1,4 +1,4 @@
-﻿using FlyerMonkey.Shared.Services;
+using FlyerMonkey.Shared.Services;
 using Microsoft.Extensions.Logging;
 using Syncfusion.Blazor;
 using Microsoft.Extensions.DependencyInjection;
@@ -22,6 +22,7 @@ namespace FlyerMonkey
             builder.Services.AddSyncfusionBlazor();
 
 #if ANDROID
+            builder.Services.AddSingleton<IMobileCustomerSession, FlyerMonkey.Services.AndroidCustomerAuthentication>();
             builder.Services.AddSingleton(new FlyerMonkey.Services.AndroidOperatorOptions());
             builder.Services.AddSingleton<FlyerMonkey.Services.AndroidOperatorAuthentication>();
             builder.Services.AddSingleton<IOperatorTokenProvider>(sp => sp.GetRequiredService<FlyerMonkey.Services.AndroidOperatorAuthentication>());

@@ -63,6 +63,16 @@ if (!app.Environment.IsDevelopment())
 if (operatorAuthentication || customerAuthentication)
 {
     app.UseAuthentication();
+}
+// Authenticate the separate customer cookie before any endpoint can start rendering.
+// The scoped service persists presentation booleans into the interactive circuit.
+app.Use(async (context, next) =>
+{
+    await context.RequestServices.GetRequiredService<WebsiteCraterSession>().CaptureCustomerAsync(context);
+    await next(context);
+});
+if (operatorAuthentication || customerAuthentication)
+{
     app.UseAuthorization();
     if (operatorAuthentication) app.MapOperatorAuthentication();
     if (customerAuthentication)

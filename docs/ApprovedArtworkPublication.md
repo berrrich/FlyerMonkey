@@ -126,3 +126,23 @@ publication, production configuration changes or new generation access.
 - Move preset selection into a second comet-dialog stage with Back and Cancel.
 - Prepare Facebook-ready public artwork/product pages with suitable social previews.
 - Test read-only untethered cellular access against the published HTTPS API; keep generation restrictions intact.
+
+### Mission 011 — Top Banana homepage (deferred)
+
+- Show the top five cheapest eligible current offers, using real retailer, price
+  and offer-validity data.
+- Add category filters in a future iteration.
+- Define eligibility and comparable pricing before ranking; avoid misleading
+  rankings and exclude expired offers.
+
+### Mission 012 — Crater artwork experience (deferred)
+
+- Explore a homepage section for the latest approved creative contributions.
+- Use lazy loading/pagination to control image-download and rendering costs.
+- Explore a stacked Product Detail gallery for artwork associated with that product,
+  replacing the current dropdown/radio selection where appropriate.
+- Keep authentic product imagery visibly distinct from creative artwork.
+- Consider subtle shopping invitations alongside the artwork.
+
+These remain backlog items. Neither mission changes approval, storage or public
+gallery access rules without separate implementation review.

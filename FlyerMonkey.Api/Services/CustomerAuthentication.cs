@@ -38,9 +38,15 @@ public static class CustomerAuthentication
                 context.User.FindFirstValue("tid") == CustomerIdentity.TenantId &&
                 Guid.TryParse(context.User.FindFirstValue("oid"), out var user) && user != Guid.Empty &&
                 context.User.FindFirstValue("ver") == "2.0" &&
-                context.User.FindFirstValue("azp") == CustomerIdentity.WebClientId &&
+                IsAllowedClient(context.User.FindFirstValue("azp"), configuration) &&
                 context.User.FindFirstValue("scp")?.Split(' ', StringSplitOptions.RemoveEmptyEntries)
                     .Contains("Customer.Access", StringComparer.Ordinal) == true)));
         return true;
     }
+
+    public static bool IsAllowedClient(string? client, IConfiguration configuration) =>
+        client == CustomerIdentity.WebClientId ||
+        (Guid.TryParse(configuration["CustomerAuthentication:MobileClientId"], out var mobile) &&
+         mobile != Guid.Empty && mobile.ToString() != CustomerIdentity.ApiClientId &&
+         Guid.TryParse(client, out var actor) && actor == mobile);
 }

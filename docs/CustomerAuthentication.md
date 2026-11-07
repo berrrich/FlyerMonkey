@@ -1,5 +1,26 @@
 # Mission 011A: customer authentication foundation
 
+## Web customer presentation runtime repair — November 2, 2026
+
+`WebsiteCraterSession` is scoped and shared by `IWebsiteCraterSession` and `ICustomerSession`. Its `[PersistentState]` customer presentation property is registered for Interactive Server in Web startup. Previously, the first component read lazily resolved `IHttpContextAccessor.HttpContext` and called `AuthenticateAsync(CustomerCookie)`. That context could already have started its response during streamed/interactive rendering. Initializing the cookie handler registers `OnStarting`, producing the reported InvalidOperationException. Merely marking the presentation property persistent did not initialize it before that first read.
+
+The Web pipeline now captures the separate customer-cookie result in its request-scoped `WebsiteCraterSession` **after UseAuthentication and before authorization/endpoints/rendering**. Components read only the captured/persisted Enabled/SignedIn booleans. The reader no longer uses HttpContext or initializes a cookie handler. Capture explicitly rejects a started response before authentication. Missing capture with customer auth enabled is an explicit reload-required error, and authentication exceptions propagate; neither is silently converted into an anonymous customer. Disabled customer authentication still renders anonymously without requiring an authentication scheme.
+
+The existing operator `AuthenticationStateProvider` remains responsible for operator presentation. Customer capture explicitly selects CustomerCookie and never assigns the customer principal to `HttpContext.User` or changes the operator authentication provider. Persisted booleans remain presentation only: protected account/API/generation endpoints independently authorize each operation. Customer cookie policy, OIDC configuration, sign-in, antiforgery sign-out and the existing full navigation after login/logout are unchanged. A new HTTP request after sign-out captures the revoked customer as anonymous; the independent operator cookie remains valid.
+
+Files changed for this repair only:
+
+- `FlyerMonkey/FlyerMonkey.Web/Services/WebsiteCraterSession.cs`
+- `FlyerMonkey/FlyerMonkey.Web/Program.cs`
+- `tests/CustomerAuthentication.Checks/Program.cs`
+- `docs/CustomerAuthentication.md`
+
+Validation: **79 CustomerAuthentication.Checks passed** and **76 WebAuthentication.Checks passed**. New tests exercise cookie reads before response start, presentation reads after a real Kestrel response flush, repeat reads without re-authentication, restored circuit presentation with no HttpContext, rejection of late capture before cookie initialization, propagation of authentication exceptions and explicit failure on missing capture. Cookie fixtures cover anonymous browsing/product presentation, the OIDC challenge and return to Product 139, customer logout, and operator-only/both-cookie isolation. These use offline identity/API fixtures, not a live Entra browser sign-in. Existing test-only BuildServiceProvider analyzer warnings remain; initial shared compilation also emitted the two existing unused Offers fields. Final explicit **Web and API builds both passed with zero warnings/errors**, using isolated `.artifacts/web-session-runtime` outputs.
+
+Reference: [Microsoft's Blazor HttpContext guidance](https://learn.microsoft.com/en-us/aspnet/core/blazor/components/httpcontext?view=aspnetcore-10.0) explains response-header restrictions and carrying request data into scoped interactive state.
+
+No Android/MSAL code, Entra configuration, API permissions, SQL, customer permissions or generation gates were changed by this repair. No deployment, Git operation or paid generation was performed. Live browser revalidation of this source change remains pending an authorized runtime update; the offline tests do not establish a live sign-in result.
+
 ## Final customer verification — November 1, 2026
 
 Owner-reported live results: customer sign-in succeeded, the status endpoint returned Active, generation remained disabled, and sign-out followed by sign-in completed without re-entering credentials.

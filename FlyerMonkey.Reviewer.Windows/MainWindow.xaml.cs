@@ -37,8 +37,18 @@ namespace FlyerMonkey.Reviewer.Windows
         public long? ExtractionRunId { get; set; }
     }
 
-    public class FlyerFile
+    public class FlyerFile : System.ComponentModel.INotifyPropertyChanged
     {
+        public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
+        public string StatusColour { get; private set; } = "White";
+        public string StatusWarning { get; private set; } = "";
+        public bool IsComplete { get; private set; }
+        public void SetStatus(bool complete, FlyerSplitState split)
+        {
+            IsComplete = complete; StatusColour = complete ? "#8BD49B" : split.Pages.Length > 0 ? "#70B8F0" : "White";
+            StatusWarning = split.Warning;
+            foreach (var name in new[] { nameof(IsComplete), nameof(StatusColour), nameof(StatusWarning) }) PropertyChanged?.Invoke(this, new(name));
+        }
         public string Retailer { get; set; } = "";
         public string FlyerDate { get; set; } = "";
         public string PageDescription { get; set; } = "";
@@ -113,7 +123,7 @@ namespace FlyerMonkey.Reviewer.Windows
             _processing = true;
             _processingCancellation = new();
             var progress = _progress.Start(operation);
-            foreach (var c in new UIElement[] { SplitFlyerButton, GetDataButton, SaveDataButton, CommitButton, FlyerList, PageList, SavedExtractionList, ProductList, AddOfferButton }) c.IsEnabled = false;
+            foreach (var c in new UIElement[] { FlyerCompletionButton, SplitFlyerButton, GetDataButton, SaveDataButton, CommitButton, FlyerList, PageList, SavedExtractionList, ProductList, AddOfferButton }) c.IsEnabled = false;
             CancelProcessingButton.Content = "Cancel " + (operation.Contains("image", StringComparison.OrdinalIgnoreCase) ? "image" : "extraction");
             CancelProcessingButton.IsEnabled = cancellable;
             return new OperationSession(progress, () => {
@@ -122,7 +132,7 @@ namespace FlyerMonkey.Reviewer.Windows
                 _processingCancellation.Dispose();
                 _processingCancellation = null;
                 if (_windowClosed) return;
-                foreach (var c in new UIElement[] { SplitFlyerButton, GetDataButton, SaveDataButton, FlyerList, PageList, SavedExtractionList, ProductList, AddOfferButton }) c.IsEnabled = true;
+                foreach (var c in new UIElement[] { FlyerCompletionButton, SplitFlyerButton, GetDataButton, SaveDataButton, FlyerList, PageList, SavedExtractionList, ProductList, AddOfferButton }) c.IsEnabled = true;
                 CommitButton.IsEnabled = SavedExtractionList.SelectedItem is SavedExtraction item && item.Status == "Saved";
                 SaveDataButton.IsEnabled = CanEditCurrentExtraction;
                 AddOfferButton.IsEnabled = CanEditCurrentExtraction;
@@ -248,6 +258,7 @@ namespace FlyerMonkey.Reviewer.Windows
 
             _selectedFlyer = flyer;
 
+            FlyerCompletionButton.Content = flyer.IsComplete ? "Reopen flyer" : "Mark Complete";
             await LoadSplitPagesAsync(flyer);
         }
 
@@ -294,13 +305,12 @@ namespace FlyerMonkey.Reviewer.Windows
                 splitRoot,
                 Path.GetFileNameWithoutExtension(flyer.FileName));
 
-            if (!Directory.Exists(flyerFolder))
-                return;
 
-            var pageFiles = Directory
-                .GetFiles(flyerFolder, "page-*.pdf")
-                .OrderBy(x => x)
-                .ToList();
+
+            var discovery = DiscoverFlyer(flyer);
+            RefreshFlyerStatus(flyer);
+            FlyerStatusWarning.Text = discovery.Warning;
+            var pageFiles = discovery.Pages.ToList();
 
             if (pageFiles.Count > 0)
             {
@@ -334,7 +344,7 @@ namespace FlyerMonkey.Reviewer.Windows
                         page.ExtractionRunId = extractionState.Id;
                     }
 
-                    if (_windowClosed) return;
+                    if (_windowClosed || (_selectedFlyer != null && !ReferenceEquals(_selectedFlyer, flyer))) return;
                     PageList.Items.Add(page);
                 }
 
@@ -1045,9 +1055,11 @@ var blobConnectionString =
             bool persisted = false;
             try
             {
+                var splitState = DiscoverFlyer(_selectedFlyer);
+                if (splitState.Warning.Length > 0) throw new InvalidOperationException(splitState.Warning);
                 var source = _selectedFlyer.FullPath;
                 await Task.Run(() => SplitPdf(source));
-                persisted = true; processing.Report("Split pages persisted; loading page previews...");
+                persisted = true; RefreshFlyerStatus(_selectedFlyer!); processing.Report("Split pages persisted; loading page previews...");
                 await LoadSplitPagesAsync(_selectedFlyer);
 
                 processing.Success("Split PDF pages persisted successfully.");
@@ -1260,7 +1272,8 @@ var blobConnectionString =
         private string? ResolveSavedPagePath(SavedExtraction saved)
         {
             if (string.IsNullOrWhiteSpace(saved.FlyerFileName) || string.IsNullOrWhiteSpace(saved.PageFileName)) return null;
-            return Path.Combine(_splitRoot, Path.GetFileNameWithoutExtension(Path.GetFileName(saved.FlyerFileName)), Path.GetFileName(saved.PageFileName));
+            var flyer = new FlyerFile { Retailer = saved.Retailer, FileName = saved.FlyerFileName };
+            return DiscoverFlyer(flyer).Pages.FirstOrDefault(x => Path.GetFileName(x).Equals(saved.PageFileName, StringComparison.OrdinalIgnoreCase));
         }
         private readonly Func<string, CancellationToken, Task<List<ExtractedProduct>>> _extractProducts;
 
@@ -1299,6 +1312,26 @@ var blobConnectionString =
 
             _ = LoadSavedExtractionsAsync();
         }
+        private FlyerSplitState DiscoverFlyer(FlyerFile flyer) => FlyerStatusService.Discover(_splitRoot, flyer, FlyerList.Items.OfType<FlyerFile>());
+        private void RefreshFlyerStatus(FlyerFile flyer) => flyer.SetStatus(new FlyerStatusService(_databasePath).IsComplete(flyer), DiscoverFlyer(flyer));
+        private bool HasPotentialUnsavedOffers => CanEditCurrentExtraction && (_products.Count > 0 || _selectedPage != null || SavedExtractionList.SelectedItem is SavedExtraction);
+        private void FlyerCompletion_Click(object sender, RoutedEventArgs e)
+        {
+            using var processing = BeginProcessing(false, "Updating flyer status");
+            if (processing == null || _selectedFlyer is not { } flyer) return;
+            if (!flyer.IsComplete && HasPotentialUnsavedOffers
+                && MessageBox.Show("There may be unsaved edits in the current review. Mark Complete does not save offers or commit them. Continue marking this flyer complete?", "Unsaved edits", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
+            try
+            {
+                var split = DiscoverFlyer(flyer);
+                if (split.Warning.StartsWith("Ambiguous", StringComparison.Ordinal)) throw new InvalidOperationException(split.Warning);
+                new FlyerStatusService(_databasePath).SetComplete(flyer, !flyer.IsComplete);
+                RefreshFlyerStatus(flyer);
+                FlyerCompletionButton.Content = flyer.IsComplete ? "Reopen flyer" : "Mark Complete";
+                processing.Success(flyer.IsComplete ? "Flyer marked complete." : "Flyer reopened.");
+            }
+            catch (Exception ex) { processing.Fail(ex.Message); }
+        }
         private void RefreshFlyers_Click(object sender, RoutedEventArgs e)
         {
             LoadFlyers();
@@ -1330,6 +1363,7 @@ var blobConnectionString =
                     FlyerList.Items.Add(flyer);
                 }
             }
+            foreach (var flyer in FlyerList.Items.OfType<FlyerFile>()) RefreshFlyerStatus(flyer);
         }
 
         private FlyerFile CreateFlyerFromFile(string pdfPath)

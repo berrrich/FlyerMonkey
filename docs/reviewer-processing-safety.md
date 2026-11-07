@@ -1,6 +1,21 @@
 # WPF Reviewer - Cumulative Mission Report
 
-## Current Mission Report - 5 November 2026: Mission 009F - Non-blocking Crater Generation
+## Current Mission Report - 6 November 2026: Mission 009G - Flyer Status
+
+**Disposition:** Flyer cards are neutral by default, blue when at least one completed, readable single-page `page-NNN.pdf` is discovered, and green when manually marked complete. Green overrides blue. An independent blue selection outline remains visible over either status colour. Mark Complete / Reopen operates on the selected flyer and participates in the existing processing gate, including exclusion while image jobs remain active.
+
+Completion is stored locally in the Reviewer SQLite `ReviewerFlyerStatus` table. Identity is the case-normalized retailer plus complete source filename, independent of workspace path. Reopen persists false without altering extraction records, offer drafts or split files. Status is rediscovered on startup, flyer refresh/selection and successful split; completion actions update the bound card immediately. Completion neither saves offers nor commits them. The confirmation conservatively warns whenever editable offers or an editable page/batch are open, including a page whose offers were all deleted; precise dirty tracking is not available.
+
+Split discovery uses the existing filename-based folder convention and validates page PDFs. Empty folders, corrupt/unexpected PDFs, numbering gaps, source/page-count mismatch and abandoned staging folders produce non-destructive warnings. A folder containing at least one valid page can still be blue while displaying an incomplete warning. Existing output is never overwritten or deleted; no automatic repair occurs. Multiple incoming source paths sharing a filename stem, including different retailers, block page association and splitting. Saved PDF resolution uses the same guard; completion changes also refuse an ambiguous identity. Warning text is visible for the selected flyer and in the card tooltip.
+
+**Validation:** 26 disposable status checks passed, including absent/empty/corrupt/staged splits, valid discovery, incomplete trailing pages, cross-retailer and same-retailer filename collisions, SQLite completion/reopen, path-independent identity, new-window reload, actual WPF completion handlers, unsaved-warning guards, selected/deselected templates and preservation of split bytes. The existing 71 Saved/PDF checks also passed. Build succeeded; the clean build showed only the two existing unused-field warnings in Offers.razor. No mouse-driven desktop verification is claimed. Evidence: `.artifacts/mission009g-status-checks.txt`, `.artifacts/mission009g-saved-checks.txt`. Reproduce with `dotnet run --project tests/ReviewerFlyerStatus.Checks --artifacts-path .artifacts/mission009g-build -p:NuGetAudit=false -p:UseSharedCompilation=false -p:RuntimeIdentifier=win-x64 -p:CopyDebugSymbolFilesFromPackages=false`.
+
+**Limits/activity:** Legacy split folders have no ownership manifest; collisions are detected against the currently discovered incoming sources. Historical ownership cannot be established if a prior source has been removed or replaced. Changing retailer or source filename changes completion identity. Initial isolated builds exhausted disk space copying native symbols; only this mission's generated build output was removed before retrying with x64 output and package debug symbols disabled. Operator PDFs, artwork and database were not opened for writes by validation. Tests used synthetic PDFs and disposable SQLite files. No SQL Server calls/writes, paid calls, Azure, deployment or Git operations.
+
+---
+
+
+## Previous Mission Report - 5 November 2026: Mission 009F - Non-blocking Crater Generation
 
 **Disposition:** Crater It now runs per product without acquiring the global processing gate. Offers remain scrollable, only that product's Crater button is disabled, independent products can queue, and at most two provider requests run concurrently per Reviewer process. Per-card Queued / Generating / Complete / Failed / Cancelled feedback and a per-card Cancel image action replace global one-click Crater progress. The activity panel was not moved. No automatic Crater during Get Data was added.
 

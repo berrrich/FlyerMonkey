@@ -1,0 +1,35 @@
+@using FlyerMonkey.Shared.Services
+@inject IMobileCustomerSession Session
+
+<section class="card card-body my-3" aria-labelledby="mobile-crater-title">
+    <h2 id="mobile-crater-title">Crater It</h2>
+    @if (Session.SignedIn)
+    {
+        <p>Customer account</p>
+        <p>@(Session.Account is null ? "Customer eligibility could not be verified." : Session.Account.CraterEnabled ? "Your account is eligible. Generation is unavailable on mobile." : "Generation is unavailable for your customer account.")</p>
+        <button class="btn btn-outline-secondary" disabled="@_busy" @onclick="SignOut">Sign out</button>
+        <button class="btn btn-link" disabled="@_busy" @onclick="Refresh">Refresh account status</button>
+    }
+    else
+    {
+        <button class="btn btn-primary" disabled="@_busy" @onclick="SignIn">Sign in to Crater It</button>
+        <p>Sign in with the options available in FlyerMonkey customer sign-in. You will return to this product. Signing in does not generate an image.</p>
+    }
+    @if (Session.Message is not null) { <p role="status">@Session.Message</p> }
+</section>
+
+@code {
+    [Parameter] public int ProductId { get; set; }
+    private bool _busy;
+    protected override Task OnInitializedAsync() => Run(Session.RestoreAsync);
+    private Task SignIn() => Run(Session.SignInAsync);
+    private Task SignOut() => Run(Session.SignOutAsync);
+    private Task Refresh() => Run(Session.RestoreAsync);
+    private async Task Run(Func<Task> operation)
+    {
+        if (_busy) return;
+        _busy = true;
+        try { await operation(); }
+        finally { _busy = false; }
+    }
+}

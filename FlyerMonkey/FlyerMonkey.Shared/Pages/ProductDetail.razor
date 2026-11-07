@@ -65,7 +65,11 @@ else
                 }
             </section>
                 <div class="fm-creative-tools">
-                    @if (IsWebsite)
+                    @if (HasMobileCustomer)
+                    {
+                        <MobileCustomerCraterEntry ProductId="@_product.ID" />
+                    }
+                    else if (IsWebsite)
                     {
                         <ProductCraterEntry ProductId="@_product.ID" Product="@_product" Expanded="@OpenCrater" />
                     }
@@ -237,7 +241,8 @@ else
     public bool OpenCrater { get; set; }
 
     private bool IsWebsite => Services.GetService(typeof(IWebsiteCraterSession)) is not null;
-    private bool CanGenerate => !IsWebsite && ImageGeneration.IsEnabled;
+    private bool HasMobileCustomer => Services.GetService(typeof(IMobileCustomerSession)) is not null;
+    private bool CanGenerate => !HasMobileCustomer && !IsWebsite && ImageGeneration.IsEnabled;
 
     private ElementReference _craterControls;
     private ElementReference _floatingComet;
@@ -518,7 +523,7 @@ else
         {
             _product = products.FirstOrDefault(p => p.ID == productId);
             if (_product is null) _productLoadError = "Product not found.";
-            if (_product is not null && !IsWebsite && ArtworkGallery.IsEnabled)
+            if (_product is not null && !HasMobileCustomer && !IsWebsite && ArtworkGallery.IsEnabled)
             {
                 _historyLoading = true;
                 using var retrieval = new CancellationTokenSource();

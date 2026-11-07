@@ -288,8 +288,9 @@ try
         var html = System.Net.WebUtility.HtmlDecode(websiteEntry.Html);
         Check(html.Contains("☄️ Crater It") && html.Contains("Product ID: 102") && html.Contains("Compare Offers"),
             "Web product detail keeps the public product, offers and product-associated Crater entry");
-        Check(html.Contains(authenticated ? "ViewOwn does not grant Generate" : "Generation is not available yet"),
-            "Real product detail renders the appropriate anonymous/operator explanation");
+        Check(authenticated ? html.Contains("ViewOwn does not grant Generate") :
+            !html.Contains("ViewOwn does not grant Generate") && !html.Contains("signed in as an operator"),
+            "Collapsed product entry shows operator restrictions only to the operator session");
         Check(!html.Contains("crater-style") && !html.Contains("<dialog") && !html.Contains("Saved Crater artwork") &&
             !html.Contains("/operator/signin") && websiteEntry.Requests == 0,
             "Website entry suppresses legacy generation/history even with local development clients enabled");

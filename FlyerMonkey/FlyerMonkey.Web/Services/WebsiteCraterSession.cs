@@ -16,19 +16,22 @@ public sealed class WebsiteCraterSession(IServiceProvider services) : IWebsiteCr
         return user.Identity?.IsAuthenticated == true && !CustomerAuthentication.IsCustomer(user);
     }
 
-    private Task<CustomerSessionState>? _customer;
     // Persist only presentation booleans across prerender -> circuit; never an identity or authorization grant.
     [PersistentState]
     public CustomerSessionState? CustomerPresentation { get; set; }
-    public Task<CustomerSessionState> GetCustomerAsync() => CustomerPresentation is { } state
-        ? Task.FromResult(state) : _customer ??= ReadCustomer();
+    public Task<CustomerSessionState> GetCustomerAsync() => Task.FromResult(CustomerPresentation ??
+        (!CustomerEnabled ? new(false, false) : throw new InvalidOperationException(
+            "Customer presentation was not captured before rendering. Reload the page to establish a new session.")));
 
-    private async Task<CustomerSessionState> ReadCustomer()
+    private bool CustomerEnabled => services.GetService<IConfiguration>()?.GetValue<bool>("CustomerAuthentication:Enabled") == true;
+
+    // Called by request middleware, never by a component or an interactive circuit.
+    public async Task CaptureCustomerAsync(HttpContext context)
     {
-        var enabled = services.GetService<IConfiguration>()?.GetValue<bool>("CustomerAuthentication:Enabled") == true;
-        var context = services.GetService<IHttpContextAccessor>()?.HttpContext;
-        if (!enabled || context is null) return CustomerPresentation = new(enabled, false);
+        if (!CustomerEnabled) { CustomerPresentation = new(false, false); return; }
+        if (context.Response.HasStarted)
+            throw new InvalidOperationException("Customer authentication must be captured before the response starts.");
         var authentication = await context.AuthenticateAsync(CustomerAuthentication.Cookie);
-        return CustomerPresentation = new(true, authentication.Succeeded && CustomerAuthentication.IsCustomer(authentication.Principal));
+        CustomerPresentation = new(true, authentication.Succeeded && CustomerAuthentication.IsCustomer(authentication.Principal));
     }
 }
