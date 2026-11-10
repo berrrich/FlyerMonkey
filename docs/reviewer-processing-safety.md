@@ -1,6 +1,30 @@
 # WPF Reviewer - Cumulative Mission Report
 
-## Current Mission Report - 6 November 2026: Mission 009G - Flyer Status
+## Current Mission Report - 10 November 2026: Mission 009J - Local Restore and Commit Test
+
+**Disposition:** Completed a reusable local-only BACPAC restore script, validated all eleven application tables against the verified archive's counts and full-row hashes, and rehearsed the unchanged 009I cleanup. The retained primary LocalDB database Mission009J_Disposable_4161c334e0df restored at 109 offers / 112 products / 57 category links, passed rollback preservation, committed locally to **99 / 102 / 53**, and passed already-clean repeat execution. Restore refuses existing database names and reserves new names atomically; an explicit overwrite-refusal check preserved every table.
+
+**Reviewer validation:** **27 checks passed** against a separate restored LocalDB database, Mission009J_Disposable_0a998b28ece8. Actual WPF handlers processed 25 rapid reentrant clicks as one confirmation/one batch; 12 overlapping durable-claim requests produced exactly one complete batch. A second-offer SQL failure rolled back all products/offers/category links. Retry after that failure was blocked as Recovery Required, and repeat submission of a committed batch wrote nothing. Four intentional successful fixture records leave this separate test database at 113 offers / 116 products / 61 links; the original eleven-table archive rows remain unchanged. No mouse-driven UI verification is claimed.
+
+Reusable script, detailed procedure, retained database names, complete results and limits: [Mission 009J report](mission009j-local-validation.md). Evidence: .artifacts/mission009j/Mission009J_Disposable_4161c334e0df.restore.json, restore-refusal.json, reviewer-checks-final.txt and reviewer-eaf4c0db297042418288f568f0c382cc/results.json. Application implementation was unchanged. No production connections/writes, Azure operations, paid calls, deployments, Git operations, backup changes or operator extraction-history changes occurred. All local databases and synthetic fixtures are retained.
+
+---
+
+## Previous Mission Report - 10 November 2026: Mission 009I - Duplicate Reconciliation Preparation
+
+**Disposition:** Prepared the guarded SQL reconciliation and recovery/production-readiness runbook; **20 local disposable DEV scenarios passed**. Production cleanup was not executed. The exact retained pairs are 153/161, 154/162, 155/163, 156/164 and 157/165; scope is only the ten approved excess Offer/Product pairs and four dependent category links.
+
+Full self-contained recovery plan, reconciliation table, cost assumptions, repeatable DEV procedure, results, limitations and production checklist: [Mission 009I report](mission009i-reconciliation.md). Cleanup source: [009I-reconcile-duplicates.sql](../database/maintenance/009I-reconcile-duplicates.sql). It defaults to rollback, requires explicit server/database identity, validates content/dependencies/counts, rejects partial states and checks retained/unrelated rows. A dry run performs transactional deletes before rollback and is therefore not SELECT-only.
+
+**Production evidence:** SELECT-only inspection at 2026-11-10 12:43:01 UTC confirmed 109 offers, 48 current offers, 112 products, 57 category links and the audited five groups. Azure SQL is General Purpose serverless GP_S_Gen5_2. Automated backup metadata includes in-retention full/differential/log backups; latest captured log backup finished at 12:30:18 UTC. Configured STR retention, LTR inventory, redundancy, earliest selectable restore timestamp, restore permission and an actual Azure PITR drill remain unverified because no authenticated Azure management context was available. Backup metadata alone does not verify recovery readiness.
+
+**Validation/activity:** The local-only harness validated default rollback, committed DEV counts 99/102/53 with 38 audit-date current offers, same-connection already-clean behavior, rollback after all deletes, and refusal of identity/price/date/pair/image/category drift, unexpected dependencies/triggers/schema, partial state and count drift. Evidence: .artifacts/mission009i-dev-results.json (exact SQL SHA-256 and retained fixture database names), .artifacts/mission009i-production-readonly.json. No Azure resource/settings changes, production writes, backup deletion/overwrite, image/blob changes, Reviewer history changes, application changes, Git operations or deployment. Local fixture databases are retained.
+
+**Stop/approval gates:** Obtain Azure management recovery evidence and separate approval for a billable restore drill; then obtain fresh production preflight and separate cleanup execution authorization. DEV success does not establish that production remains unchanged. No production cleanup or Azure restore is authorized by this report.
+
+---
+
+## Previous Mission Report - 6 November 2026: Mission 009G - Flyer Status
 
 **Disposition:** Flyer cards are neutral by default, blue when at least one completed, readable single-page `page-NNN.pdf` is discovered, and green when manually marked complete. Green overrides blue. An independent blue selection outline remains visible over either status colour. Mark Complete / Reopen operates on the selected flyer and participates in the existing processing gate, including exclusion while image jobs remain active.
 
