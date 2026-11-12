@@ -1,0 +1,25 @@
+<Router AppAssembly="typeof(FlyerMonkey.Shared.Layout.MainLayout).Assembly"
+        NotFoundPage="typeof(FlyerMonkey.Shared.Pages.NotFound)">
+    <Found Context="routeData">
+        @if (routeData.PageType == typeof(FlyerMonkey.Shared.Pages.Offers))
+        {
+            <LayoutView Layout="typeof(FlyerMonkey.Shared.Layout.MainLayout)">
+                <CascadingValue Value="offersReturnPosition">
+                    <FlyerMonkey.Web.Components.Pages.WebOffers />
+                </CascadingValue>
+            </LayoutView>
+        }
+        else
+        {
+            <RouteView RouteData="routeData" DefaultLayout="typeof(FlyerMonkey.Shared.Layout.MainLayout)" />
+        }
+        @if (routeData.PageType != typeof(FlyerMonkey.Shared.Pages.Offers))
+        {
+            <FocusOnNavigate RouteData="routeData" Selector="h1" />
+        }
+    </Found>
+</Router>
+
+@code {
+    private readonly FlyerMonkey.Web.Services.OffersReturnPosition offersReturnPosition = new();
+}

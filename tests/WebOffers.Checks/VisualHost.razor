@@ -1,0 +1,27 @@
+@page "/"
+@using Microsoft.AspNetCore.Components.Web
+@using static Microsoft.AspNetCore.Components.Web.RenderMode
+<!doctype html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <base href="/" />
+    <style>@((Microsoft.AspNetCore.Components.MarkupString)Css)</style>
+</head>
+<body>
+    <main style="padding:24px">
+        <nav style="margin-bottom:24px">FlyerMonkey · Offers</nav>
+        <FlyerMonkey.Web.Components.Pages.WebOffers @rendermode="InteractiveServer" />
+    </main>
+    <script src="_framework/blazor.web.js"></script>
+</body>
+</html>
+@code {
+    private string Css => string.Join("\n", new[] {
+        "FlyerMonkey/FlyerMonkey.Shared/wwwroot/lib/bootstrap/dist/css/bootstrap.min.css",
+        "FlyerMonkey/FlyerMonkey.Shared/wwwroot/app.css",
+        "FlyerMonkey/FlyerMonkey.Web/wwwroot/css/offers.css",
+        "FlyerMonkey/FlyerMonkey.Web/obj/Debug/net10.0/scopedcss/Components/Pages/WebOffers.razor.rz.scp.css"
+    }.Select(File.ReadAllText));
+}

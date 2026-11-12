@@ -1,4 +1,5 @@
 .page {
+    --fm-topbar-height: 56px;
     position: relative;
     display: flex;
     flex-direction: column;
@@ -104,10 +105,13 @@ main {
     }
 
 .fm-topbar {
+    position: sticky;
+    top: 0;
+    z-index: 30;
     display: flex;
     align-items: center;
     gap: 2rem;
-    min-height: 56px;
+    min-height: var(--fm-topbar-height);
     padding: 0 2rem;
     border-bottom: 1px solid #e5e5e5;
     background: white;
@@ -146,6 +150,10 @@ main {
 
 @media (max-width: 640.98px) {
 
+    .page {
+        --fm-topbar-height: 48px;
+    }
+
     /* Hide desktop navigation links on mobile */
     .fm-topbar-nav {
         display: none;
@@ -154,7 +162,7 @@ main {
     /* Make the mobile header more compact */
     .fm-topbar {
         padding: 0 1rem;
-        min-height: 48px;
+        min-height: var(--fm-topbar-height);
     }
 
     /* Keep scrolling content clear of bottom navigation */

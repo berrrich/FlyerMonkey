@@ -1,0 +1,144 @@
+@using FlyerMonkey.Shared.Model
+@using FlyerMonkey.Shared.Services
+@using FlyerMonkey.Shared.UI.Offers
+@inject IOfferService OfferService
+@using Microsoft.JSInterop
+@inject IServiceProvider Services
+@implements IAsyncDisposable
+
+<section class="web-offers" style="@(restoring ? "visibility:hidden" : null)">
+    <header class="offers-banner">
+        <div><p class="eyebrow">FRESH FINDS. BIG SAVINGS.</p><h1>This Week's Offers</h1></div>
+        <button class="refresh" @onclick="RefreshAsync" disabled="@ui.IsLoading" aria-label="Refresh offers">↻ <span>Refresh</span></button>
+    </header>
+    <p class="offer-count" aria-live="polite">
+        API offers: @ui.Offers.Count · Woolworths: @ui.Offers.Count(o => IsRetailer(o, "Woolworths"))
+        · Coles: @ui.Offers.Count(o => !IsRetailer(o, "Woolworths") && IsRetailer(o, "Coles"))
+        · Cards shown: @(ui.IsLoading || ui.LoadError is not null ? 0 : ui.Offers.Count)
+    </p>
+    @if (ui.IsLoading)
+    {
+        <p role="status">Loading offers...</p>
+    }
+    else if (ui.LoadError is not null)
+    {
+        <div role="alert"><p>@ui.LoadError</p><button class="refresh" @onclick="RefreshAsync">Retry</button></div>
+    }
+    else if (ui.Offers.Count == 0)
+    {
+        <p>No offers found.</p>
+    }
+    else
+    {
+        <label class="retailer-selector">
+            Retailer
+            <select @bind="selectedRetailer" aria-label="Choose retailer">
+                @foreach (var group in Groups())
+                {
+                    <option value="@group.Name">@group.Name (@group.Offers.Count)</option>
+                }
+            </select>
+        </label>
+        <div class="retailer-grid">
+            @foreach (var group in Groups())
+            {
+                <section class="retailer @group.Theme @(selectedRetailer == group.Name ? "selected" : "")" aria-label="@group.Name offers">
+                    <h2>@group.Name <span>@group.Offers.Count offers</span></h2>
+                    <div class="retailer-cards">
+                        @foreach (var offer in group.Offers)
+                        {
+                            <article class="deal" id="offer-@offer.OfferID" @key="offer.OfferID">
+                                <div class="product-image">
+                                    <img src="@(offer.ProductID > 0 ? PublicApiClientRegistration.ProductImageUrl(offer.ProductID) : Placeholder)"
+                                         alt="@offer.ProductName" loading="lazy"
+                                         onerror="this.onerror=null;this.src='/_content/FlyerMonkey.Shared/images/product-placeholder.png';" />
+                                </div>
+                                <div class="details">
+                                    <h3 class="product-name" title="@offer.ProductName" aria-label="@offer.ProductName">@offer.ProductName</h3>
+                                    <p class="pack-category" title="@($"{offer.PackSizeText} {offer.Category}")">@offer.PackSizeText@if (!string.IsNullOrWhiteSpace(offer.Category)){<span>@(string.IsNullOrWhiteSpace(offer.PackSizeText) ? "" : " · ")@offer.Category</span>}</p>
+                                    <div class="price-row">
+                                    <div class="price">@offer.AdvertisedPrice?.ToString("C", System.Globalization.CultureInfo.GetCultureInfo("en-AU"))</div>
+                                    @if (!string.IsNullOrWhiteSpace(offer.PromoText)) { <p class="promotion">@offer.PromoText</p> }
+                                    </div>
+                                    <p class="unit-price" title="@offer.UnitPriceText">@offer.UnitPriceText</p>
+                                    <a class="view-offer" href="@($"/offers/{offer.OfferID}")">View offer <span aria-hidden="true">→</span></a>
+                                </div>
+                            </article>
+                        }
+                    </div>
+                    @if (group.Offers.Count == 0) { <p class="empty-retailer">No current offers. Check back soon!</p> }
+                </section>
+            }
+        </div>
+    }
+</section>
+
+@code {
+    private const string Placeholder = "/_content/FlyerMonkey.Shared/images/product-placeholder.png";
+    private OffersUI ui = null!;
+    private string selectedRetailer = "Woolworths";
+    [CascadingParameter] public FlyerMonkey.Web.Services.OffersReturnPosition? ReturnPosition { get; set; }
+    private bool restoring;
+    private IJSObjectReference? positionModule;
+    private IDisposable? navigationRegistration;
+    protected override async Task OnInitializedAsync()
+    {
+        ui = new OffersUI(OfferService);
+        restoring = ReturnPosition?.Pending == true;
+        if (restoring) selectedRetailer = ReturnPosition!.Retailer;
+        await RefreshAsync();
+    }
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && ReturnPosition is not null)
+        {
+            var navigation = Services.GetRequiredService<NavigationManager>();
+            navigationRegistration = navigation.RegisterLocationChangingHandler(async context =>
+            {
+                var path = navigation.ToBaseRelativePath(context.TargetLocation).Split('?', '#')[0];
+                if (path.StartsWith("offers/", StringComparison.Ordinal) && int.TryParse(path[7..], out var offerId))
+                    await RememberPositionAsync(offerId);
+                else
+                    ReturnPosition.Pending = false;
+            });
+        }
+        if (!restoring || ui.IsLoading) return;
+        var module = await GetPositionModuleAsync();
+        await module.InvokeVoidAsync("restore", ReturnPosition!.ScrollY, ReturnPosition.OfferId);
+        restoring = false;
+        StateHasChanged();
+    }
+    private async Task<IJSObjectReference> GetPositionModuleAsync()
+    {
+        var js = Services.GetRequiredService<IJSRuntime>();
+        return positionModule ??= await js.InvokeAsync<IJSObjectReference>("import", "./js/offersPosition.js");
+    }
+    private async Task RememberPositionAsync(int offerId)
+    {
+        if (ReturnPosition is not null)
+        {
+            var module = await GetPositionModuleAsync();
+            ReturnPosition.ScrollY = await module.InvokeAsync<double>("capture");
+            ReturnPosition.OfferId = offerId;
+            ReturnPosition.Retailer = selectedRetailer;
+            ReturnPosition.Pending = true;
+        }
+    }
+    public async ValueTask DisposeAsync()
+    {
+        navigationRegistration?.Dispose();
+        if (positionModule is null) return;
+        try { await positionModule.DisposeAsync(); }
+        catch (JSDisconnectedException) { }
+    }
+    private Task RefreshAsync() => ui.LoadOffersAsync();
+    private static bool IsRetailer(OfferSummary offer, string name) =>
+        offer.RetailerName.Contains(name, StringComparison.OrdinalIgnoreCase);
+    private IEnumerable<(string Name, string Theme, List<OfferSummary> Offers)> Groups()
+    {
+        yield return ("Woolworths", "woolworths", ui.Offers.Where(o => IsRetailer(o, "Woolworths")).ToList());
+        yield return ("Coles", "coles", ui.Offers.Where(o => !IsRetailer(o, "Woolworths") && IsRetailer(o, "Coles")).ToList());
+        foreach (var group in ui.Offers.Where(o => !IsRetailer(o, "Woolworths") && !IsRetailer(o, "Coles")).GroupBy(o => o.RetailerName))
+            yield return (string.IsNullOrWhiteSpace(group.Key) ? "More offers" : group.Key, "other", group.ToList());
+    }
+}
