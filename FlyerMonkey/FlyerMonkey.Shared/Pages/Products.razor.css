@@ -1,5 +1,6 @@
 .fm-product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr)); gap: 1rem; }
-.fm-product-card { border: 1px solid #ddd; border-radius: 12px; background: white; }
+.fm-product-card { position: relative; border: 1px solid #ddd; border-radius: 12px; background: white; }
+.fm-product-id { position: absolute; top: .5rem; right: .5rem; z-index: 1; padding: .2rem .45rem; border: 1px solid #ddd; border-radius: 6px; background: #f3f4f6; color: #495057; font-size: .75rem; line-height: 1.25; pointer-events: none; }
 .fm-card-image { display: flex; justify-content: center; padding: 1rem; }
 .fm-card-image img { width: 100%; height: 180px; object-fit: contain; }
 .fm-card-details { position: relative; padding: 1rem 3.5rem 1rem 1rem; }

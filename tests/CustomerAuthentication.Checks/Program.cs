@@ -307,13 +307,46 @@ try
         Check(mobileAnonymous.Contains("Sign in to Crater It") && !mobileAnonymous.Contains("Generate image"), "Mobile anonymous entry invites sign-in without generation");
         mobileUi.SignedIn = true;
         mobileUi.Account = new(Guid.NewGuid(), "Active", false);
+        mobileUi.CraterPreview = new("Generation is unavailable for your customer account.");
         var mobileSignedIn = await MobileHtml();
         Check(mobileSignedIn.Contains("Generation is unavailable for your customer account") && mobileSignedIn.Contains("Sign out"), "Mobile server-denied eligibility is explained with sign-out access");
         mobileUi.Account = null;
+        mobileUi.CraterPreview = null;
         mobileUi.Message = "Cannot connect securely to the customer API.";
         var mobileUnavailable = await MobileHtml();
         Check(mobileUnavailable.Contains("eligibility could not be verified") && mobileUnavailable.Contains("Cannot connect securely"), "Mobile unavailable API never presents stale eligibility");
         Check(mobileUi.Restores == 3, "Mobile presentation restores customer session without interactive sign-in");
+        foreach (var state in new[] { "Ready", "Pending", "Generating", "Failed", "Unknown", "Completed" })
+        {
+            var handler = new PreviewHandler(state);
+            using var client = new HttpClient(handler) { BaseAddress = new Uri("https://localhost:7255/") };
+            var preview = await CustomerCraterPreviewReader.ReadAsync(client, "offline-token");
+            Check((preview.Image is not null) == (state == "Completed"), "Private image is displayed only for Completed");
+            Check(handler.Calls == (state == "Completed" ? 2 : 1), "Only completed attempts fetch JPEG");
+        }
+        foreach (var status in new[] { 401, 403, 404 })
+        {
+            using var client = new HttpClient(new PreviewHandler("Completed", status)) { BaseAddress = new Uri("https://localhost:7255/") };
+            var preview = await CustomerCraterPreviewReader.ReadAsync(client, "offline-token");
+            Check(preview.Image is null && preview.Message.Length > 0, "Denied or missing preview has a recoverable message");
+        }
+        mobileUi.Account = new(Guid.NewGuid(), "Active", false);
+        mobileUi.CraterPreview = new("Completed artwork", "data:image/jpeg;base64,/9j/");
+        Check((await MobileHtml()).Contains("Your private Crater It artwork for Product 139"), "Completed private preview renders on mobile");
+        mobileUi.CraterPreview = new("Ready to generate one private image.", CanGenerate: true);
+        var readyHtml = await MobileHtml();
+        Check(readyHtml.Contains("Generate one image") && !readyHtml.Contains("Sign in to Crater It"), "Authoritative readiness exposes generation for the signed-in customer");
+        foreach (var status in new[] { 200, 403, 503 })
+        {
+            var handler = new GenerationHandler(status);
+            using var client = new HttpClient(handler) { BaseAddress = new Uri("https://localhost:7255/") };
+            var preview = await CustomerCraterPreviewReader.GenerateAsync(client, "offline-token");
+            Check(handler.Posts == 1, "Generation sends exactly one authenticated POST without retry");
+            Check((preview.Image is not null) == (status == 200) && !preview.CanGenerate,
+                "Generation reloads completed status and JPEG, while errors disable generation");
+        }
+        using (var client = new HttpClient(new PreviewHandler("Ready", canGenerate: true)) { BaseAddress = new Uri("https://localhost:7255/") })
+            Check((await CustomerCraterPreviewReader.ReadAsync(client, "offline-token")).CanGenerate, "Ready uses server CanGenerate despite masked profile eligibility");
         Console.WriteLine($"{checks} customer checks passed. Offline providers/storage only; no paid calls.");
     }
     finally { await app.StopAsync(); }
@@ -323,6 +356,46 @@ finally { Environment.SetEnvironmentVariable("CustomerAuthentication__ClientSecr
 sealed class NoNetwork : HttpMessageHandler
 {
     protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken token) => throw new Exception("Unexpected provider network call");
+}
+sealed class PreviewHandler(string state, int status = 200, bool canGenerate = false) : HttpMessageHandler
+{
+    public int Calls;
+    protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken token)
+    {
+        Calls++;
+        if (request.Method != HttpMethod.Get || request.Headers.Authorization?.Parameter != "offline-token")
+            throw new Exception("Preview must use authenticated GET only");
+        if (status != 200) return Task.FromResult(new HttpResponseMessage((System.Net.HttpStatusCode)status));
+        if (request.RequestUri!.AbsolutePath == "/api/customers/crater/139/attempt")
+            return Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.OK)
+            { Content = System.Net.Http.Json.JsonContent.Create(new CustomerCraterAttempt(state, canGenerate, state == "Completed")) });
+        if (request.RequestUri.AbsolutePath != "/api/customers/crater/139/image") throw new Exception("Unexpected preview route");
+        var content = new ByteArrayContent(new byte[] { 255, 216, 255, 217 });
+        content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("image/jpeg");
+        return Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.OK) { Content = content });
+    }
+}
+sealed class GenerationHandler(int status) : HttpMessageHandler
+{
+    public int Posts;
+    protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken token)
+    {
+        if (request.Headers.Authorization?.Parameter != "offline-token") throw new Exception("Missing customer bearer");
+        if (request.Method == HttpMethod.Post && request.RequestUri!.AbsolutePath == "/api/customers/crater/139/attempt")
+        {
+            if (++Posts != 1) throw new Exception("Unexpected generation retry");
+            return Task.FromResult(new HttpResponseMessage((HttpStatusCode)status)
+            { Content = JsonContent.Create(new CustomerCraterAttempt("Completed", false, true)) });
+        }
+        if (Posts != 1 || status != 200 || request.Method != HttpMethod.Get) throw new Exception("Unexpected generation follow-up");
+        if (request.RequestUri!.AbsolutePath == "/api/customers/crater/139/attempt")
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            { Content = JsonContent.Create(new CustomerCraterAttempt("Completed", false, true)) });
+        if (request.RequestUri.AbsolutePath != "/api/customers/crater/139/image") throw new Exception("Unexpected image route");
+        var content = new ByteArrayContent(new byte[] { 255, 216, 255, 217 });
+        content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("image/jpeg");
+        return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = content });
+    }
 }
 sealed class StartedResponseFeature : Microsoft.AspNetCore.Http.Features.HttpResponseFeature
 {
@@ -351,6 +424,9 @@ sealed class CaptureAuthentication : IAuthenticationService
 }
 sealed class MobileCustomerUi : IMobileCustomerSession
 {
+    public Task GenerateCraterAsync() => throw new Exception("Unexpected paid generation");
+    public CustomerCraterPreview? CraterPreview { get; set; }
+    public Task LoadCraterPreviewAsync() => RestoreAsync();
     public bool SignedIn { get; set; }
     public CustomerAccount? Account { get; set; }
     public string? Message { get; set; }

@@ -252,7 +252,7 @@ try
     Check(PublicApiClientRegistration.ProductImageUrl(102) == PublicApiClientRegistration.ApiBaseUrl + "api/products/102/image",
         "Canonical image routing shares the published HTTPS root");
 
-    async Task<(string Html, int Requests)> RenderProduct(bool enabled, int status, int productId = 102, Exception? failure = null, bool generationEnabled = false, bool savedPreview = false, bool productFailure = false, bool productList = false, bool? websiteAuthenticated = null)
+    async Task<(string Html, int Requests)> RenderProduct(bool enabled, int status, int productId = 102, Exception? failure = null, bool generationEnabled = false, bool savedPreview = false, bool productFailure = false, bool productList = false, bool? websiteAuthenticated = null, bool mobileCustomer = false)
     {
         using var imageHandler = new ClientHandler { Status=status, Failure=failure };
         using var generationHttp = new HttpClient();
@@ -262,6 +262,8 @@ try
         var services = new ServiceCollection().AddLogging();
         if (websiteAuthenticated is { } authenticated)
             services.AddSingleton<IWebsiteCraterSession>(new WebsiteSession(authenticated));
+        if (mobileCustomer)
+            services.AddSingleton<IMobileCustomerSession>(new DisplayMobileCustomer());
         services.AddSingleton<Microsoft.JSInterop.IJSRuntime>(new NoDisplayJs());
         services.AddApprovedArtworkClient(enabled, "https://offline.invalid/");
         services.AddHttpClient<ApprovedArtworkApiService>().ConfigurePrimaryHttpMessageHandler(() => imageHandler);
@@ -281,6 +283,25 @@ try
         return (html,imageHandler.Calls);
     }
     var rendered = await RenderProduct(true,200);
+    foreach (var productId in new[] { 139, 175, 246 })
+    {
+        foreach (var mobileCustomer in new[] { false, true })
+        {
+            var detail = await RenderProduct(false, 200, productId,
+                websiteAuthenticated: mobileCustomer ? null : false, mobileCustomer: mobileCustomer);
+            var visibleText = WebUtility.HtmlDecode(System.Text.RegularExpressions.Regex.Replace(detail.Html, "<[^>]+>", " "));
+            visibleText = System.Text.RegularExpressions.Regex.Replace(visibleText, @"\s+", " ");
+            Check(visibleText.Contains($"Product ID: {productId} "),
+                $"{(mobileCustomer ? "Android" : "Web")} detail renders loaded model Product ID {productId}");
+            var cards = await RenderProduct(false, 200, productId, generationEnabled: true,
+                productList: true, websiteAuthenticated: mobileCustomer ? null : false, mobileCustomer: mobileCustomer);
+            var cardText = WebUtility.HtmlDecode(System.Text.RegularExpressions.Regex.Replace(cards.Html, "<[^>]+>", " "));
+            Check(cardText.Contains($"#{productId}") && cards.Html.Contains("fm-product-id") &&
+                cards.Html.Contains($"href=\"/products/{productId}\"") && cards.Html.Contains("fm-card-image") &&
+                cards.Html.Contains("fm-comet-action") && cards.Html.Contains($"/products/{productId}?crater=true#crater-controls"),
+                $"{(mobileCustomer ? "Android" : "Web")} card badge uses model ID {productId} and preserves image, navigation and Crater entry");
+        }
+    }
     foreach (var authenticated in new[] { false, true })
     {
         var websiteEntry = await RenderProduct(false, 200, generationEnabled:true, savedPreview:true,
@@ -513,4 +534,16 @@ sealed class OfflineHandler : HttpMessageHandler
 sealed class WebsiteSession(bool authenticated) : IWebsiteCraterSession
 {
     public Task<bool> IsAuthenticatedAsync() => Task.FromResult(authenticated);
+}
+sealed class DisplayMobileCustomer : IMobileCustomerSession
+{
+    public bool SignedIn => false;
+    public CustomerAccount? Account => null;
+    public string? Message => null;
+    public CustomerCraterPreview? CraterPreview => null;
+    public Task RestoreAsync() => Task.CompletedTask;
+    public Task LoadCraterPreviewAsync() => Task.CompletedTask;
+    public Task SignInAsync() => throw new Exception("Unexpected sign-in");
+    public Task SignOutAsync() => throw new Exception("Unexpected sign-out");
+    public Task GenerateCraterAsync() => throw new Exception("Paid generation forbidden");
 }

@@ -6,25 +6,57 @@
     @if (Session.SignedIn)
     {
         <p>Customer account</p>
-        <p>@(Session.Account is null ? "Customer eligibility could not be verified." : Session.Account.CraterEnabled ? "Your account is eligible. Generation is unavailable on mobile." : "Generation is unavailable for your customer account.")</p>
+        @if (Session.Account is null)
+        {
+            <p>Customer eligibility could not be verified.</p>
+        }
         <button class="btn btn-outline-secondary" disabled="@_busy" @onclick="SignOut">Sign out</button>
         <button class="btn btn-link" disabled="@_busy" @onclick="Refresh">Refresh account status</button>
+        @if (ProductId == 139 && Session.CraterPreview is { } preview)
+        {
+            <p role="status">@preview.Message</p>
+            @if (preview.CanGenerate)
+            {
+                <button class="btn btn-primary" disabled="@_busy" @onclick="Generate">Generate one image</button>
+                <p>This uses the paid image API.</p>
+            }
+            @if (preview.Image is not null)
+            {
+                <figure>
+                    <img src="@preview.Image" alt="Your private Crater It artwork for Product 139" class="img-fluid" />
+                    <figcaption>Your private Crater It preview</figcaption>
+                </figure>
+            }
+        }
     }
     else
     {
         <button class="btn btn-primary" disabled="@_busy" @onclick="SignIn">Sign in to Crater It</button>
         <p>Sign in with the options available in FlyerMonkey customer sign-in. You will return to this product. Signing in does not generate an image.</p>
     }
+    @if (_generating) { <p role="status">Generating your artwork. Please wait.</p> }
     @if (Session.Message is not null) { <p role="status">@Session.Message</p> }
 </section>
 
 @code {
     [Parameter] public int ProductId { get; set; }
     private bool _busy;
-    protected override Task OnInitializedAsync() => Run(Session.RestoreAsync);
-    private Task SignIn() => Run(Session.SignInAsync);
+    private bool _generating;
+    protected override Task OnParametersSetAsync() => Refresh();
+    private Task SignIn() => Run(async () =>
+    {
+        await Session.SignInAsync();
+        if (ProductId == 139 && Session.SignedIn) await Session.LoadCraterPreviewAsync();
+    });
     private Task SignOut() => Run(Session.SignOutAsync);
-    private Task Refresh() => Run(Session.RestoreAsync);
+    private Task Generate() => Run(async () =>
+    {
+        if (ProductId != 139 || Session.CraterPreview?.CanGenerate != true) return;
+        _generating = true;
+        try { await Session.GenerateCraterAsync(); }
+        finally { _generating = false; }
+    });
+    private Task Refresh() => Run(ProductId == 139 ? Session.LoadCraterPreviewAsync : Session.RestoreAsync);
     private async Task Run(Func<Task> operation)
     {
         if (_busy) return;

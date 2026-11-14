@@ -27,6 +27,7 @@ else
         @foreach (var product in _products)
         {
             <article class="fm-product-card" @key="product.ID">
+                <span class="fm-product-id" aria-label="@($"Product ID: {product.ID}")">#@product.ID</span>
                 <a class="fm-card-image" href="@($"/products/{product.ID}")">
                     @if (!string.IsNullOrWhiteSpace(product.ImageBlobPath))
                     {
