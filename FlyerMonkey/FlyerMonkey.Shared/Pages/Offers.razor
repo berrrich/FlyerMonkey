@@ -1,4 +1,4 @@
-﻿@page "/"
+@page "/"
 
 @using FlyerMonkey.Shared.Model
 @using FlyerMonkey.Shared.Services
@@ -49,21 +49,8 @@ else
         {
             <div class="offer-card">
                 <div class="offer-thumb">
-    @if (offer.ProductID > 0)
-    {
-        <img src="@PublicApiClientRegistration.ProductImageUrl(offer.ProductID)"
-             alt="@offer.ProductName"
-             loading="lazy"
-             onerror="this.onerror=null;this.src='/_content/FlyerMonkey.Shared/images/product-placeholder.png';"
-             style="width:80px;height:80px;object-fit:contain;border-radius:8px;" />
-
-    }
-    else
-    {
-        <img src="/_content/FlyerMonkey.Shared/images/product-placeholder.png"
-             alt="Product image unavailable" loading="lazy"
-             style="width:80px;height:80px;object-fit:contain;border-radius:8px;" />
-    }
+    <FlyerMonkey.Shared.Components.CatalogueProductImage ProductId="@offer.ProductID" ProductName="@offer.ProductName" Loading="lazy"
+            Style="width:80px;height:80px;object-fit:contain;border-radius:8px;" />
 </div>
 
                 <div class="offer-main">

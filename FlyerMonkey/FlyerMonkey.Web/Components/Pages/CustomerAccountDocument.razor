@@ -1,0 +1,73 @@
+@using FlyerMonkey.Shared.Components
+@using FlyerMonkey.Shared.Model
+
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+    <meta charset="utf-8" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Account | FlyerMonkey</title>
+    <script src="/_content/FlyerMonkey.Shared/theme.js"></script>
+    <link rel="stylesheet" href="/_content/FlyerMonkey.Shared/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="/_content/FlyerMonkey.Shared/app.css" />
+</head>
+<body>
+    <main class="container py-4" style="max-width: 40rem">
+        <div class="d-flex justify-content-end gap-1">
+            <flyermonkey-theme-picker></flyermonkey-theme-picker>
+            <a href="@(SignOutToken is null ? SignInPath : AccountPath)" class="fm-account-icon"
+               aria-label="@(SignOutToken is null ? "Sign in" : "Account")">
+                <span aria-hidden="true"></span>
+            </a>
+        </div>
+        <h1>Account</h1>
+        <section class="card card-body my-3">
+            @if (SignOutToken is { } token)
+            {
+                <CustomerAccountSummary DisplayName="@DisplayName" Email="@Email" Account="@Account" CraterStatus="@CraterStatus" />
+                @if (Account is not null && ProductId is { } id)
+                {
+                    <p><a href="@($"/customer/crater/{id}")">Open Crater It on Product @id</a></p>
+                }
+                @if (Message is not null)
+                {
+                    <p role="status">@Message</p>
+                }
+                <form method="post" action="@SignOutPath">
+                    <input type="hidden" name="@token.Field" value="@token.Value" />
+                    <button class="btn btn-outline-secondary" type="submit">Sign out</button>
+                </form>
+            }
+            else
+            {
+                <p role="status">@Message</p>
+                <div><a class="btn btn-primary" href="@SignInPath">Sign in</a></div>
+            }
+        </section>
+        @if (ReturnPath.StartsWith("/customer/crater/", StringComparison.Ordinal))
+        {
+            <p><a href="@ReturnPath">Back to Classic Crater</a></p>
+        }
+        else if (ReturnPath.StartsWith("/products/", StringComparison.Ordinal))
+        {
+            <p><a href="@ReturnPath">Back to product</a></p>
+        }
+        <p><a href="/">Browse offers</a> · <a href="/products">Browse products</a></p>
+    </main>
+</body>
+</html>
+
+@code {
+    [Parameter] public string? DisplayName { get; set; }
+    [Parameter] public string? Email { get; set; }
+    [Parameter] public CustomerAccount? Account { get; set; }
+    [Parameter] public string? CraterStatus { get; set; }
+    [Parameter] public (string Field, string Value)? SignOutToken { get; set; }
+    [Parameter] public string? Message { get; set; }
+    [Parameter] public string ReturnPath { get; set; } = "/customer/account";
+    [Parameter] public int? ProductId { get; set; }
+    private string SignInPath => "/customer/signin?returnUrl=" + Uri.EscapeDataString(ReturnPath);
+    private string SignOutPath => "/customer/signout?returnUrl=" + Uri.EscapeDataString(ReturnPath);
+    private string AccountPath => "/customer/account?returnUrl=" + Uri.EscapeDataString(ReturnPath);
+}

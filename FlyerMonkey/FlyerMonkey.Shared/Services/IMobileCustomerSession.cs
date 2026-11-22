@@ -6,12 +6,15 @@ namespace FlyerMonkey.Shared.Services;
 public interface IMobileCustomerSession
 {
     bool SignedIn { get; }
+    string? DisplayName { get; }
+    string? Email { get; }
     CustomerAccount? Account { get; }
     string? Message { get; }
     CustomerCraterPreview? CraterPreview { get; }
-    Task LoadCraterPreviewAsync();
-    Task GenerateCraterAsync();
+    Task LoadAccountAsync(int? productId = null);
+    Task LoadCraterPreviewAsync(int productId);
+    Task GenerateCraterAsync(int productId, bool classic = false);
     Task RestoreAsync();
-    Task SignInAsync();
+    Task SignInAsync(bool includeCraterStatus = false);
     Task SignOutAsync();
 }

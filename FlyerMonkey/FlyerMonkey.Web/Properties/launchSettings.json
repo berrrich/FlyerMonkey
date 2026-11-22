@@ -35,7 +35,8 @@
         "Authentication__ApiBaseUrl": "https://localhost:7255/",
         "CustomerAuthentication__Enabled": "true",
         "CustomerAuthentication__ApiBaseUrl": "https://localhost:7255/",
-        "CraterIt__Enabled": "false",
+        "CraterIt__Enabled": "true",
+        "CustomerCrater__Enabled": "true",
         "CraterIt__LocalDevelopmentGenerationEnabled": "false"
       }
     }

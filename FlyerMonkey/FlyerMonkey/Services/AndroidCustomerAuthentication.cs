@@ -15,12 +15,19 @@ public sealed class AndroidCustomerAuthentication : IMobileCustomerSession
     private readonly SemaphoreSlim gate = new(1, 1);
     private IPublicClientApplication? application;
     public bool SignedIn { get; private set; }
+    public string? DisplayName { get; private set; }
+    public string? Email { get; private set; }
     public CustomerAccount? Account { get; private set; }
     public string? Message { get; private set; }
     public CustomerCraterPreview? CraterPreview { get; private set; }
 
     private static string Setting(string key) => typeof(AndroidCustomerAuthentication).Assembly
         .GetCustomAttributes<AssemblyMetadataAttribute>().SingleOrDefault(x => x.Key == key)?.Value ?? "";
+
+    internal static Uri? CustomerApiRoot =>
+        Uri.TryCreate(Setting("CustomerApiBaseUrl"), UriKind.Absolute, out var root) &&
+        root.Scheme == "https" && root.AbsolutePath == "/" && root.UserInfo == "" && root.Query == "" && root.Fragment == ""
+            ? root : null;
 
     private IPublicClientApplication Application
     {
@@ -42,18 +49,25 @@ public sealed class AndroidCustomerAuthentication : IMobileCustomerSession
     }
 
     public Task RestoreAsync() => Run(false);
-    public Task SignInAsync() => Run(true);
-    public Task LoadCraterPreviewAsync() => Run(false, true);
-    public Task GenerateCraterAsync() => Run(false, true, true);
+    public Task LoadAccountAsync(int? productId = null) => Run(false, statusOnly: true, productId: productId);
+    public Task SignInAsync(bool includeCraterStatus = false) => Run(true, statusOnly: includeCraterStatus);
+    public Task LoadCraterPreviewAsync(int productId) => Run(false, productId: productId);
+    public Task GenerateCraterAsync(int productId, bool classic = false) =>
+        Run(false, generate: true, productId: productId, classic: classic);
 
-    private async Task Run(bool interactive, bool preview = false, bool generate = false)
+    private async Task Run(bool interactive, bool generate = false, bool statusOnly = false, int? productId = null,
+        bool classic = false)
     {
         await gate.WaitAsync();
         try
         {
-            if (generate && CraterPreview?.CanGenerate != true) return;
+            if (generate && (CraterPreview is not { } preview || preview.ProductId != productId ||
+                !(classic ? preview.CanGenerateClassic : preview.CanGenerate))) return;
+            var repeat = generate && CraterPreview?.Image is not null;
+            var expectedVersion = CraterPreview?.AttemptVersion;
             Account = null;
             SignedIn = false;
+            DisplayName = Email = null;
             Message = null;
             CraterPreview = null;
             var app = Application;
@@ -79,7 +93,9 @@ public sealed class AndroidCustomerAuthentication : IMobileCustomerSession
                 result = await app.AcquireTokenSilent([CustomerIdentity.Scope], accounts[0]).ExecuteAsync();
             }
             SignedIn = true;
-            await ReadAccount(result.AccessToken, preview, generate);
+            DisplayName = result.ClaimsPrincipal?.FindFirst("name")?.Value;
+            Email = CustomerIdentity.DisplayEmail(result.ClaimsPrincipal);
+            await ReadAccount(result.AccessToken, productId, generate, statusOnly, repeat, classic, expectedVersion);
         }
         catch (MsalUiRequiredException) { AndroidAuthDiagnostics.Write("session.ui-required"); Message = "Your customer session has expired. Sign in to continue."; }
         catch (MsalClientException ex) when (ex.ErrorCode == "authentication_canceled") { AndroidAuthDiagnostics.Write("interactive.cancelled"); Message = "Sign-in was cancelled."; }
@@ -93,11 +109,10 @@ public sealed class AndroidCustomerAuthentication : IMobileCustomerSession
         }
     }
 
-    private async Task ReadAccount(string token, bool preview, bool generate)
+    private async Task ReadAccount(string token, int? productId, bool generate, bool statusOnly, bool repeat, bool classic,
+        int? expectedVersion)
     {
-        if (!Uri.TryCreate(Setting("CustomerApiBaseUrl"), UriKind.Absolute, out var root) ||
-            root.Scheme != "https" || root.AbsolutePath != "/" || root.UserInfo != "" || root.Query != "" || root.Fragment != "")
-            throw new InvalidOperationException("Configure the customer API as a trusted HTTPS root.");
+        var root = CustomerApiRoot ?? throw new InvalidOperationException("Configure the customer API as a trusted HTTPS root.");
         using var http = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false })
             { BaseAddress = root, Timeout = TimeSpan.FromSeconds(generate ? 180 : 20), MaxResponseContentBufferSize = 10 * 1024 * 1024 };
         using var request = new HttpRequestMessage(HttpMethod.Get, "api/customers/me");
@@ -120,9 +135,15 @@ public sealed class AndroidCustomerAuthentication : IMobileCustomerSession
             if (account is null || account.CustomerId == Guid.Empty || account.Status != "Active")
             { Message = "The API returned an invalid customer account."; return; }
             Account = account;
-            if (preview) CraterPreview = generate
-                ? await CustomerCraterPreviewReader.GenerateAsync(http, token)
-                : await CustomerCraterPreviewReader.ReadAsync(http, token);
+            if (statusOnly) CraterPreview = await CustomerCraterPreviewReader.ReadStatusAsync(http, token,
+                productId is > 0 ? productId.Value : 139);
+            else if (productId is { } selected)
+            {
+                var preview = generate
+                    ? await CustomerCraterPreviewReader.GenerateAsync(http, token, repeat, selected, classic, expectedVersion)
+                    : await CustomerCraterPreviewReader.ReadAsync(http, token, selected);
+                CraterPreview = preview with { ProductId = selected };
+            }
         }
         catch (HttpRequestException) { Message = "Cannot connect securely to the customer API. Check network access, API availability and HTTPS trust."; }
         catch (OperationCanceledException) { Message = "Customer API timed out. Refresh account status later."; }
@@ -141,7 +162,7 @@ public sealed class AndroidCustomerAuthentication : IMobileCustomerSession
             Message = "Signed out of FlyerMonkey on this device. Your browser identity-provider session may still be active.";
         }
         catch { Message = "Customer sign-out could not clear secure storage. Try again before sharing this device."; }
-        finally { SignedIn = false; Account = null; CraterPreview = null; gate.Release(); }
+        finally { SignedIn = false; DisplayName = Email = null; Account = null; CraterPreview = null; gate.Release(); }
     }
 }
 #endif

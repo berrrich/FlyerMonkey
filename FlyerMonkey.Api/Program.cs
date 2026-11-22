@@ -36,6 +36,9 @@ builder.Services.AddScoped<ImageGenerationService>();
 builder.Services.AddSingleton<ICustomerCraterStore>(sp =>
     new CustomerCraterStore(CustomerCraterStore.Root(sp.GetRequiredService<IWebHostEnvironment>())));
 builder.Services.AddTransient<ICustomerCraterProvider, CustomerCraterProvider>();
+builder.Services.AddSingleton(sp => new ClassicCraterArtwork(
+    Path.Combine(CustomerCraterStore.Root(sp.GetRequiredService<IWebHostEnvironment>()), "classic-public"),
+    sp.GetRequiredService<ICustomerCraterStore>()));
 builder.Services.AddSingleton(sp => new ApprovedArtworkReader(ApprovedArtworkReader.CreateContainer(
     sp.GetRequiredService<IConfiguration>()["ApprovedArtwork:ServiceUri"], managedIdentityOnly: true),
     sp.GetRequiredService<ILogger<ApprovedArtworkReader>>()));

@@ -1,8 +1,8 @@
-﻿
+
 .fm-detail-layout { display: grid; grid-template-columns: minmax(0, 2fr) minmax(260px, 1fr); gap: 1.5rem; }
 .fm-artwork { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 1rem; }
 .fm-artwork figure { margin: 0; min-width: 0; }
-.fm-artwork figcaption { padding: .75rem 0; color: #555; }
+.fm-artwork figcaption { padding: .75rem 0; color: var(--bs-secondary-color); }
 .fm-detail-information { min-width: 0; }
 .fm-creative-column { min-width: 0; }
 .fm-creative-tools { margin-top: 1rem; }
@@ -18,7 +18,7 @@
     height: 48px;
     border: 1px solid #c92d3b;
     border-radius: 50%;
-    background: #fff;
+    background: var(--bs-tertiary-bg);
     box-shadow: 0 2px 8px #0002;
     font-size: 1.5rem;
 }
@@ -51,8 +51,8 @@
     .fm-crater-working, .fm-floating-comet span { animation: none; }
 }
 .fm-product-image {
-    background: #f7f7f7;
-    border: 1px solid #ddd;
+    background: var(--bs-tertiary-bg);
+    border: 1px solid var(--bs-border-color);
     border-radius: 12px;
     padding: 20px;
     display: flex;
@@ -61,14 +61,14 @@
     min-height: 360px;
 }
 
-    .fm-product-image img {
+    .fm-product-image ::deep img {
         width: 100%;
         max-height: 520px;
         object-fit: contain;
     }
 
 .fm-no-image {
-    color: #777;
+    color: var(--bs-secondary-color);
     text-align: center;
 }
 
@@ -87,11 +87,11 @@
     }
 
 .fm-offer-placeholder {
-    border: 1px dashed #aaa;
+    border: 1px dashed var(--bs-border-color);
     border-radius: 10px;
     padding: 28px;
     text-align: center;
-    color: #777;
+    color: var(--bs-secondary-color);
 }
 
 @media (max-width: 767px) {
@@ -100,7 +100,7 @@
         min-height: 260px;
     }
 
-        .fm-product-image img {
+        .fm-product-image ::deep img {
             max-height: 350px;
         }
 

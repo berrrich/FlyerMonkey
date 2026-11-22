@@ -1,0 +1,25 @@
+@using FlyerMonkey.Shared.Model
+
+@if (!string.IsNullOrWhiteSpace(DisplayName))
+{
+    <p class="fw-semibold mb-1">@DisplayName</p>
+}
+@if (!string.IsNullOrWhiteSpace(Email) && Email != DisplayName)
+{
+    <p class="text-break">@Email</p>
+}
+@if (Account is { Status: "Active" })
+{
+    <p>Customer account active.</p>
+}
+@if (CraterStatus is not null)
+{
+    <p role="status">@CraterStatus</p>
+}
+
+@code {
+    [Parameter] public string? DisplayName { get; set; }
+    [Parameter] public string? Email { get; set; }
+    [Parameter] public CustomerAccount? Account { get; set; }
+    [Parameter] public string? CraterStatus { get; set; }
+}

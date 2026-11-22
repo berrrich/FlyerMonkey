@@ -1,38 +1,44 @@
 @using FlyerMonkey.Shared.Services
 @inject IMobileCustomerSession Session
+@inject IServiceProvider Services
 
 <section class="card card-body my-3" aria-labelledby="mobile-crater-title">
     <h2 id="mobile-crater-title">Crater It</h2>
     @if (Session.SignedIn)
     {
-        <p>Customer account</p>
+        <p><a href="@($"account?productId={ProductId}")">Account</a></p>
         @if (Session.Account is null)
         {
             <p>Customer eligibility could not be verified.</p>
         }
         <button class="btn btn-outline-secondary" disabled="@_busy" @onclick="SignOut">Sign out</button>
         <button class="btn btn-link" disabled="@_busy" @onclick="Refresh">Refresh account status</button>
-        @if (ProductId == 139 && Session.CraterPreview is { } preview)
+        @if (Session.CraterPreview is { } preview && preview.ProductId == ProductId)
         {
             <p role="status">@preview.Message</p>
-            @if (preview.CanGenerate)
-            {
-                <button class="btn btn-primary" disabled="@_busy" @onclick="Generate">Generate one image</button>
-                <p>This uses the paid image API.</p>
-            }
             @if (preview.Image is not null)
             {
                 <figure>
-                    <img src="@preview.Image" alt="Your private Crater It artwork for Product 139" class="img-fluid" />
+                    <img src="@preview.Image" alt="@($"Your private Crater It artwork for Product {ProductId}")" class="img-fluid" />
                     <figcaption>Your private Crater It preview</figcaption>
                 </figure>
+            }
+            @if (preview.CanGenerateClassic)
+            {
+                <button class="btn btn-link align-self-start px-0" disabled="@_busy" @onclick="() => Generate(true)">Classic Crater</button>
+                <p>Uses the paid image API and replaces the public catalogue image for this product.</p>
+            }
+            @if (preview.CanGenerate)
+            {
+                <button class="btn btn-link align-self-start px-0" disabled="@_busy" @onclick="() => Generate(false)">Crater It</button>
+                <p>This uses the paid image API.</p>
             }
         }
     }
     else
     {
         <button class="btn btn-primary" disabled="@_busy" @onclick="SignIn">Sign in to Crater It</button>
-        <p>Sign in with the options available in FlyerMonkey customer sign-in. You will return to this product. Signing in does not generate an image.</p>
+        <p>Sign in to check your access. You’ll return to this product after signing in.</p>
     }
     @if (_generating) { <p role="status">Generating your artwork. Please wait.</p> }
     @if (Session.Message is not null) { <p role="status">@Session.Message</p> }
@@ -46,17 +52,24 @@
     private Task SignIn() => Run(async () =>
     {
         await Session.SignInAsync();
-        if (ProductId == 139 && Session.SignedIn) await Session.LoadCraterPreviewAsync();
+        if (Session.SignedIn) await Session.LoadCraterPreviewAsync(ProductId);
     });
     private Task SignOut() => Run(Session.SignOutAsync);
-    private Task Generate() => Run(async () =>
+    private Task Generate(bool classic) => Run(async () =>
     {
-        if (ProductId != 139 || Session.CraterPreview?.CanGenerate != true) return;
+        if (Session.CraterPreview is not { } preview || preview.ProductId != ProductId ||
+            !(classic ? preview.CanGenerateClassic : preview.CanGenerate)) return;
         _generating = true;
-        try { await Session.GenerateCraterAsync(); }
+        try
+        {
+            await Session.GenerateCraterAsync(ProductId, classic);
+            if (classic && Session.CraterPreview?.ClassicPublished == true &&
+                Services.GetService(typeof(ClassicCraterImages)) is ClassicCraterImages images)
+                images.Refresh();
+        }
         finally { _generating = false; }
     });
-    private Task Refresh() => Run(ProductId == 139 ? Session.LoadCraterPreviewAsync : Session.RestoreAsync);
+    private Task Refresh() => Run(() => Session.LoadCraterPreviewAsync(ProductId));
     private async Task Run(Func<Task> operation)
     {
         if (_busy) return;

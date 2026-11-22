@@ -1,3 +1,5 @@
+using System.Security.Claims;
+
 namespace FlyerMonkey.Shared.Services;
 
 public static class CustomerIdentity
@@ -10,4 +12,10 @@ public static class CustomerIdentity
     // Verified against this tenant's public discovery document, November 1, 2026.
     public const string Issuer = "https://" + TenantId + ".ciamlogin.com/" + TenantId + "/v2.0";
     public const string Scope = "api://" + ApiClientId + "/Customer.Access";
+
+    public static string? DisplayEmail(ClaimsPrincipal? principal) =>
+        principal?.FindFirst("email")?.Value ??
+        principal?.FindFirst(ClaimTypes.Email)?.Value ??
+        principal?.FindFirst("emails")?.Value ??
+        principal?.FindFirst("preferred_username")?.Value;
 }

@@ -5,8 +5,80 @@ html, body {
     font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
 }
 
+[data-bs-theme="dark"] {
+    --fm-woolworths-accent: #79d9a0;
+    --fm-coles-accent: #ff8b9b;
+    --fm-other-retailers-accent: #c9abff;
+}
+
+[data-fm-theme="medium"] {
+    --bs-body-bg: #424a55;
+    --bs-body-bg-rgb: 66, 74, 85;
+    --bs-body-color: #edf0f3;
+    --bs-body-color-rgb: 237, 240, 243;
+    --bs-secondary-color: #e0e5eb;
+    --bs-secondary-bg: #586474;
+    --bs-secondary-bg-rgb: 88, 100, 116;
+    --bs-tertiary-bg: #4d5764;
+    --bs-tertiary-bg-rgb: 77, 87, 100;
+    --bs-border-color: #84909e;
+    --bs-link-color: #b4d6ff;
+    --bs-link-color-rgb: 180, 214, 255;
+    --bs-link-hover-color: #daebff;
+    --bs-link-hover-color-rgb: 218, 235, 255;
+    --fm-woolworths-accent: #98efba;
+    --fm-coles-accent: #ffb0bc;
+    --fm-other-retailers-accent: #decaff;
+}
+
 a, .btn-link {
-    color: #006bb7;
+    color: var(--bs-link-color);
+}
+
+.fm-account-icon {
+    display: inline-grid;
+    place-items: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border: 1px solid transparent;
+    border-radius: .375rem;
+    color: var(--bs-secondary-color);
+}
+
+.fm-account-icon:hover,
+.fm-account-icon.active {
+    background: var(--bs-secondary-bg);
+    color: var(--bs-emphasis-color);
+}
+
+.fm-account-icon:focus-visible {
+    outline: 2px solid var(--bs-link-color);
+    outline-offset: 1px;
+}
+
+.fm-account-icon span {
+    position: relative;
+    width: 1.125rem;
+    height: 1.25rem;
+}
+
+.fm-account-icon span::before,
+.fm-account-icon span::after {
+    position: absolute;
+    content: "";
+    border: 1.5px solid currentColor;
+}
+
+.fm-account-icon span::before {
+    inset: 0 .3125rem auto;
+    height: .5rem;
+    border-radius: 50%;
+}
+
+.fm-account-icon span::after {
+    inset: auto 0 0;
+    height: .625rem;
+    border-radius: .625rem .625rem .2rem .2rem;
 }
 
 .btn-primary {
@@ -16,7 +88,7 @@ a, .btn-link {
 }
 
 .btn:focus, .btn:active:focus, .btn-link.nav-link:focus, .form-control:focus, .form-check-input:focus {
-  box-shadow: 0 0 0 0.1rem white, 0 0 0 0.25rem #258cfb;
+  box-shadow: 0 0 0 0.1rem var(--bs-body-bg), 0 0 0 0.25rem var(--bs-link-color);
 }
 
 .content {
@@ -36,7 +108,7 @@ h1:focus {
 }
 
 .validation-message {
-    color: #e50000;
+    color: var(--bs-danger-text-emphasis);
 }
 
 .blazor-error-boundary {

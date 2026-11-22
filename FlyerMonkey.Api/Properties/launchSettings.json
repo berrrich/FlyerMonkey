@@ -34,7 +34,11 @@
         "Authentication__AllowedClientIds__0": "fcadb3a5-2941-4b27-946a-785608758ff1",
         "Authentication__OperatorPermissions__0": "Crater.ViewOwn",
         "CustomerAuthentication__Enabled": "true",
-        "CraterIt__Enabled": "false",
+        "CraterIt__Enabled": "true",
+        "CustomerCrater__Enabled": "true",
+        "CustomerCrater__GenerationEnabled": "true",
+        "CustomerCrater__ClassicEnabled": "true",
+        "CustomerCrater__CompletedAccountRetestLimit": "1",
         "CraterIt__PrivateAccessEnabled": "true",
         "CraterArt__Provider": "Local",
         "CraterIt__LocalDevelopmentGenerationEnabled": "false"

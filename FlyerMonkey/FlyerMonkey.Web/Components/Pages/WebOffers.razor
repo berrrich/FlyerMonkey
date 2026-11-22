@@ -49,9 +49,8 @@
                         {
                             <article class="deal" id="offer-@offer.OfferID" @key="offer.OfferID">
                                 <div class="product-image">
-                                    <img src="@(offer.ProductID > 0 ? PublicApiClientRegistration.ProductImageUrl(offer.ProductID) : Placeholder)"
-                                         alt="@offer.ProductName" loading="lazy"
-                                         onerror="this.onerror=null;this.src='/_content/FlyerMonkey.Shared/images/product-placeholder.png';" />
+                                    <FlyerMonkey.Shared.Components.CatalogueProductImage ProductId="@offer.ProductID"
+                                        ProductName="@offer.ProductName" Loading="lazy" />
                                 </div>
                                 <div class="details">
                                     <h3 class="product-name" title="@offer.ProductName" aria-label="@offer.ProductName">@offer.ProductName</h3>
@@ -74,7 +73,6 @@
 </section>
 
 @code {
-    private const string Placeholder = "/_content/FlyerMonkey.Shared/images/product-placeholder.png";
     private OffersUI ui = null!;
     private string selectedRetailer = "Woolworths";
     [CascadingParameter] public FlyerMonkey.Web.Services.OffersReturnPosition? ReturnPosition { get; set; }

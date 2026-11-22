@@ -24,19 +24,17 @@
                 @if (_state.Error is not null) { <p role="alert">@_state.Error</p> }
                 @if (_state.Image is not null) { <img class="img-fluid" src="@_state.Image" alt="Playful AI artwork inspired by this product" /> }
             }
-            else if (_authenticated)
+            else if (_authenticated && !_customer.Enabled)
             {
                 <p>You are signed in as an operator. Generation is restricted and disabled here.
                     ViewOwn allows viewing your own artwork; it does not grant Generate permission.</p>
             }
             else if (_customer.SignedIn)
             {
-                <p>Signed in as a customer. Customer generation requires explicit server permission and is disabled by default.</p>
-                <a href="/customer/account" data-enhance-nav="false">Customer account / Sign out</a>
-                @if (ProductId == 139)
-                {
-                    <p><a href="/customer/crater/139" data-enhance-nav="false">Check customer generation eligibility / private attempt</a></p>
-                }
+                <p>Crater It requires customer eligibility and may be unavailable.</p>
+                <a href="/customer/account" data-enhance-nav="false">Account</a>
+                <p><a href="@($"/customer/crater/{ProductId}#classic-crater")" data-enhance-nav="false">Classic Crater</a></p>
+                <p><a href="@($"/customer/crater/{ProductId}")" data-enhance-nav="false">Open Crater It</a></p>
             }
             else if (_customer.Enabled)
             {
@@ -47,14 +45,15 @@
                 <p>You will need a customer account to use Crater It. Public customer sign-in is coming later.
                     For now, you can keep browsing products and offers.</p>
             }
-            @if (!_authenticated || _generation?.Enabled != true || Product is null)
+            @if (!_customer.Enabled &&
+                (!_authenticated || _generation?.Enabled != true || Product is null))
             {
                 <button type="button" class="btn btn-secondary" disabled>Generation unavailable</button>
             }
             <p class="mt-2"><a href="@ProductPath">Back to this product</a> · <a href="/offers">Browse offers</a></p>
         </div>
     }
-    else if (_authenticated && _generation?.Enabled != true)
+    else if (_authenticated && !_customer.Enabled && _generation?.Enabled != true)
     {
         <p class="mt-2">Operator access is restricted. Generation is disabled; ViewOwn does not grant Generate.</p>
     }

@@ -537,13 +537,16 @@ sealed class WebsiteSession(bool authenticated) : IWebsiteCraterSession
 }
 sealed class DisplayMobileCustomer : IMobileCustomerSession
 {
+    public string? DisplayName => null;
+    public string? Email => null;
+    public Task LoadAccountAsync(int? productId = null) => RestoreAsync();
     public bool SignedIn => false;
     public CustomerAccount? Account => null;
     public string? Message => null;
     public CustomerCraterPreview? CraterPreview => null;
     public Task RestoreAsync() => Task.CompletedTask;
-    public Task LoadCraterPreviewAsync() => Task.CompletedTask;
-    public Task SignInAsync() => throw new Exception("Unexpected sign-in");
+    public Task LoadCraterPreviewAsync(int productId) => Task.CompletedTask;
+    public Task SignInAsync(bool includeCraterStatus = false) => throw new Exception("Unexpected sign-in");
     public Task SignOutAsync() => throw new Exception("Unexpected sign-out");
-    public Task GenerateCraterAsync() => throw new Exception("Paid generation forbidden");
+    public Task GenerateCraterAsync(int productId, bool classic = false) => throw new Exception("Paid generation forbidden");
 }

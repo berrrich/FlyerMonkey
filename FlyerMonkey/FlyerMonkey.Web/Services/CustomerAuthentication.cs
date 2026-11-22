@@ -1,13 +1,16 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Security.Claims;
-using System.Text.Encodings.Web;
+using System.Net.Http.Json;
 using System.Text.RegularExpressions;
+using FlyerMonkey.Shared.Model;
 using FlyerMonkey.Shared.Services;
+using FlyerMonkey.Web.Components.Pages;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.Identity.Web;
 using Microsoft.IdentityModel.Tokens;
 
@@ -19,11 +22,23 @@ public static class CustomerAuthentication
     public const string Oidc = "CustomerOidc";
     public const string Policy = "CustomerSession";
     private const string AnonymousDefault = "CustomerAnonymousDefault";
+    private const string AccountPath = "/customer/account";
 
     // Deliberately narrow local destinations. No browser-supplied host, fragment or nested redirect.
     public static string SafeReturn(string? value) => value is not null &&
-        (value == "/" || Regex.IsMatch(value, @"\A/products/[1-9][0-9]{0,8}(\?crater=true)?\z", RegexOptions.CultureInvariant))
+        (value is "/" or AccountPath ||
+            Regex.IsMatch(value, @"\A/products/[1-9][0-9]{0,8}(\?crater=true)?\z", RegexOptions.CultureInvariant) ||
+            IsCraterPage(value))
         ? value : "/";
+
+    private static bool IsCraterPage(string path) =>
+        Regex.IsMatch(path, @"\A/customer/crater/[1-9][0-9]{0,9}\z", RegexOptions.CultureInvariant);
+
+    private static int? ProductFromReturn(string destination)
+    {
+        var path = destination.Split('?', 2)[0];
+        return int.TryParse(path.AsSpan(path.LastIndexOf('/') + 1), out var id) && id > 0 ? id : null;
+    }
 
     public static Uri ApiUri(IConfiguration configuration, IWebHostEnvironment environment)
     {
@@ -80,10 +95,17 @@ public static class CustomerAuthentication
                     if (!IsCustomer(context.Principal)) context.Fail("Customer identity rejected.");
                     return Task.CompletedTask;
                 };
+                options.Events.OnRedirectToIdentityProvider = context =>
+                {
+                    context.ProtocolMessage.Prompt = "select_account";
+                    return Task.CompletedTask;
+                };
                 options.Events.OnRemoteFailure = context =>
                 {
                     context.HandleResponse();
-                    context.Response.Redirect("/customer/error");
+                    var retry = context.Properties?.GetString("customerReturn");
+                    context.Response.Redirect(retry is null ? "/customer/error" :
+                        "/customer/error?returnUrl=" + Uri.EscapeDataString(SafeReturn(retry)));
                     return Task.CompletedTask;
                 };
             }, openIdConnectScheme: Oidc, cookieScheme: Cookie)
@@ -111,7 +133,14 @@ public static class CustomerAuthentication
                 if (!IsCustomer(context.Principal)) context.RejectPrincipal();
                 return Task.CompletedTask;
             };
-            options.Events.OnRedirectToLogin = context => { context.Response.StatusCode = 401; return Task.CompletedTask; };
+            options.Events.OnRedirectToLogin = context =>
+            {
+                var path = context.Request.Path.Value;
+                if (HttpMethods.IsGet(context.Request.Method) && path is not null && IsCraterPage(path))
+                    context.Response.Redirect(AccountPath + "?returnUrl=" + Uri.EscapeDataString(path));
+                else context.Response.StatusCode = 401;
+                return Task.CompletedTask;
+            };
             options.Events.OnRedirectToAccessDenied = context => { context.Response.StatusCode = 403; return Task.CompletedTask; };
         });
         services.AddAuthorization(options => options.AddPolicy(Policy, policy =>
@@ -135,17 +164,23 @@ public static class CustomerAuthentication
 
     public static void MapCustomerAuthentication(this WebApplication app)
     {
-        app.MapGet("/customer/signin", (string? returnUrl) => Results.Challenge(new AuthenticationProperties
+        app.MapGet("/customer/signin", (string? returnUrl) =>
         {
-            RedirectUri = "/customer/complete?returnUrl=" + Uri.EscapeDataString(SafeReturn(returnUrl))
-        }, [Oidc])).AllowAnonymous();
+            var destination = SafeReturn(returnUrl);
+            var properties = new AuthenticationProperties
+            {
+                RedirectUri = "/customer/complete?returnUrl=" + Uri.EscapeDataString(destination)
+            };
+            properties.Items["customerReturn"] = destination;
+            return Results.Challenge(properties, [Oidc]);
+        }).AllowAnonymous();
         app.MapGet("/customer/complete", async (HttpContext context, string? returnUrl) =>
         {
             using var response = await CallApi(context, true);
             if (response?.StatusCode is HttpStatusCode.Forbidden or HttpStatusCode.Unauthorized)
-                return Results.LocalRedirect("/customer/error");
+                return Results.LocalRedirect("/customer/error?returnUrl=" + Uri.EscapeDataString(SafeReturn(returnUrl)));
             if (response is null || !response.IsSuccessStatusCode)
-                return Results.LocalRedirect("/customer/account?status=unavailable");
+                return Results.LocalRedirect(AccountPath + "?returnUrl=" + Uri.EscapeDataString(SafeReturn(returnUrl)));
             return Results.LocalRedirect(SafeReturn(returnUrl));
         }).RequireAuthorization(Policy);
         app.MapGet("/customer/me", async (HttpContext context) =>
@@ -155,31 +190,70 @@ public static class CustomerAuthentication
             if (!response.IsSuccessStatusCode) return Results.StatusCode((int)response.StatusCode);
             return Results.Content(await response.Content.ReadAsStringAsync(context.RequestAborted), "application/json");
         }).RequireAuthorization(Policy);
-        app.MapGet("/customer/account", (HttpContext context,
+        app.MapGet(AccountPath, async (HttpContext context, string? returnUrl,
             Microsoft.AspNetCore.Antiforgery.IAntiforgery antiforgery) =>
         {
+            var destination = SafeReturn(returnUrl ?? AccountPath);
+            var productId = ProductFromReturn(destination);
+            var authentication = await context.AuthenticateAsync(Cookie);
+            if (!authentication.Succeeded || !IsCustomer(authentication.Principal))
+                return AccountPage("Sign in to FlyerMonkey to check your account and Crater It access.", destination, 401);
+
+            context.User = authentication.Principal!;
+            using var response = await CallApi(context, false);
+            if (response?.StatusCode == HttpStatusCode.Unauthorized)
+                return AccountPage("Your customer session has expired. Sign in again to continue.", destination, 401);
+            if (response?.StatusCode == HttpStatusCode.Forbidden)
+                return AccountPage("Customer access was denied. You can still browse products and offers.", destination, 403);
+
+            CustomerAccount? account = null;
+            if (response?.IsSuccessStatusCode == true)
+            {
+                try
+                {
+                    account = await response.Content.ReadFromJsonAsync<CustomerAccount>(context.RequestAborted);
+                    if (account is not { Status: "Active" } || account.CustomerId == Guid.Empty) account = null;
+                }
+                catch (System.Text.Json.JsonException) { }
+                catch (HttpRequestException) { }
+            }
             var token = antiforgery.GetAndStoreTokens(context);
-            return Results.Content("<h1>Customer account</h1><p>Signed in to FlyerMonkey. " +
-                "Customer generation is disabled. <a href='/customer/me'>Check account status</a>. " +
-                "If account storage is unavailable, complete the local database setup.</p>" +
-                $"<form method='post' action='/customer/signout'><input type='hidden' name='{HtmlEncoder.Default.Encode(token.FormFieldName)}' " +
-                $"value='{HtmlEncoder.Default.Encode(token.RequestToken!)}'><button>Sign out of FlyerMonkey</button></form><a href='/'>Browse offers</a>", "text/html");
-        }).RequireAuthorization(Policy);
-        app.MapPost("/customer/signout", async (HttpContext context) =>
+            return new RazorComponentResult<CustomerAccountDocument>(new
+            {
+                DisplayName = context.User.FindFirstValue("name"),
+                Email = CustomerIdentity.DisplayEmail(context.User),
+                Account = account,
+                CraterStatus = account is null ? null : await CustomerCrater.ReadAccountStatusAsync(context, productId ?? 139),
+                SignOutToken = (token.FormFieldName, token.RequestToken!),
+                Message = response?.StatusCode == HttpStatusCode.NotFound
+                    ? "No active customer profile was found. Crater It is unavailable for this account."
+                    : account is null ? "Customer status is temporarily unavailable. Refresh this page to try again." : null,
+                ReturnPath = destination,
+                ProductId = productId
+            });
+        }).AllowAnonymous();
+        app.MapPost("/customer/signout", async (HttpContext context, string? returnUrl) =>
         {
             try { await context.RequestServices.GetRequiredService<Microsoft.AspNetCore.Antiforgery.IAntiforgery>().ValidateRequestAsync(context); }
             catch (Microsoft.AspNetCore.Antiforgery.AntiforgeryValidationException) { return Results.BadRequest(); }
             await context.SignOutAsync(Cookie);
-            return Results.LocalRedirect("/customer/signed-out");
+            return Results.LocalRedirect("/customer/signed-out?returnUrl=" +
+                Uri.EscapeDataString(SafeReturn(returnUrl ?? AccountPath)));
         }).RequireAuthorization(Policy);
-        app.MapGet("/customer/signed-out", () => Results.Content("<p>Signed out of FlyerMonkey on this browser. Your identity-provider session may still be active.</p><a href='/'>Browse offers</a>", "text/html")).AllowAnonymous();
-        app.MapGet("/customer/error", () => Results.Content("<p>Customer sign-in could not be completed. Try signing in again or return to the catalogue.</p><a href='/customer/signin'>Sign in</a> | <a href='/'>Browse offers</a>", "text/html")).AllowAnonymous();
+        app.MapGet("/customer/signed-out", (string? returnUrl) =>
+            AccountPage("Signed out of FlyerMonkey in this browser.", SafeReturn(returnUrl ?? AccountPath))).AllowAnonymous();
+        app.MapGet("/customer/error", (string? returnUrl) =>
+            AccountPage("Customer sign-in was cancelled or could not be completed. You can try again or keep browsing.",
+                SafeReturn(returnUrl ?? AccountPath))).AllowAnonymous();
         app.Use(async (context, next) =>
         {
             if (context.Request.Path.StartsWithSegments("/customer")) context.Response.Headers.CacheControl = "no-store";
             await next(context);
         });
     }
+
+    private static RazorComponentResult<CustomerAccountDocument> AccountPage(string message, string destination, int status = 200) =>
+        new(new { Message = message, ReturnPath = destination }) { StatusCode = status };
 
     private static async Task<HttpResponseMessage?> CallApi(HttpContext context, bool provision)
     {
@@ -197,7 +271,11 @@ public static class CustomerAuthentication
                 await context.SignOutAsync(Cookie);
             return response;
         }
-        catch (MicrosoftIdentityWebChallengeUserException) { await context.SignOutAsync(Cookie); return null; }
+        catch (MicrosoftIdentityWebChallengeUserException)
+        {
+            await context.SignOutAsync(Cookie);
+            return new HttpResponseMessage(HttpStatusCode.Unauthorized);
+        }
         catch (HttpRequestException) { return null; }
         catch (OperationCanceledException) when (!context.RequestAborted.IsCancellationRequested) { return null; }
     }

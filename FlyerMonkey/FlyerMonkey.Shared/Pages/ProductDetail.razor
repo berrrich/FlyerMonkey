@@ -37,19 +37,17 @@ else
             <section class="fm-artwork" aria-label="Product images">
                 <figure>
                     <div class="fm-product-image">
-                        @if (!string.IsNullOrWhiteSpace(_product.ImageBlobPath))
-                        {
-                            <img src="@PublicApiClientRegistration.ProductImageUrl(_product.ID)"
-                                 alt="@_product.Name"
-                                 onerror="this.onerror=null;this.src='/_content/FlyerMonkey.Shared/images/product-placeholder.png';" />
-                        }
-                        else
-                        {
-                            <img src="/_content/FlyerMonkey.Shared/images/product-placeholder.png"
-                                 alt="Product image unavailable" />
-                        }
+                        <CatalogueProductImage ProductId="@_product.ID" ProductName="@_product.Name"
+                                               HasOriginal="@(!string.IsNullOrWhiteSpace(_product.ImageBlobPath))" />
                     </div>
-                    <figcaption>Original product image — authoritative product reference when available.</figcaption>
+                    @if (Services.GetService(typeof(ClassicCraterImages)) is not null)
+                    {
+                        <figcaption>Catalogue image. Classic Crater artwork is AI-generated.</figcaption>
+                    }
+                    else
+                    {
+                        <figcaption>Original product image — authoritative product reference when available.</figcaption>
+                    }
                 </figure>
                 <ApprovedArtworkDisplay ProductId="@_product.ID" ProductName="@_product.Name" />
                 @if (_preview is not null)
@@ -67,7 +65,7 @@ else
                 <div class="fm-creative-tools">
                     @if (HasMobileCustomer)
                     {
-                        <MobileCustomerCraterEntry ProductId="@_product.ID" />
+                        <MobileCustomerCraterEntry @key="_product.ID" ProductId="@_product.ID" />
                     }
                     else if (IsWebsite)
                     {

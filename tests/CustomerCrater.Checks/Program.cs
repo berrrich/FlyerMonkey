@@ -29,7 +29,9 @@ builder.Logging.ClearProviders();
 builder.WebHost.UseUrls("http://127.0.0.1:0");
 builder.Configuration.AddInMemoryCollection(new Dictionary<string,string?> {
     ["CustomerAuthentication:Enabled"]="true", ["CustomerCrater:Enabled"]="true",
-    ["CraterIt:Enabled"]="true", ["CustomerCrater:AllowedCustomerId"]=customer.ToString()
+    ["CraterIt:Enabled"]="true", ["CustomerCrater:AllowedCustomerId"]=customer.ToString(),
+    ["Authentication:Enabled"]="true", ["Authentication:ViewOwnOnly"]="true",
+    ["CustomerCrater:CompletedAccountRetestLimit"]="0"
 });
 builder.Services.AddCustomerAuthentication(builder.Configuration);
 using var rsa = RSA.Create(2048);
@@ -42,6 +44,8 @@ builder.Services.PostConfigure<JwtBearerOptions>(CustomerAuthentication.Scheme, 
 });
 builder.Services.AddSingleton<ICustomerRepository>(customers);
 builder.Services.AddSingleton<ICustomerCraterStore>(store);
+builder.Services.AddSingleton(new ClassicCraterArtwork(
+    Path.Combine(Path.GetTempPath(), "FlyerMonkey-ClassicCrater-" + Guid.NewGuid().ToString("N")), store));
 builder.Services.AddSingleton<ICustomerCraterProvider>(provider);
 builder.Services.AddSingleton<IProductRepository>(products);
 builder.Services.AddScoped<ProductService>();
@@ -69,7 +73,38 @@ async Task<HttpResponseMessage> Request(string operation="attempt", bool post=fa
     return await http.SendAsync(request);
 }
 async Task<CustomerCraterAttempt> Status() => (await (await Request(bearer:token)).Content.ReadFromJsonAsync<CustomerCraterAttempt>())!;
+async Task<bool?> PreviewReadiness()
+{
+    var status = await http.GetFromJsonAsync<System.Text.Json.JsonElement>("api/status");
+    return status.TryGetProperty("androidPreviewReady", out var ready) ? ready.GetBoolean() : null;
+}
 try {
+    Check(await PreviewReadiness() == true, "Local status verifies default-off preview configuration");
+    Check(await Status() is { State: "Ready", CanGenerate: false }, "Default-off generation masks Ready eligibility");
+    foreach (var setting in new string?[] { null, "false", "invalid" })
+    {
+        builder.Configuration["CustomerCrater:GenerationEnabled"] = setting;
+        var readsBefore = customers.Reads;
+        Check((await Request(post:true,bearer:token)).StatusCode == HttpStatusCode.NotFound &&
+            customers.Reads == readsBefore && products.Reads == 0 && store.Record is null && provider.Calls == 0,
+            "Generation switch blocks an eligible tester before account, product, reservation and provider access");
+    }
+    builder.Configuration["CustomerCrater:GenerationEnabled"] = "true";
+    Check(await PreviewReadiness() == false, "Launcher status rejects customer generation enabled");
+    builder.Configuration["CustomerCrater:GenerationEnabled"] = "false";
+    builder.Configuration["CraterIt:LocalDevelopmentGenerationEnabled"] = "true";
+    Check(await PreviewReadiness() == false, "Launcher status rejects local operator generation enabled");
+    builder.Configuration["CraterIt:LocalDevelopmentGenerationEnabled"] = "false";
+    builder.Configuration["Authentication:ViewOwnOnly"] = "false";
+    Check(await PreviewReadiness() == false, "Launcher status rejects operator write access");
+    builder.Configuration["Authentication:ViewOwnOnly"] = "true";
+    builder.Configuration["CustomerCrater:Enabled"] = "false";
+    Check(await PreviewReadiness() == false, "Launcher status rejects disabled preview");
+    builder.Configuration["CustomerCrater:Enabled"] = "true";
+    testScheme="http";
+    Check(await PreviewReadiness() is null, "Non-HTTPS health response omits local readiness");
+    testScheme="https";
+    builder.Configuration["CustomerCrater:GenerationEnabled"] = "true";
     Check((await Request(post:true)).StatusCode==HttpStatusCode.Unauthorized,"Anonymous create denied");
     Check((await Request("image")).StatusCode==HttpStatusCode.Unauthorized,"Anonymous preview denied");
     Check((await Request(post:true,bearer:Token(operatorIssuer:true))).StatusCode==HttpStatusCode.Unauthorized,"Operator-issued token rejected by CustomerBearer");
@@ -113,6 +148,21 @@ try {
     customers.Missing=true;
     Check((await Request(post:true,bearer:token)).StatusCode==HttpStatusCode.Forbidden,"Missing customer denied without provisioning");
     customers.Missing=false;
+    foreach (var scenario in new[] { "Reader", "Customer", "Crater Tester", "Administrator", "missing", "disabled", "tenant", "subject", "customer" }) {
+        customers.GrantScenario=scenario;
+        Check(!(await Status()).CanGenerate,"Role/link denial masks CanGenerate: "+scenario);
+        Check((await Request(post:true,bearer:token)).StatusCode==HttpStatusCode.Forbidden &&
+            store.Record is null && provider.Calls==0,"Role/link denial makes no reservation or provider call: "+scenario);
+    }
+    customers.GrantScenario="valid";
+    Check((await Status()).CanGenerate,"Valid linked roles permit GET under existing gates");
+    customers.GrantScenario="Reader";
+    Check((await Request(post:true,bearer:token)).StatusCode==HttpStatusCode.Forbidden && store.Record is null,
+        "Role removed between GET and POST is rechecked before reservation");
+    customers.GrantScenario="failure";
+    Check((await Request(post:true,bearer:token)).StatusCode==HttpStatusCode.ServiceUnavailable && store.Record is null && provider.Calls==0,
+        "Role lookup failure fails closed before reservation or provider");
+    customers.GrantScenario="valid";
     Check(provider.Calls==0,"All denials resolve no paid provider calls");
     Check((await Status()).CanGenerate,"Eligible allowlisted local customer is Ready");
     Check((await Request("image",bearer:token)).StatusCode==HttpStatusCode.NotFound && provider.Calls==0,"Preview cannot initiate generation");
@@ -127,6 +177,35 @@ try {
     Check(provider.Prompt.Contains("SERVER PRODUCT")&&!provider.Prompt.Contains("UNTRUSTED")&&products.Reads==2,"Prompt and product come from server catalogue");
     Check((await Status()).State=="Completed"&&(await Status()).HasImage,"Completed means committed private image");
     Check((await Request("image",bearer:token)).StatusCode==HttpStatusCode.OK,"Owner can preview");
+    customers.GrantScenario="Reader";
+    Check((await Request("image",bearer:token)).StatusCode==HttpStatusCode.OK && !(await Status()).CanGenerate,
+        "Reader retains existing owner preview without generation permission");
+    Check((await Request(post:true,bearer:token)).StatusCode==HttpStatusCode.Forbidden && provider.Calls==1,
+        "Reader cannot regenerate existing artwork");
+    builder.Configuration["CustomerCrater:GenerationEnabled"] = "false";
+    var completedRecord = store.Record;
+    var completedBytes = store.Image!.ToArray();
+    using (var preview = await Request("image", bearer:token))
+    {
+        Check(preview.StatusCode == HttpStatusCode.OK &&
+            (await preview.Content.ReadAsByteArrayAsync()).SequenceEqual(completedBytes) &&
+            await Status() is { State: "Completed", HasImage: true, CanGenerate: false },
+            "Preview-only mode serves the Reader's existing completed JPEG");
+    }
+    Check((await Request("image")).StatusCode == HttpStatusCode.Unauthorized,
+        "Preview-only mode rejects anonymous image reads");
+    customers.Account = customers.Account with { CustomerId = Guid.NewGuid() };
+    Check((await Request("image",bearer:Token())).StatusCode == HttpStatusCode.Forbidden,
+        "Preview-only mode rejects a different customer");
+    customers.Account = customers.Account with { CustomerId=customer };
+    Check((await Request(post:true,bearer:token)).StatusCode == HttpStatusCode.NotFound &&
+        provider.Calls == 1 && store.Record == completedRecord && store.Image!.SequenceEqual(completedBytes),
+        "Preview-only mode blocks Reader POST and preserves the completed journal and JPEG");
+    builder.Configuration["CustomerCrater:GenerationEnabled"] = "true";
+    customers.GrantScenario="failure";
+    Check((await Request("image",bearer:token)).StatusCode==HttpStatusCode.OK,
+        "Role storage failure does not remove existing owner preview");
+    customers.GrantScenario="valid";
     await Request(post:true,bearer:token);
     Check(provider.Calls==1,"Repeated click/refresh POST cannot pay twice");
     var other=Guid.NewGuid(); customers.Account=customers.Account with {CustomerId=other};
@@ -139,6 +218,53 @@ try {
     await Request("image",bearer:token); await Request(post:true,bearer:token);
     Check(provider.Calls==1,"Failed preview and repeat POST never generate again");
     store.FailPreview=false;
+    const string classicImage = "api/products/139/classic-crater-image";
+    Check((await http.GetAsync(classicImage)).StatusCode == HttpStatusCode.NotFound,
+        "Private Crater It artwork never becomes the public catalogue image");
+    builder.Configuration["CustomerCrater:ClassicEnabled"] = "true";
+    Check((await Request("classic", post: true)).StatusCode == HttpStatusCode.Unauthorized &&
+        (await Status()).CanGenerateClassic && !(await Status()).CanGenerate,
+        "Classic generation requires sign-in and has independent eligibility");
+    customers.GrantScenario = "Reader";
+    Check((await Request("classic", post: true, bearer: token)).StatusCode == HttpStatusCode.Forbidden &&
+        provider.Calls == 1, "Ineligible customers cannot generate public Classic artwork");
+    customers.GrantScenario = "valid";
+    store.HasQuota = false;
+    Check((await Request("classic", post: true, bearer: token)).StatusCode == HttpStatusCode.TooManyRequests &&
+        provider.Calls == 1, "Classic generation shares the daily paid quota");
+    store.HasQuota = true;
+    Check((await Request("classic", post: true, bearer: token)).StatusCode == HttpStatusCode.NoContent &&
+        provider.Calls == 2 && provider.Prompt.Contains("on a plain background"),
+        "Classic generation uses the product-faithful preset");
+    using var published = await http.GetAsync(classicImage);
+    Check(published.IsSuccessStatusCode && published.Content.Headers.ContentType?.MediaType == "image/jpeg" &&
+        published.Headers.CacheControl?.NoStore == true && store.Record == completedRecord,
+        "Anonymous visitors can read published Classic artwork while the private journal stays separate");
+    Check((await http.GetAsync("api/products/140/classic-crater-image")).StatusCode == HttpStatusCode.NotFound,
+        "Published catalogue images are matched by product");
+    store.HasQuota = false;
+    builder.Configuration["CustomerCrater:UnlimitedCustomerId"] = customer.ToString();
+    Check(await Status() is { CanGenerate: true, CanGenerateClassic: false, AttemptVersion: 1 },
+        "Unlimited Crater It bypasses account and daily caps while Classic stays capped");
+    Check((await Request("attempt?repeat=true", post: true, bearer: token)).StatusCode == HttpStatusCode.Conflict &&
+        provider.Calls == 2, "An unlimited attempt requires a fresh version");
+    Check((await Request("attempt?repeat=true&version=1", post: true, bearer: token)).IsSuccessStatusCode &&
+        provider.Calls == 3 && (await Status()).AttemptVersion == 2,
+        "Unlimited tester can generate again when the daily quota is full");
+    Check((await Request("attempt?repeat=true&version=1", post: true, bearer: token)).StatusCode == HttpStatusCode.Conflict &&
+        provider.Calls == 3, "Replaying the same unlimited request cannot start another paid generation");
+    customers.Account = customers.Account with { CustomerId = other };
+    builder.Configuration["CustomerCrater:AllowedCustomerId"] = other.ToString();
+    Check(await Status() is { State: "DailyLimitReached", CanGenerate: false, AttemptVersion: null },
+        "An allowance assigned to the tester does not follow another eligible account");
+    store.HasQuota = true;
+    builder.Configuration["CustomerCrater:CompletedAccountRetestLimit"] = null;
+    store.Record = new CustomerAttemptRecord(other, 139, "Completed", DateTimeOffset.UtcNow,
+        IsRepeat: true, RetestCount: 1);
+    Check(await Status() is { CanGenerate: false, AttemptVersion: null } &&
+        (await (await Request("attempt?repeat=true", post: true, bearer: token)).Content
+            .ReadFromJsonAsync<CustomerCraterAttempt>())?.State == "AccountLimitReached" &&
+        provider.Calls == 3, "Another account cannot use a third Crater It attempt");
 } finally { await app.StopAsync(); }
 
 var product=new Product {ID=139,Name="SERVER PRODUCT"};
@@ -161,27 +287,129 @@ foreach(var failure in new[]{"provider","save","configuration"}) {
 // Real file journal tests use an isolated disposable fixture, never DATA or existing artwork.
 var root=Path.Combine(Path.GetTempPath(),"FlyerMonkey-CustomerCrater-"+Guid.NewGuid().ToString("N"));
 var disk=new CustomerCraterStore(root);
-using(var lease=disk.Lock(customer,139)) {
+using(var lease=disk.Lock(customer)) {
     disk.Reserve(new(customer,139,"Pending",DateTimeOffset.UtcNow));
-    Check(new CustomerCraterStore(root).Lock(customer,139) is null,"Exclusive file lease excludes another store/process");
+    Check(new CustomerCraterStore(root).Lock(customer) is null,"Exclusive file lease excludes another store/process");
 }
 var restarted=new CustomerCraterGeneration(new CustomerCraterStore(root));
 Check(restarted.Status(customer,true).State=="Unknown","Restart recovers abandoned Pending as Unknown");
 var never=new Provider(); await restarted.GenerateAsync(customer,product,()=>never);
 Check(never.Calls==0,"Durable reservation blocks dispatch across restart");
-try { using var lease=disk.Lock(customer,139); disk.Reserve(new(customer,139,"Pending",DateTimeOffset.UtcNow)); throw new Exception("Expected existing reservation"); }
+try { using var lease=disk.Lock(customer); disk.Reserve(new(customer,139,"Pending",DateTimeOffset.UtcNow)); throw new Exception("Expected existing reservation"); }
 catch(IOException) { Check(true,"Reservation cannot overwrite an existing attempt"); }
 var completedCustomer=Guid.NewGuid(); var completedProvider=new Provider();
 await new CustomerCraterGeneration(disk).GenerateAsync(completedCustomer,product,()=>completedProvider);
 Check(new CustomerCraterGeneration(new CustomerCraterStore(root)).Status(completedCustomer,true).HasImage,"Committed image survives store reconstruction");
+var retest = new CustomerCraterGeneration(disk, retestLimit: 1);
+Check(retest.Status(completedCustomer, true) is { CanGenerate: true, HasImage: true } &&
+    !retest.Status(completedCustomer, false).CanGenerate, "Retest requires eligibility and preserves the preview");
+await retest.GenerateAsync(completedCustomer, product, () => completedProvider);
+Check(completedProvider.Calls == 1, "A replayed initial request cannot start a retest");
+var retestProvider = new Provider { Fail = true };
+await retest.GenerateAsync(completedCustomer, product, () => retestProvider, repeat: true);
+var retestRestart = new CustomerCraterGeneration(new CustomerCraterStore(root), retestLimit: 1);
+await retestRestart.GenerateAsync(completedCustomer, product, () => retestProvider, repeat: true);
+Check(retestProvider.Calls == 1 && retestRestart.Status(completedCustomer, true) is
+    { State: "Unknown", CanGenerate: false, HasImage: true }, "Failed retest is durable and retains the prior preview");
+var legacyRetestCustomer = Guid.NewGuid();
+disk.Lock(legacyRetestCustomer)?.Dispose();
+disk.Reserve(new(legacyRetestCustomer, 139, "Completed", DateTimeOffset.UtcNow, IsRepeat: true));
+disk.SaveImage(legacyRetestCustomer, 139, [255, 216, 255, 0]);
+var finalRetest = new CustomerCraterGeneration(disk, retestLimit: 2);
+var finalProvider = new Provider();
+Check(finalRetest.Status(legacyRetestCustomer, true).CanGenerate, "A completed legacy retest has one additional attempt");
+await finalRetest.GenerateAsync(legacyRetestCustomer, product, () => finalProvider, repeat: true);
+await finalRetest.GenerateAsync(legacyRetestCustomer, product, () => finalProvider, repeat: true);
+Check(finalProvider.Calls == 1 && !finalRetest.Status(legacyRetestCustomer, true).CanGenerate &&
+    finalProvider.Prompt.EndsWith("Put the product into planet of the apes motion picture."),
+    "The additional attempt uses the requested prompt and cannot be repeated");
+var history = Path.Combine(root, legacyRetestCustomer.ToString("N"), "139", "attempts");
+var priorFolder = Path.Combine(history, "2");
+var newFolder = Path.Combine(history, "3");
+var archived = System.Text.Json.JsonSerializer.Deserialize<CustomerAttemptRecord>(
+    File.ReadAllText(Path.Combine(newFolder, "metadata.json")));
+Check(File.ReadAllBytes(Path.Combine(priorFolder, "artwork.jpg")).SequenceEqual(new byte[] {255, 216, 255, 0}) &&
+    File.Exists(Path.Combine(newFolder, "artwork.jpg")) && archived is { State: "Completed", StartedUtc: not null } &&
+    archived.Prompt == finalProvider.Prompt, "Legacy and new previews have separate folders with attempt metadata");
+var failedFolder = Path.Combine(root, completedCustomer.ToString("N"), "139", "attempts", "2");
+Check(File.Exists(Path.Combine(failedFolder, "metadata.json")) && !File.Exists(Path.Combine(failedFolder, "artwork.jpg")),
+    "Failed generation has its own metadata and does not archive the prior preview as new artwork");
+var multiStore = new CustomerCraterStore(Path.Combine(root, "all-products"));
+var multiCustomer = Guid.NewGuid();
+using (multiStore.Lock(multiCustomer))
+{
+    multiStore.Reserve(new(multiCustomer, 139, "Completed", DateTimeOffset.UtcNow, IsRepeat: true, RetestCount: 5));
+    multiStore.SaveImage(multiCustomer, 139, [255, 216, 255, 0]);
+}
+var multiProduct = new CustomerCraterGeneration(multiStore, retestLimit: 6);
+var anotherProduct = new Product { ID = 140, Name = "A different product" };
+Check(multiProduct.Status(multiCustomer, true, 140) is { CanGenerate: true, HasImage: false },
+    "The tester can use the additional attempt on another product");
+var multiProvider = new Provider();
+await multiProduct.GenerateAsync(multiCustomer, anotherProduct, () => multiProvider);
+Check(multiProvider.Calls == 1 && multiProvider.Prompt.Contains(anotherProduct.Name) &&
+    multiProduct.Status(multiCustomer, true, 140).HasImage &&
+    multiProduct.Status(multiCustomer, true, 139) is { HasImage: true, CanGenerate: false } &&
+    multiProduct.Status(multiCustomer, true, 141).State == "AccountLimitReached",
+    "A new product has its own artwork and consumes the same account allowance");
+foreach (var interruptedState in new[] { "Generating", "Unknown" })
+{
+    var interruptedCustomer = Guid.NewGuid();
+    using (disk.Lock(interruptedCustomer))
+    {
+        disk.Reserve(new(interruptedCustomer, 139, interruptedState, DateTimeOffset.UtcNow));
+        disk.SaveImage(interruptedCustomer, 139, [255, 216, 255, 0]);
+    }
+    var recovered = await restarted.GenerateAsync(interruptedCustomer, product, () => never);
+    Check(recovered is { State: "Completed", HasImage: true, CanGenerate: false } && never.Calls == 0,
+        $"Retry recovers the committed JPEG from {interruptedState} without dispatch");
+    Check(restarted.Status(interruptedCustomer, false).HasImage && disk.Read(interruptedCustomer, 139)?.State == "Completed",
+        $"Recovery from {interruptedState} persists and stays owner-readable without a generation grant");
+}
 Check(disk.ReadImage(Guid.NewGuid(),139) is null,"Other customer storage key has no image");
-using(var lease=disk.Lock(customer,139)) {File.WriteAllText(Path.Combine(root,customer.ToString("N"),"139","attempt.json"),"invalid");}
+using(var lease=disk.Lock(customer)) {File.WriteAllText(Path.Combine(root,customer.ToString("N"),"139","attempt.json"),"invalid");}
 try {await restarted.GenerateAsync(customer,product,()=>never);throw new Exception("Expected corrupt journal rejection");}
 catch(InvalidDataException){Check(never.Calls==0,"Corrupt durable journal fails closed without dispatch");}
+var clock = new QuotaClock { Now = new DateTimeOffset(2026, 11, 22, 23, 59, 0, TimeSpan.Zero) };
+var quotaRoot = Path.Combine(root, "quota-fixture");
+var quotaCustomers = Enumerable.Range(0, 16).Select(_ => Guid.NewGuid()).ToArray();
+var quotaAttempts = await Task.WhenAll(quotaCustomers.Select(id => Task.Run(async () =>
+    await new CustomerCraterGeneration(new CustomerCraterStore(quotaRoot), clock)
+        .GenerateAsync(id, product, () => new Provider()))));
+Check(quotaAttempts.Count(attempt => attempt.State == "Completed") == 10 &&
+    quotaAttempts.Count(attempt => attempt.State == "DailyLimitReached") == 6,
+    "Concurrent requests across store instances share exactly ten daily slots");
+var blocked = quotaCustomers[Array.FindIndex(quotaAttempts, attempt => attempt.State == "DailyLimitReached")];
+var quotaStore = new CustomerCraterStore(quotaRoot);
+var quotaRestart = new CustomerCraterGeneration(quotaStore, clock);
+Check(quotaRestart.Status(blocked, true) is { State: "DailyLimitReached", CanGenerate: false } &&
+    quotaStore.Read(blocked, 139) is null, "Quota survives reconstruction without consuming the blocked customer's attempt");
+clock.Now = clock.Now.AddMinutes(1);
+Check(quotaRestart.Status(blocked, true).CanGenerate &&
+    (await quotaRestart.GenerateAsync(blocked, product, () => new Provider())).State == "Completed",
+    "A new UTC day makes capacity available");
 await WebChecks.Run(Check);
 Console.WriteLine($"{checks} customer Crater checks passed. Offline fixtures only; no SQL or paid calls.");
 
+sealed class QuotaClock : TimeProvider
+{
+    public DateTimeOffset Now { get; set; }
+    public override DateTimeOffset GetUtcNow() => Now;
+}
+
 sealed class Customers(Guid id) : ICustomerRepository {
+    public string GrantScenario="valid";
+    public Task<CustomerGenerationAccess?> GetGenerationAccessAsync(Guid tenant,Guid user,CancellationToken token) {
+        if(GrantScenario=="failure") throw new IOException();
+        if(GrantScenario=="missing") return Task.FromResult<CustomerGenerationAccess?>(null);
+        return Task.FromResult<CustomerGenerationAccess?>(new(
+            GrantScenario=="customer" ? Guid.NewGuid() : Account.CustomerId,
+            GrantScenario=="tenant" ? Guid.NewGuid() : tenant,
+            GrantScenario=="subject" ? Guid.NewGuid() : user,
+            GrantScenario=="disabled" ? "Disabled" : "Active",
+            new[]{"Reader","Customer","Crater Tester","Administrator"}.Contains(GrantScenario)
+                ? new[]{GrantScenario} : new[]{"Customer","Crater Tester"}));
+    }
     public CustomerAccount Account=new(id,"Active",true); public bool Fail,Missing; public int Reads;
     public Task<CustomerAccount?> GetAsync(Guid tenant,Guid user,CancellationToken token){Reads++;if(Fail)throw new IOException();return Task.FromResult<CustomerAccount?>(Missing?null:Account);}
     public Task<CustomerAccount> ProvisionAsync(Guid tenant,Guid user,CancellationToken token)=>throw new Exception("Never provision during generation");
@@ -197,13 +425,18 @@ sealed class Provider : ICustomerCraterProvider {
     public async Task<byte[]> GenerateAsync(string prompt,CancellationToken token){Calls++;Prompt=prompt;Entered.TrySetResult();if(Block)await Release.Task.WaitAsync(token);if(Fail)throw new TimeoutException();return [255,216,255,0];}
 }
 sealed class MemoryStore : ICustomerCraterStore {
+    public int AttemptsUsed(Guid customer) => Record?.CustomerId == customer ? 1 + Record.RetestsUsed : 0;
+    public bool HasQuota = true;
+    public bool HasDailyCapacity(DateOnly day) => HasQuota;
+    public bool TryReserveDailySlot(DateOnly day) => HasQuota;
     public CustomerAttemptRecord? Record; public byte[]? Image; public bool FailSave,FailPreview;
     private int locked;
-    public IDisposable? Lock(Guid customer,int product)=>Interlocked.CompareExchange(ref locked,1,0)==0 ? new Lease(()=>Interlocked.Exchange(ref locked,0)) : null;
+    public IDisposable? Lock(Guid customer)=>Interlocked.CompareExchange(ref locked,1,0)==0 ? new Lease(()=>Interlocked.Exchange(ref locked,0)) : null;
     public CustomerAttemptRecord? Read(Guid customer,int product)=>Record?.CustomerId==customer?Record:null;
     public void Reserve(CustomerAttemptRecord record){if(Record is not null)throw new IOException();Record=record;}
     public void Write(CustomerAttemptRecord record)=>Record=record;
-    public void SaveImage(Guid customer,int product,byte[] image){if(FailSave)throw new IOException();Image=image;}
+    public void PreservePreview(CustomerAttemptRecord record, byte[] image) { }
+    public void SaveImage(CustomerAttemptRecord record, byte[] image){if(FailSave)throw new IOException();Image=image;}
     public byte[]? ReadImage(Guid customer,int product){if(FailPreview)throw new IOException();return Record?.CustomerId==customer?Image:null;}
     private sealed class Lease(Action release):IDisposable {public void Dispose()=>release();}
 }

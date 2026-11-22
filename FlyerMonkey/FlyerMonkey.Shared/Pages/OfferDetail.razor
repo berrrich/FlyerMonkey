@@ -1,4 +1,4 @@
-﻿
+
 @page "/offers/{Id:int}"
 
 @using FlyerMonkey.Shared.Model
@@ -34,18 +34,7 @@ else
             <!-- Product image -->
             
 <div class="fm-offer-image">
-    @if (_offer.ProductID > 0)
-    {
-        <img
-            src="@PublicApiClientRegistration.ProductImageUrl(_offer.ProductID)"
-            alt="@_offer.ProductName"
-            onerror="this.onerror=null;this.src='/_content/FlyerMonkey.Shared/images/product-placeholder.png';" />
-    }
-    else
-{
-    <img src="/_content/FlyerMonkey.Shared/images/product-placeholder.png"
-         alt="Product image unavailable" />
-}
+    <FlyerMonkey.Shared.Components.CatalogueProductImage ProductId="@_offer.ProductID" ProductName="@_offer.ProductName" />
 </div>
 
 

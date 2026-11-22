@@ -5,6 +5,7 @@
              x:Class="FlyerMonkey.App">
     <Application.Resources>
         <ResourceDictionary>
+            <Color x:Key="PageBackgroundColor">#212529</Color>
 
             <!--
                 For information about styling .NET MAUI pages

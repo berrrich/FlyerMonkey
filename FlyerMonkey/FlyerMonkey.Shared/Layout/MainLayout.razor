@@ -9,7 +9,6 @@
             </div>
 
             <nav class="fm-topbar-nav">
-                <FlyerMonkey.Shared.Components.CustomerAccountEntry />
                 <NavLink href=""
                          Match="NavLinkMatch.All">
                     Offers
@@ -23,6 +22,10 @@
                     Products
                 </NavLink>
             </nav>
+            <div class="fm-topbar-controls">
+                <flyermonkey-theme-picker></flyermonkey-theme-picker>
+                <FlyerMonkey.Shared.Components.CustomerAccountEntry IconOnly="true" />
+            </div>
         </div>
 
         <article class="content px-4">
@@ -46,6 +49,7 @@
         <span>🛒</span>
         <span>Products</span>
     </NavLink>
+    <FlyerMonkey.Shared.Components.CustomerAccountEntry Compact="true" />
 
 </nav>
 </div>

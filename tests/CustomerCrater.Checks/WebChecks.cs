@@ -38,8 +38,8 @@ static class WebChecks
         try
         {
             using var http=new HttpClient(new HttpClientHandler{AllowAutoRedirect=false,UseCookies=false}){BaseAddress=new Uri(app.Urls.Single())};
-            async Task<HttpResponseMessage> Request(string suffix="",string? kind="customer",bool post=false,HttpContent? content=null,string? cookie=null){
-                using var request=new HttpRequestMessage(post?HttpMethod.Post:HttpMethod.Get,"/customer/crater/139"+suffix);
+            async Task<HttpResponseMessage> Request(string suffix="",string? kind="customer",bool post=false,HttpContent? content=null,string? cookie=null,int productId=139){
+                using var request=new HttpRequestMessage(post?HttpMethod.Post:HttpMethod.Get,$"/customer/crater/{productId}"+suffix);
                 if(kind is not null)request.Headers.Add("X-Fixture",kind);
                 if(cookie is not null)request.Headers.Add("Cookie",cookie);
                 request.Content=content;return await http.SendAsync(request);
@@ -69,6 +69,51 @@ static class WebChecks
                 var page=await (await Request()).Content.ReadAsStringAsync();
                 check(page.Contains(state)&&!page.Contains("Generate one image"),"Web state disallows generation: "+state);
             }
+              transport.State = "DailyLimitReached";
+              var quotaPage = await (await Request()).Content.ReadAsStringAsync();
+              check(quotaPage.Contains("shared daily generation limit") && !quotaPage.Contains("Generate one image"),
+                  "Web explains the shared daily cap and hides the generation form");
+            transport.State = "Completed";
+            transport.Image = true;
+            transport.CanGenerate = true;
+            var retest = await Request();
+            var retestHtml = await retest.Content.ReadAsStringAsync();
+            var caption = retestHtml.IndexOf("Your private Crater It preview", StringComparison.Ordinal);
+            var retestAction = retestHtml.IndexOf("action='/customer/crater/139/attempt?repeat=true'", StringComparison.Ordinal);
+            check(caption >= 0 && retestAction > caption, "The eligible retest action appears below the private preview");
+            var retestField = Regex.Match(retestHtml, "name='([^']+)' value='([^']+)'");
+            var retestCookie = retest.Headers.GetValues("Set-Cookie").First(v => v.Contains("Antiforgery")).Split(';')[0];
+            using var retestForm = new FormUrlEncodedContent(new Dictionary<string, string>
+                { [retestField.Groups[1].Value] = WebUtility.HtmlDecode(retestField.Groups[2].Value) });
+            var retestPosted = await Request("/attempt?repeat=true", post: true, cookie: retestCookie, content: retestForm);
+            check(retestPosted.StatusCode == HttpStatusCode.Redirect && transport.LastPostQuery == "?repeat=true",
+                "Website forwards explicit retest intent after antiforgery validation");
+            var other = await (await Request(productId: 140)).Content.ReadAsStringAsync();
+            check(other.Contains("/customer/crater/140/image") && other.Contains("/products/140?crater=true") &&
+                transport.LastPath == "/api/customers/crater/140/attempt", "Website forwards the selected catalogue product");
+            transport.CanClassic = true;
+            var classicPage = await Request(productId: 140);
+            var classicHtml = await classicPage.Content.ReadAsStringAsync();
+            var classicIndex = classicHtml.IndexOf(">Classic Crater</button>", StringComparison.Ordinal);
+            var craterIndex = classicHtml.IndexOf(">Crater It</button>", StringComparison.Ordinal);
+            check(classicIndex >= 0 && classicIndex < craterIndex, "Classic Crater appears above Crater It");
+            var classicField = Regex.Match(classicHtml, "name='([^']+)' value='([^']+)'");
+            var classicCookie = classicPage.Headers.GetValues("Set-Cookie").First(v=>v.Contains("Antiforgery")).Split(';')[0];
+            using var classicForm = new FormUrlEncodedContent(new Dictionary<string, string>
+                { [classicField.Groups[1].Value] = WebUtility.HtmlDecode(classicField.Groups[2].Value) });
+            var classicPosted = await Request("/classic", post: true, cookie: classicCookie, content: classicForm, productId: 140);
+            check(classicPosted.Headers.Location?.OriginalString == "/customer/crater/140?classic=published" &&
+                transport.LastPath == "/api/customers/crater/140/classic", "Classic generation posts for the selected product");
+            transport.AttemptVersion = 14;
+            var versioned = await (await Request(productId: 140)).Content.ReadAsStringAsync();
+            check(versioned.Contains("attempt?repeat=true&amp;version=14"),
+                "The unlimited form includes the version of its preview");
+            using var versionedForm = new FormUrlEncodedContent(new Dictionary<string, string>
+                { [classicField.Groups[1].Value] = WebUtility.HtmlDecode(classicField.Groups[2].Value) });
+            var versionedPost = await Request("/attempt?repeat=true&version=14", post: true,
+                cookie: classicCookie, content: versionedForm, productId: 140);
+            check(versionedPost.StatusCode == HttpStatusCode.Redirect && transport.LastPostQuery == "?repeat=true&version=14",
+                "Website forwards the version of the requested attempt");
             app.Environment.EnvironmentName="Production";
             var before=transport.Calls;await Request();
             check(transport.Calls==before,"Production Web gate performs no API call");
@@ -83,13 +128,21 @@ public class WebTokens:DispatchProxy
 }
 sealed class WebTransport:HttpMessageHandler
 {
-    public int Calls,Posts;public string State="Ready";public bool CanGenerate=true,Image,PreviewFails;
+    public int Calls,Posts;public string State="Ready";public bool CanGenerate=true,Image,PreviewFails,CanClassic;
+    public string? LastPostQuery, LastPath;
+    public int? AttemptVersion;
     protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request,CancellationToken token)
     {
         if(request.RequestUri?.Scheme!="https"||request.RequestUri.Host!="localhost"||request.Headers.Authorization?.Parameter!="offline-customer-token")
             throw new Exception("Unsafe customer forwarding");
-        Calls++;if(request.Method==HttpMethod.Post)Posts++;
+        Calls++;
+        LastPath = request.RequestUri.AbsolutePath;
+        if (request.Method == HttpMethod.Post)
+        {
+            Posts++;
+            LastPostQuery = request.RequestUri.Query;
+        }
         if(request.RequestUri.AbsolutePath.EndsWith("/image"))return Task.FromResult(new HttpResponseMessage(PreviewFails?HttpStatusCode.ServiceUnavailable:HttpStatusCode.OK));
-        return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK){Content=JsonContent.Create(new FlyerMonkey.Shared.Model.CustomerCraterAttempt(State,CanGenerate,Image))});
+        return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK){Content=JsonContent.Create(new FlyerMonkey.Shared.Model.CustomerCraterAttempt(State,CanGenerate,Image,CanClassic,AttemptVersion))});
     }
 }

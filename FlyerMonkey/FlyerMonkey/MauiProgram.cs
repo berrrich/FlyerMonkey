@@ -38,6 +38,8 @@ namespace FlyerMonkey
 
 #if ANDROID && DEBUG
             builder.Services.AddMauiCraterClients(androidDebug: true);
+            if (FlyerMonkey.Services.AndroidCustomerAuthentication.CustomerApiRoot is { IsLoopback: true } classicApi)
+                builder.Services.AddSingleton(new ClassicCraterImages(classicApi));
 #else
             builder.Services.AddMauiCraterClients(androidDebug: false);
 #endif

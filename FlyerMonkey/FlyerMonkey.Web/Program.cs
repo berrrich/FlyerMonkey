@@ -17,6 +17,8 @@ builder.Services.AddScoped<ILocalDevelopmentGeneration, LocalDevelopmentGenerati
 var operatorAuthentication = FlyerMonkey.Web.Services.OperatorAuthentication.AddOperatorAuthentication(
     builder.Services, builder.Configuration, builder.Environment);
 var customerAuthentication = builder.Services.AddCustomerAuthentication(builder.Configuration, builder.Environment);
+if (builder.Environment.IsDevelopment() && customerAuthentication)
+    builder.Services.AddSingleton(new ClassicCraterImages(CustomerAuthentication.ApiUri(builder.Configuration, builder.Environment)));
 
 // Add services to the container.
 builder.Services.AddRazorComponents()

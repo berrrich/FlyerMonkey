@@ -29,16 +29,8 @@ else
             <article class="fm-product-card" @key="product.ID">
                 <span class="fm-product-id" aria-label="@($"Product ID: {product.ID}")">#@product.ID</span>
                 <a class="fm-card-image" href="@($"/products/{product.ID}")">
-                    @if (!string.IsNullOrWhiteSpace(product.ImageBlobPath))
-                    {
-                        <img src="@PublicApiClientRegistration.ProductImageUrl(product.ID)"
-                             alt="@product.Name" loading="lazy"
-                             onerror="this.onerror=null;this.src='/_content/FlyerMonkey.Shared/images/product-placeholder.png';" />
-                    }
-                    else
-                    {
-                        <img src="/_content/FlyerMonkey.Shared/images/product-placeholder.png" alt="Product image unavailable" loading="lazy" />
-                    }
+                    <CatalogueProductImage ProductId="@product.ID" ProductName="@product.Name"
+                                           HasOriginal="@(!string.IsNullOrWhiteSpace(product.ImageBlobPath))" Loading="lazy" />
                 </a>
                 <div class="fm-card-details">
                     <h2><a href="@($"/products/{product.ID}")">@product.Name</a></h2>

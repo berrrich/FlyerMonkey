@@ -1,7 +1,7 @@
 figure { margin: 0; min-width: 0; }
 .fm-product-image {
-    background: #f7f7f7;
-    border: 1px solid #ddd;
+    background: var(--bs-tertiary-bg);
+    border: 1px solid var(--bs-border-color);
     border-radius: 12px;
     padding: 20px;
     display: flex;
@@ -9,4 +9,4 @@ figure { margin: 0; min-width: 0; }
     justify-content: center;
     min-height: 260px;
 }
-figcaption { padding: .75rem 0; color: #555; }
+figcaption { padding: .75rem 0; color: var(--bs-secondary-color); }

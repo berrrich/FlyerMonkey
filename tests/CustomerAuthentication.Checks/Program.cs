@@ -53,6 +53,11 @@ foreach (var unsafeReturn in new[] { "https://evil.invalid/", "//evil.invalid/",
     Check(WebCustomer.SafeReturn(unsafeReturn) == "/", "Unsafe return rejected: " + unsafeReturn);
 Check(WebCustomer.SafeReturn("/products/139?crater=true") == "/products/139?crater=true", "Product intent preserved");
 Check(WebCustomer.SafeReturn("/products/102") == "/products/102", "Plain product return preserved");
+Check(WebCustomer.SafeReturn("/customer/account") == "/customer/account", "Navigation sign-in returns to Account");
+Check(WebCustomer.SafeReturn("/customer/crater/105") == "/customer/crater/105", "Classic Crater sign-in preserves Product 105");
+Check(WebCustomer.SafeReturn("/customer/crater/105/classic") == "/" &&
+    WebCustomer.SafeReturn("/customer/crater/105?returnUrl=https://evil.invalid") == "/",
+    "Classic Crater return targets are limited to read-only product pages");
 try { WebCustomer.ApiUri(new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string,string?> { ["CustomerAuthentication:ApiBaseUrl"]="https://evil.invalid/" }).Build(), builder.Environment); throw new Exception("Expected rejection"); }
 catch (InvalidOperationException) { Check(true, "Development customer tokens confined to HTTPS loopback"); }
 
@@ -145,6 +150,7 @@ try
     app.MapGet("/issue-fixture", async (HttpContext context, bool expired, bool customerCookie) =>
     {
         var principal = new ClaimsPrincipal(new ClaimsIdentity(new[] {
+            new Claim("name", "Offline <Customer>"), new Claim("email", "customer@example.invalid"),
             new Claim("tid", customerCookie ? CustomerIdentity.TenantId : "11111111-1111-4111-8111-111111111111"),
             new Claim("oid", customerCookie ? "66666666-6666-4666-8666-666666666666" : "22222222-2222-4222-8222-222222222222") }, "offline"));
         await context.SignInAsync(customerCookie ? WebCustomer.Cookie : CookieAuthenticationDefaults.AuthenticationScheme, principal,
@@ -211,6 +217,12 @@ try
         var options = app.Services.GetRequiredService<IOptionsMonitor<OpenIdConnectOptions>>().Get(WebCustomer.Oidc);
         var properties = options.StateDataFormat.Unprotect(query["state"]!);
         Check(properties?.RedirectUri == "/customer/complete?returnUrl=" + Uri.EscapeDataString("/products/139?crater=true"), "Protected OAuth state preserves product and Crater intent");
+        var correlationCookie = challenge.Headers.GetValues("Set-Cookie")
+            .Single(value => value.StartsWith(".AspNetCore.Correlation.", StringComparison.Ordinal)).Split(';')[0];
+        var cancelled = await Request("/signin-customer-oidc?error=access_denied&state=" + Uri.EscapeDataString(query["state"]!),
+            cookie: correlationCookie);
+        Check(cancelled.Headers.Location?.OriginalString == "/customer/error?returnUrl=%2Fproducts%2F139%3Fcrater%3Dtrue",
+            "Provider cancellation preserves the product from protected state");
         Check(!options.SaveTokens && options.ProtocolValidator.RequireNonce && options.TokenValidationParameters.ValidIssuer == CustomerIdentity.Issuer, "OIDC pins discovered issuer, requires nonce and keeps tokens out of cookie");
         var badReturn = await Request("/customer/signin?returnUrl=https://evil.invalid/");
         var badProperties = options.StateDataFormat.Unprotect(Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(badReturn.Headers.Location!.Query)["state"]!);
@@ -221,6 +233,22 @@ try
         Check(issued.Headers.GetValues("Set-Cookie").Any(v => v.Contains("secure", StringComparison.OrdinalIgnoreCase) && v.Contains("httponly", StringComparison.OrdinalIgnoreCase)), "Customer cookie Secure and HttpOnly");
         var account = await Request("/customer/account", cookie:cookie);
         Check(account.StatusCode == HttpStatusCode.OK, "Customer cookie authenticates customer account");
+        var accountHtml = await account.Content.ReadAsStringAsync();
+        Check(account.Headers.CacheControl?.NoStore == true && accountHtml.Contains("Offline &lt;Customer&gt;") &&
+            accountHtml.Contains("customer@example.invalid") && accountHtml.Contains("Customer account active") &&
+            accountHtml.Contains("Crater It generation is currently unavailable") && !accountHtml.Contains("/operator"),
+            "Account displays encoded identity, gated status and no operator controls");
+        Check(apiTransport.LastMethod == HttpMethod.Get && apiTransport.LastPath == "/api/customers/me",
+            "Account page reads profile without provisioning");
+        apiTransport.Status = HttpStatusCode.NotFound;
+        var readerAccount = await (await Request("/customer/account", cookie:cookie)).Content.ReadAsStringAsync();
+        Check(readerAccount.Contains("No active customer profile was found") && !readerAccount.Contains("Check Crater It status"),
+            "A signed-in Reader without a customer profile sees Crater restriction");
+        apiTransport.Status = HttpStatusCode.ServiceUnavailable;
+        var unavailableAccount = await (await Request("/customer/account", cookie:cookie)).Content.ReadAsStringAsync();
+        Check(unavailableAccount.Contains("Customer status is temporarily unavailable") && unavailableAccount.Contains("Sign out"),
+            "API errors preserve sign-out without displaying stale eligibility");
+        apiTransport.Status = HttpStatusCode.OK;
         Check(await (await Request("/presentation-fixture", cookie:cookie)).Content.ReadAsStringAsync() == "started:customer", "Captured customer cookie presentation remains readable after response starts");
         var operatorIssued = await Request("/issue-fixture?expired=false&customerCookie=false");
         var operatorCookie = operatorIssued.Headers.GetValues("Set-Cookie").First().Split(';')[0];
@@ -242,19 +270,36 @@ try
             "Customer API never accepts Web cookies as bearer authentication");
         Check((await Request("/operator-fixture", cookie:cookie)).StatusCode != HttpStatusCode.OK, "Customer cookie cannot authenticate operator Web endpoint");
         Check((await Request("/customer/signout", cookie:cookie, post:true)).StatusCode == HttpStatusCode.BadRequest, "Logout requires antiforgery");
-        var html = await account.Content.ReadAsStringAsync();
-        var field = Regex.Match(html, "name='([^']+)' value='([^']+)'");
-        var antiforgeryCookie = account.Headers.GetValues("Set-Cookie").First(v => v.Contains("Antiforgery")).Split(';')[0];
-        var logout = await Request("/customer/signout", cookie:cookie + "; " + antiforgeryCookie, post:true,
+        const string product105 = "/customer/crater/105";
+        var productAccount = await Request("/customer/account?returnUrl=" + Uri.EscapeDataString(product105), cookie:cookie);
+        var html = await productAccount.Content.ReadAsStringAsync();
+        Check(html.Contains("Open Crater It on Product 105") && !html.Contains("Product 139"),
+            "Account opened from Product 105 shows that product");
+        var field = Regex.Match(html, "name=\"([^\"]+)\" value=\"([^\"]+)\"");
+        var antiforgeryCookie = productAccount.Headers.GetValues("Set-Cookie").First(v => v.Contains("Antiforgery")).Split(';')[0];
+        var logout = await Request("/customer/signout?returnUrl=" + Uri.EscapeDataString(product105),
+            cookie:cookie + "; " + antiforgeryCookie, post:true,
             content:new FormUrlEncodedContent(new Dictionary<string,string> { [field.Groups[1].Value] = WebUtility.HtmlDecode(field.Groups[2].Value) }));
-        Check(logout.StatusCode == HttpStatusCode.Redirect, "Explicit antiforgery-protected customer logout succeeds");
+        Check(logout.StatusCode == HttpStatusCode.Redirect &&
+            logout.Headers.Location?.OriginalString == "/customer/signed-out?returnUrl=%2Fcustomer%2Fcrater%2F105",
+            "Antiforgery-protected customer logout preserves Product 105");
         Check((await Request("/customer/account", cookie:cookie)).StatusCode == HttpStatusCode.Unauthorized, "Logged-out customer ticket replay denied");
         Check(await (await Request("/presentation-fixture", cookie:cookie)).Content.ReadAsStringAsync() == "started:anonymous", "New request after customer logout captures anonymous presentation");
         Check((await Request("/operator-fixture", cookie:operatorCookie)).StatusCode == HttpStatusCode.OK, "Customer logout does not revoke operator cookie");
+        var signedOut = await (await Request(logout.Headers.Location!.OriginalString)).Content.ReadAsStringAsync();
+        Check(signedOut.Contains("/customer/signin?returnUrl=%2Fcustomer%2Fcrater%2F105"),
+            "Signed-out page offers sign-in for the same product");
+        var reissued = await Request("/issue-fixture?expired=false&customerCookie=true");
+        var newCookie = reissued.Headers.GetValues("Set-Cookie").First(v => v.StartsWith("__Host-FlyerMonkey.Customer=")).Split(';')[0];
+        var resumed = await Request("/customer/complete?returnUrl=" + Uri.EscapeDataString(product105), cookie:newCookie);
+        Check(resumed.Headers.Location?.OriginalString == product105, "Signing in again returns to Product 105 Crater It");
         var expired = await Request("/issue-fixture?expired=true&customerCookie=true");
         var expiredCookie = expired.Headers.GetValues("Set-Cookie").First().Split(';')[0];
         Check((await Request("/customer/account", cookie:expiredCookie)).StatusCode == HttpStatusCode.Unauthorized, "Expired customer ticket denied");
         Check((await Request("/customer/account")).StatusCode == HttpStatusCode.Unauthorized, "Anonymous customer account does not silently start OIDC");
+        var retry = await (await Request("/customer/error?returnUrl=%2Fproducts%2F139%3Fcrater%3Dtrue")).Content.ReadAsStringAsync();
+        Check(retry.Contains("cancelled") && retry.Contains("/customer/signin?returnUrl=%2Fproducts%2F139%3Fcrater%3Dtrue") &&
+            retry.Contains("Back to product"), "Cancelled sign-in offers retry with product intent or browsing");
         var issuedAgain = await Request("/issue-fixture?expired=false&customerCookie=true");
         var activeCookie = issuedAgain.Headers.GetValues("Set-Cookie").Single(v => v.StartsWith("__Host-FlyerMonkey.Customer=")).Split(';')[0];
         apiTransport.Status = HttpStatusCode.Forbidden;
@@ -265,13 +310,28 @@ try
         builder.Configuration["CustomerAuthentication:Enabled"] = "false";
         Check((await Request("/api/customers/me", customerToken)).StatusCode == HttpStatusCode.NotFound, "Customer API switch closes even with previously valid token");
         // Shared UI uses a platform interface; rendering performs no provider or profile calls.
-        var uiServices = new ServiceCollection().AddLogging().AddSingleton<IWebsiteCraterSession>(new CustomerUi(false));
+        var anonymousCustomer = new CustomerUi(false);
+        var uiServices = new ServiceCollection().AddLogging()
+            .AddSingleton<IWebsiteCraterSession>(anonymousCustomer)
+            .AddSingleton<ICustomerSession>(anonymousCustomer)
+            .AddSingleton<Microsoft.AspNetCore.Components.NavigationManager>(new ProductNavigation());
         await using var uiProvider = uiServices.BuildServiceProvider();
         await using var renderer = new Microsoft.AspNetCore.Components.Web.HtmlRenderer(uiProvider, uiProvider.GetRequiredService<ILoggerFactory>());
         var anonymousHtml = await renderer.Dispatcher.InvokeAsync(async () =>
             (await renderer.RenderComponentAsync<FlyerMonkey.Shared.Components.ProductCraterEntry>(Microsoft.AspNetCore.Components.ParameterView.FromDictionary(
                 new Dictionary<string,object?> { ["ProductId"] = 139, ["Expanded"] = true }))).ToHtmlString());
         Check(anonymousHtml.Contains("customer-signin-drawer") && anonymousHtml.Contains("139") && !anonymousHtml.Contains("Generate image"), "Anonymous product drawer preserves context and cannot generate");
+        var compactNav = await renderer.Dispatcher.InvokeAsync(async () =>
+            (await renderer.RenderComponentAsync<FlyerMonkey.Shared.Components.CustomerAccountEntry>(
+                Microsoft.AspNetCore.Components.ParameterView.FromDictionary(new Dictionary<string, object?> { ["Compact"] = true }))).ToHtmlString());
+        Check(compactNav.Contains("Sign in") && compactNav.Contains("returnUrl=%2Fproducts%2F139%3Fcrater%3Dtrue"),
+            "Compact Web navigation offers sign-in and preserves the current product");
+        var headerIcon = await renderer.Dispatcher.InvokeAsync(async () =>
+            (await renderer.RenderComponentAsync<FlyerMonkey.Shared.Components.CustomerAccountEntry>(
+                Microsoft.AspNetCore.Components.ParameterView.FromDictionary(new Dictionary<string, object?> { ["IconOnly"] = true }))).ToHtmlString());
+        Check(headerIcon.Contains("class=\"fm-account-icon\"") && headerIcon.Contains("aria-label=\"Sign in\"") &&
+            headerIcon.Contains("returnUrl=%2Fproducts%2F139%3Fcrater%3Dtrue"),
+            "Header sign-in icon has an accessible label and preserves the current product");
         var restoredPresentation = new WebsiteCraterSession(uiProvider) { CustomerPresentation = new(true, true) };
         Check((await restoredPresentation.GetCustomerAsync()).SignedIn && !await restoredPresentation.IsAuthenticatedAsync(),
             "Restored circuit presentation needs no HttpContext and never grants operator identity");
@@ -297,12 +357,13 @@ try
         try { await new WebsiteCraterSession(captureServices).CaptureCustomerAsync(new DefaultHttpContext { RequestServices = captureServices }); throw new Exception("Expected authentication failure"); }
         catch (InvalidOperationException ex) { Check(ex.Message == "offline authentication failed", "Authentication exceptions propagate instead of producing anonymous customer state"); }
         var mobileUi = new MobileCustomerUi();
-        var mobileServices = new ServiceCollection().AddLogging().AddSingleton<IMobileCustomerSession>(mobileUi);
+        var mobileServices = new ServiceCollection().AddLogging().AddSingleton<IMobileCustomerSession>(mobileUi)
+            .AddSingleton<Microsoft.AspNetCore.Components.NavigationManager>(new ProductNavigation());
         await using var mobileProvider = mobileServices.BuildServiceProvider();
         await using var mobileRenderer = new Microsoft.AspNetCore.Components.Web.HtmlRenderer(mobileProvider, mobileProvider.GetRequiredService<ILoggerFactory>());
-        async Task<string> MobileHtml() => await mobileRenderer.Dispatcher.InvokeAsync(async () =>
+        async Task<string> MobileHtml(int productId = 139) => await mobileRenderer.Dispatcher.InvokeAsync(async () =>
             (await mobileRenderer.RenderComponentAsync<FlyerMonkey.Shared.Components.MobileCustomerCraterEntry>(Microsoft.AspNetCore.Components.ParameterView.FromDictionary(
-                new Dictionary<string,object?> { ["ProductId"] = 139 }))).ToHtmlString());
+                new Dictionary<string,object?> { ["ProductId"] = productId }))).ToHtmlString());
         var mobileAnonymous = await MobileHtml();
         Check(mobileAnonymous.Contains("Sign in to Crater It") && !mobileAnonymous.Contains("Generate image"), "Mobile anonymous entry invites sign-in without generation");
         mobileUi.SignedIn = true;
@@ -316,6 +377,22 @@ try
         var mobileUnavailable = await MobileHtml();
         Check(mobileUnavailable.Contains("eligibility could not be verified") && mobileUnavailable.Contains("Cannot connect securely"), "Mobile unavailable API never presents stale eligibility");
         Check(mobileUi.Restores == 3, "Mobile presentation restores customer session without interactive sign-in");
+        mobileUi.DisplayName = "Mobile Customer";
+        mobileUi.Email = "mobile@example.invalid";
+        mobileUi.Account = new(Guid.NewGuid(), "Active", false);
+        mobileUi.CraterPreview = new("Generation is unavailable for your customer account.");
+        var mobileAccount = await mobileRenderer.Dispatcher.InvokeAsync(async () =>
+            (await mobileRenderer.RenderComponentAsync<FlyerMonkey.Shared.Pages.Account>()).ToHtmlString());
+        Check(mobileAccount.Contains("Mobile Customer") && mobileAccount.Contains("mobile@example.invalid") &&
+            mobileAccount.Contains("Generation is unavailable") && mobileAccount.Contains("Sign out") &&
+            !mobileAccount.Contains("Generate one image"), "Android account renders identity and Crater restriction");
+        var statusHandler = new PreviewHandler("Completed");
+        using (var client = new HttpClient(statusHandler) { BaseAddress = new Uri("https://localhost:7255/") })
+        {
+            var status = await CustomerCraterPreviewReader.ReadStatusAsync(client, "offline-token");
+            Check(status.Message.Contains("complete") && status.Image is null && !status.CanGenerate && statusHandler.Calls == 1,
+                "Account Crater status omits artwork and generation controls");
+        }
         foreach (var state in new[] { "Ready", "Pending", "Generating", "Failed", "Unknown", "Completed" })
         {
             var handler = new PreviewHandler(state);
@@ -333,9 +410,14 @@ try
         mobileUi.Account = new(Guid.NewGuid(), "Active", false);
         mobileUi.CraterPreview = new("Completed artwork", "data:image/jpeg;base64,/9j/");
         Check((await MobileHtml()).Contains("Your private Crater It artwork for Product 139"), "Completed private preview renders on mobile");
-        mobileUi.CraterPreview = new("Ready to generate one private image.", CanGenerate: true);
-        var readyHtml = await MobileHtml();
-        Check(readyHtml.Contains("Generate one image") && !readyHtml.Contains("Sign in to Crater It"), "Authoritative readiness exposes generation for the signed-in customer");
+        mobileUi.CraterPreview = new("Ready to generate one private image.", CanGenerate: true, CanGenerateClassic: true);
+        var readyHtml = await MobileHtml(140);
+        Check(readyHtml.Contains(">Crater It</button>") && readyHtml.Contains("This uses the paid image API.") &&
+            !readyHtml.Contains("Sign in to Crater It") && mobileUi.CraterPreview.ProductId == 140,
+            "Authoritative readiness exposes generation for the selected mobile product");
+        var classicLink = readyHtml.IndexOf(">Classic Crater</button>", StringComparison.Ordinal);
+        Check(classicLink >= 0 && classicLink < readyHtml.IndexOf(">Crater It</button>", StringComparison.Ordinal),
+            "Mobile places Classic Crater above Crater It");
         foreach (var status in new[] { 200, 403, 503 })
         {
             var handler = new GenerationHandler(status);
@@ -424,15 +506,22 @@ sealed class CaptureAuthentication : IAuthenticationService
 }
 sealed class MobileCustomerUi : IMobileCustomerSession
 {
-    public Task GenerateCraterAsync() => throw new Exception("Unexpected paid generation");
+    public string? DisplayName { get; set; }
+    public string? Email { get; set; }
+    public Task LoadAccountAsync(int? productId = null) => RestoreAsync();
+    public Task GenerateCraterAsync(int productId, bool classic = false) => throw new Exception("Unexpected paid generation");
     public CustomerCraterPreview? CraterPreview { get; set; }
-    public Task LoadCraterPreviewAsync() => RestoreAsync();
+    public Task LoadCraterPreviewAsync(int productId)
+    {
+        if (CraterPreview is { } preview) CraterPreview = preview with { ProductId = productId };
+        return RestoreAsync();
+    }
     public bool SignedIn { get; set; }
     public CustomerAccount? Account { get; set; }
     public string? Message { get; set; }
     public int Restores;
     public Task RestoreAsync() { Restores++; return Task.CompletedTask; }
-    public Task SignInAsync() => throw new Exception("Unexpected interactive authentication");
+    public Task SignInAsync(bool includeCraterStatus = false) => throw new Exception("Unexpected interactive authentication");
     public Task SignOutAsync() => throw new Exception("Unexpected sign-out");
 }
 sealed class Customers : ICustomerRepository
@@ -450,6 +539,11 @@ sealed class CustomerUi(bool signedIn) : IWebsiteCraterSession
 {
     public Task<bool> IsAuthenticatedAsync() => Task.FromResult(false);
     public Task<CustomerSessionState> GetCustomerAsync() => Task.FromResult(new CustomerSessionState(true, signedIn));
+}
+
+sealed class ProductNavigation : Microsoft.AspNetCore.Components.NavigationManager
+{
+    public ProductNavigation() => Initialize("https://localhost/", "https://localhost/products/139?crater=true");
 }
 
 public class CustomerTokens : DispatchProxy

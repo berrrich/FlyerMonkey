@@ -1,0 +1,35 @@
+@using FlyerMonkey.Shared.Services
+@inject IServiceProvider Services
+@implements IDisposable
+
+<img @key="Source" src="@Source" alt="@ImageAlt" loading="@Loading" style="@Style"
+     data-original="@Original" data-original-alt="@OriginalAlt" data-placeholder="@Placeholder"
+     onerror="const current=this.getAttribute('src');if(current===this.dataset.placeholder){this.onerror=null;return;}if(current!==this.dataset.original){this.src=this.dataset.original;this.alt=this.dataset.originalAlt;}else{this.src=this.dataset.placeholder;this.alt='Product image unavailable';}" />
+
+@code {
+    [Parameter] public int ProductId { get; set; }
+    [Parameter] public string? ProductName { get; set; }
+    [Parameter] public bool HasOriginal { get; set; } = true;
+    [Parameter] public string? Loading { get; set; }
+    [Parameter] public string? Style { get; set; }
+    private const string Placeholder = "/_content/FlyerMonkey.Shared/images/product-placeholder.png";
+    private ClassicCraterImages? classic;
+    private string Original => HasOriginal && ProductId > 0 ? PublicApiClientRegistration.ProductImageUrl(ProductId) : Placeholder;
+    private bool HasClassicSource => classic is not null && ProductId > 0;
+    private string Source => HasClassicSource ? classic!.Url(ProductId) : Original;
+    private string? OriginalAlt => Original == Placeholder ? "Product image unavailable" : ProductName;
+    private string? ImageAlt => HasClassicSource ? $"AI-generated Classic Crater artwork inspired by {ProductName}" : OriginalAlt;
+
+    protected override void OnInitialized()
+    {
+        classic = Services.GetService(typeof(ClassicCraterImages)) as ClassicCraterImages;
+        if (classic is not null) classic.Changed += OnImageChanged;
+    }
+
+    private void OnImageChanged() => _ = InvokeAsync(StateHasChanged);
+
+    public void Dispose()
+    {
+        if (classic is not null) classic.Changed -= OnImageChanged;
+    }
+}

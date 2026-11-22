@@ -1,18 +1,72 @@
 @using FlyerMonkey.Shared.Services
 @inject IServiceProvider Services
+@inject NavigationManager Navigation
+@implements IDisposable
 
-@if (_customer.Enabled)
+@if (IconOnly && _mobile is not null)
 {
-    <a href="@(_customer.SignedIn ? "/customer/account" : "/customer/signin")" data-enhance-nav="false">
-        @(_customer.SignedIn ? "Customer account / Sign out" : "Customer sign in")
+    <NavLink href="@MobileAccountPath" class="fm-account-icon" aria-label="@IconLabel" title="@IconLabel">
+        <span aria-hidden="true"></span>
+    </NavLink>
+}
+else if (IconOnly && _customer.Enabled)
+{
+    <a href="@WebAccountPath" class="fm-account-icon" aria-label="@IconLabel" title="@IconLabel" data-enhance-nav="false">
+        <span aria-hidden="true"></span>
+    </a>
+}
+else if (_mobile is not null)
+{
+    <NavLink href="@MobileAccountPath">
+        @if (Compact) { <span aria-hidden="true">👤</span> }
+        <span>Account</span>
+    </NavLink>
+}
+else if (_customer.Enabled)
+{
+    <a href="@WebAccountPath" data-enhance-nav="false">
+        @if (Compact) { <span aria-hidden="true">👤</span> }
+        <span>@(_customer.SignedIn ? "Account" : "Sign in")</span>
     </a>
 }
 
 @code {
+    [Parameter] public bool Compact { get; set; }
+    [Parameter] public bool IconOnly { get; set; }
+    private IMobileCustomerSession? _mobile;
     private FlyerMonkey.Shared.Model.CustomerSessionState _customer = new(false, false);
+    private string IconLabel => (_mobile?.SignedIn ?? _customer.SignedIn) ? "Account" : "Sign in";
+    private int? CurrentProductId
+    {
+        get
+        {
+            const string prefix = "/products/";
+            var path = Navigation.ToAbsoluteUri(Navigation.Uri).AbsolutePath;
+            return path.StartsWith(prefix, StringComparison.Ordinal) &&
+                int.TryParse(path.AsSpan(prefix.Length), out var id) && id > 0 ? id : null;
+        }
+    }
+    private string MobileAccountPath => CurrentProductId is { } id ? $"account?productId={id}" : "account";
+    private string WebAccountPath
+    {
+        get
+        {
+            const string account = "/customer/account";
+            var returnUrl = CurrentProductId is { } id ? $"/products/{id}?crater=true" : account;
+            if (!_customer.SignedIn) return "/customer/signin?returnUrl=" + Uri.EscapeDataString(returnUrl);
+            return returnUrl == account ? account : account + "?returnUrl=" + Uri.EscapeDataString(returnUrl);
+        }
+    }
+
     protected override async Task OnInitializedAsync()
     {
+        _mobile = Services.GetService(typeof(IMobileCustomerSession)) as IMobileCustomerSession;
         if (Services.GetService(typeof(ICustomerSession)) is ICustomerSession session)
             _customer = await session.GetCustomerAsync();
+        if (_customer.Enabled || _mobile is not null) Navigation.LocationChanged += OnLocationChanged;
     }
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs args) => _ = InvokeAsync(StateHasChanged);
+
+    public void Dispose() => Navigation.LocationChanged -= OnLocationChanged;
 }

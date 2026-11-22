@@ -10,7 +10,7 @@
         position: sticky;
         top: 50px;
         height: env(safe-area-inset-top);
-        background-color: #b6ff00;
+        background-color: var(--bs-body-bg);
         width: 100%;
         z-index: 1;
     }

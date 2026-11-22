@@ -1,4 +1,4 @@
-﻿.offers-title {
+.offers-title {
     font-size: 2rem;
     margin-bottom: 1rem;
 }
@@ -22,16 +22,16 @@
     gap: 1rem;
     align-items: center;
     padding: 1rem;
-    border: 1px solid #ddd;
+    border: 1px solid var(--bs-border-color);
     border-radius: 18px;
-    background: white;
+    background: var(--bs-body-bg);
 }
 
 .offer-thumb {
     width: 64px;
     height: 64px;
     border-radius: 16px;
-    background: #f3f3f3;
+    background: var(--bs-tertiary-bg);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -55,7 +55,7 @@
     border: none;
     border-radius: 24px;
     background-color: limegreen !important;
-    color: white !important;
+    color: #101510 !important;
     font-size: 1rem;
     font-weight: 700;
     padding: 0 1rem;
