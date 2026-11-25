@@ -240,6 +240,7 @@ try {
     Check(published.IsSuccessStatusCode && published.Content.Headers.ContentType?.MediaType == "image/jpeg" &&
         published.Headers.CacheControl?.NoStore == true && store.Record == completedRecord,
         "Anonymous visitors can read published Classic artwork while the private journal stays separate");
+    Check((await Status()).HasClassicImage, "Customer status reports the published Classic image for this product");
     Check((await http.GetAsync("api/products/140/classic-crater-image")).StatusCode == HttpStatusCode.NotFound,
         "Published catalogue images are matched by product");
     store.HasQuota = false;

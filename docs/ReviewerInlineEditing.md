@@ -58,3 +58,10 @@ batches still intentionally loads that batch from SQLite; this correction does n
 introduce cross-batch unsaved-draft storage. Normal card refresh retains the same
 edited models. No paid calls, image-generation changes, Azure/cloud configuration,
 production SQL mutations, saved-extraction resets or Git operations were performed.
+
+## Future Reviewer task — archive or delete products
+
+- Provide an archive action that removes a product from active catalogue use while preserving its ID and historical offer references.
+- Before any permanent deletion, show a dependency preview for active and historical offers, original product images, published Classic Crater images, and customer artwork. Define how each dependency is retained, reassigned, or blocks deletion.
+- Preserve private customer artwork, ownership, and access controls. Block deletion if those protections or historical offer references cannot be preserved.
+- Require explicit confirmation for permanent deletion and record the action and dependency outcomes in the audit trail.

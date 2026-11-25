@@ -19,7 +19,7 @@ public sealed class WebsiteCraterSession(IServiceProvider services) : IWebsiteCr
     // Persist only presentation booleans across prerender -> circuit; never an identity or authorization grant.
     [PersistentState]
     public CustomerSessionState? CustomerPresentation { get; set; }
-    public Task<CustomerSessionState> GetCustomerAsync() => Task.FromResult(CustomerPresentation ??
+    public Task<CustomerSessionState> GetCustomerAsync() =>                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           Task.FromResult(CustomerPresentation ??
         (!CustomerEnabled ? new(false, false) : throw new InvalidOperationException(
             "Customer presentation was not captured before rendering. Reload the page to establish a new session.")));
 

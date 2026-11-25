@@ -9,7 +9,7 @@
         <span aria-hidden="true"></span>
     </NavLink>
 }
-else if (IconOnly && _customer.Enabled)
+else if (IconOnly && WebAccountVisible)
 {
     <a href="@WebAccountPath" class="fm-account-icon" aria-label="@IconLabel" title="@IconLabel" data-enhance-nav="false">
         <span aria-hidden="true"></span>
@@ -22,20 +22,22 @@ else if (_mobile is not null)
         <span>Account</span>
     </NavLink>
 }
-else if (_customer.Enabled)
+else if (WebAccountVisible)
 {
     <a href="@WebAccountPath" data-enhance-nav="false">
         @if (Compact) { <span aria-hidden="true">👤</span> }
-        <span>@(_customer.SignedIn ? "Account" : "Sign in")</span>
+        <span>@IconLabel</span>
     </a>
 }
 
 @code {
     [Parameter] public bool Compact { get; set; }
     [Parameter] public bool IconOnly { get; set; }
+    [Parameter] public string? SignedInAccountHref { get; set; }
     private IMobileCustomerSession? _mobile;
     private FlyerMonkey.Shared.Model.CustomerSessionState _customer = new(false, false);
-    private string IconLabel => (_mobile?.SignedIn ?? _customer.SignedIn) ? "Account" : "Sign in";
+    private bool WebAccountVisible => SignedInAccountHref is not null || _customer.Enabled;
+    private string IconLabel => (SignedInAccountHref is not null || (_mobile?.SignedIn ?? _customer.SignedIn)) ? "Account" : "Sign in";
     private int? CurrentProductId
     {
         get
@@ -51,6 +53,7 @@ else if (_customer.Enabled)
     {
         get
         {
+            if (SignedInAccountHref is not null) return SignedInAccountHref;
             const string account = "/customer/account";
             var returnUrl = CurrentProductId is { } id ? $"/products/{id}?crater=true" : account;
             if (!_customer.SignedIn) return "/customer/signin?returnUrl=" + Uri.EscapeDataString(returnUrl);
@@ -60,6 +63,7 @@ else if (_customer.Enabled)
 
     protected override async Task OnInitializedAsync()
     {
+        if (SignedInAccountHref is not null) return;
         _mobile = Services.GetService(typeof(IMobileCustomerSession)) as IMobileCustomerSession;
         if (Services.GetService(typeof(ICustomerSession)) is ICustomerSession session)
             _customer = await session.GetCustomerAsync();

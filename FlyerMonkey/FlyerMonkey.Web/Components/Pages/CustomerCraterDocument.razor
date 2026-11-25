@@ -1,0 +1,98 @@
+@using Microsoft.AspNetCore.Components
+@using FlyerMonkey.Shared.Model
+@using FlyerMonkey.Shared.Services
+@inject ProductApiService Products
+
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+    <meta charset="utf-8" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <base href="/" />
+    <title>Crater It | FlyerMonkey</title>
+    <script src="/_content/FlyerMonkey.Shared/theme.js"></script>
+    <link rel="stylesheet" href="/_content/FlyerMonkey.Shared/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="/_content/FlyerMonkey.Shared/app.css" />
+    <link rel="stylesheet" href="/FlyerMonkey.Web.styles.css" />
+    <style>
+        .classic-crater-pending, .classic-crater-pending * { cursor: wait !important; }
+        dialog::backdrop { background: rgb(0 0 0 / 70%); }
+    </style>
+</head>
+<body>
+    <MainLayout SignedInAccountHref="@AccountHref">
+        <Body>
+            <div class="container py-4">
+                <h1>Customer Crater It — Product @ProductId</h1>
+                <p>Local development. Generation uses the paid image API. Classic Crater publishes to the catalogue. Regular Crater It artwork stays private.</p>
+                @if (_product is { } product)
+                {
+                    <section class="card card-body mb-3" aria-labelledby="crater-product-name">
+                        <h2 class="h4 mb-2" id="crater-product-name">@product.Name</h2>
+                        <div class="d-flex flex-wrap column-gap-4 row-gap-1">
+                            @if (!string.IsNullOrWhiteSpace(product.PackSizeText))
+                            {
+                                <span><strong>Pack size:</strong> @product.PackSizeText</span>
+                            }
+                            @if (!string.IsNullOrWhiteSpace(product.Brand))
+                            {
+                                <span><strong>Brand:</strong> @product.Brand</span>
+                            }
+                            @if (!string.IsNullOrWhiteSpace(product.Variant))
+                            {
+                                <span><strong>Variant:</strong> @product.Variant</span>
+                            }
+                            @if (Category is { } category)
+                            {
+                                <span><strong>Category:</strong> @category</span>
+                            }
+                        </div>
+                    </section>
+                }
+                else if (ShowProduct)
+                {
+                    <p class="text-body-secondary">Product details are unavailable.</p>
+                }
+                @((MarkupString)CraterBody)
+                <p><a href="@($"/products/{ProductId}?crater=true")">Back to product</a></p>
+            </div>
+        </Body>
+    </MainLayout>
+    <script>
+        window.addEventListener("pageshow", () => {
+            const form = document.getElementById("classic-crater");
+            if (!form) return;
+            form.querySelector("button").disabled = false;
+            form.querySelector(".classic-crater-status").textContent = "";
+            document.documentElement.classList.remove("classic-crater-pending");
+        });
+    </script>
+</body>
+</html>
+
+@code {
+    [Parameter] public int ProductId { get; set; }
+    [Parameter] public string CraterBody { get; set; } = "";
+    [Parameter] public bool ShowProduct { get; set; }
+    [CascadingParameter] private HttpContext? RequestContext { get; set; }
+    private Product? _product;
+    private string? Category => new[] { _product?.PrimaryCategory, _product?.Category }
+        .FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!ShowProduct) return;
+        try
+        {
+            var product = await Products.GetProductAsync(ProductId, RequestContext?.RequestAborted ?? default);
+            if (product?.ID == ProductId) _product = product;
+        }
+        catch (Exception ex) when (ex is HttpRequestException or OperationCanceledException or System.Text.Json.JsonException or NotSupportedException)
+        {
+            // Keep the Crater controls available when the public catalogue cannot supply the summary.
+        }
+    }
+
+    private string AccountHref => $"/customer/account?returnUrl=%2Fcustomer%2Fcrater%2F{ProductId}";
+}

@@ -26,6 +26,7 @@ else
     <div class="fm-product-grid">
         @foreach (var product in _products)
         {
+            var category = string.IsNullOrWhiteSpace(product.PrimaryCategory) ? product.Category : product.PrimaryCategory;
             <article class="fm-product-card" @key="product.ID">
                 <span class="fm-product-id" aria-label="@($"Product ID: {product.ID}")">#@product.ID</span>
                 <a class="fm-card-image" href="@($"/products/{product.ID}")">
@@ -34,6 +35,22 @@ else
                 </a>
                 <div class="fm-card-details">
                     <h2><a href="@($"/products/{product.ID}")">@product.Name</a></h2>
+                    @if (!string.IsNullOrWhiteSpace(product.PackSizeText))
+                    {
+                        <p class="small mb-1"><strong>Pack size:</strong> @product.PackSizeText</p>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(product.Brand))
+                    {
+                        <p class="small mb-1"><strong>Brand:</strong> @product.Brand</p>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(product.Variant))
+                    {
+                        <p class="small mb-1"><strong>Variant:</strong> @product.Variant</p>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(category))
+                    {
+                        <p class="small mb-0"><strong>Category:</strong> @category</p>
+                    }
                     @if (ImageGeneration.IsEnabled)
                     {
                         <a class="fm-comet-action" href="@($"/products/{product.ID}?crater=true#crater-controls")"

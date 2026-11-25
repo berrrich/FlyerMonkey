@@ -1,4 +1,5 @@
 ﻿using FlyerMonkey.Shared.Model;
+using System.Net;
 using System.Net.Http.Json;
 
 namespace FlyerMonkey.Shared.Services
@@ -16,6 +17,14 @@ namespace FlyerMonkey.Shared.Services
         {
             var result = await _http.GetFromJsonAsync<List<Product>>("api/products", cancellationToken);
             return result ?? new List<Product>();
+        }
+
+        public async Task<Product?> GetProductAsync(int productId, CancellationToken cancellationToken = default)
+        {
+            using var response = await _http.GetAsync($"api/products/{productId}", cancellationToken);
+            if (response.StatusCode == HttpStatusCode.NotFound) return null;
+            response.EnsureSuccessStatusCode();
+            return await response.Content.ReadFromJsonAsync<Product>(cancellationToken);
         }
     }
 }

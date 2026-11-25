@@ -40,14 +40,7 @@ else
                         <CatalogueProductImage ProductId="@_product.ID" ProductName="@_product.Name"
                                                HasOriginal="@(!string.IsNullOrWhiteSpace(_product.ImageBlobPath))" />
                     </div>
-                    @if (Services.GetService(typeof(ClassicCraterImages)) is not null)
-                    {
-                        <figcaption>Catalogue image. Classic Crater artwork is AI-generated.</figcaption>
-                    }
-                    else
-                    {
-                        <figcaption>Original product image — authoritative product reference when available.</figcaption>
-                    }
+                    <figcaption data-catalogue-image-caption>Catalogue image</figcaption>
                 </figure>
                 <ApprovedArtworkDisplay ProductId="@_product.ID" ProductName="@_product.Name" />
                 @if (_preview is not null)

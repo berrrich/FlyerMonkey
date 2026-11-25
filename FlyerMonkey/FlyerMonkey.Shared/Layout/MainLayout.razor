@@ -8,7 +8,7 @@
                 FlyerMonkey
             </div>
 
-            <nav class="fm-topbar-nav">
+            <nav class="fm-topbar-nav" aria-label="Main navigation">
                 <NavLink href=""
                          Match="NavLinkMatch.All">
                     Offers
@@ -24,7 +24,7 @@
             </nav>
             <div class="fm-topbar-controls">
                 <flyermonkey-theme-picker></flyermonkey-theme-picker>
-                <FlyerMonkey.Shared.Components.CustomerAccountEntry IconOnly="true" />
+                <FlyerMonkey.Shared.Components.CustomerAccountEntry IconOnly="true" SignedInAccountHref="@SignedInAccountHref" />
             </div>
         </div>
 
@@ -49,10 +49,14 @@
         <span>🛒</span>
         <span>Products</span>
     </NavLink>
-    <FlyerMonkey.Shared.Components.CustomerAccountEntry Compact="true" />
+    <FlyerMonkey.Shared.Components.CustomerAccountEntry Compact="true" SignedInAccountHref="@SignedInAccountHref" />
 
 </nav>
 </div>
+
+@code {
+    [Parameter] public string? SignedInAccountHref { get; set; }
+}
 
 <div id="blazor-error-ui" data-nosnippet>
     An unhandled error has occurred.

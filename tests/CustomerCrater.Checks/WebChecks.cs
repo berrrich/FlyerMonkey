@@ -2,6 +2,7 @@ using System.Net;
 using System.Reflection;
 using System.Security.Claims;
 using System.Text.RegularExpressions;
+using FlyerMonkey.Shared.Services;
 using FlyerMonkey.Web.Services;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.DataProtection;
@@ -16,6 +17,7 @@ static class WebChecks
         builder.Configuration.AddInMemoryCollection(new Dictionary<string,string?>{["CustomerCrater:Enabled"]="true",["CraterIt:Enabled"]="true"});
         builder.Services.AddDataProtection().UseEphemeralDataProtectionProvider();
         builder.Services.AddAntiforgery();
+        builder.Services.AddRazorComponents();
         builder.Services.AddAuthentication("Fixture").AddCookie("Fixture",options=>{
             options.Events.OnRedirectToLogin=context=>{context.Response.StatusCode=401;return Task.CompletedTask;};
             options.Events.OnRedirectToAccessDenied=context=>{context.Response.StatusCode=403;return Task.CompletedTask;};
@@ -24,8 +26,11 @@ static class WebChecks
             policy=>policy.RequireAuthenticatedUser().RequireClaim("fixture-kind","customer")));
         builder.Services.AddSingleton(DispatchProxy.Create<ITokenAcquisition,WebTokens>());
         var transport=new WebTransport();
+        builder.Services.AddSingleton(new ClassicCraterImages(new Uri("https://localhost:7255/")));
         builder.Services.AddHttpClient("CustomerCraterApi",client=>client.BaseAddress=new Uri("https://localhost:7255/"))
             .ConfigurePrimaryHttpMessageHandler(()=>transport);
+        builder.Services.AddHttpClient<ProductApiService>(client => client.BaseAddress = new Uri("https://localhost:7255/"))
+            .ConfigurePrimaryHttpMessageHandler(() => transport);
         await using var app=builder.Build();
         app.UseAuthentication();
         app.Use((context,next)=>{
@@ -97,6 +102,33 @@ static class WebChecks
             var classicIndex = classicHtml.IndexOf(">Classic Crater</button>", StringComparison.Ordinal);
             var craterIndex = classicHtml.IndexOf(">Crater It</button>", StringComparison.Ordinal);
             check(classicIndex >= 0 && classicIndex < craterIndex, "Classic Crater appears above Crater It");
+            check(!classicHtml.Contains("Classic Crater complete"), "An unpublished product shows no Classic completion");
+            transport.PublishedClassic = true;
+            const string jpeg = "https://localhost:7255/api/products/100/classic-crater-image?v=0";
+            var published = await (await Request("?classic=published", productId: 100)).Content.ReadAsStringAsync();
+            var summaryIndex = published.IndexOf("Oats &amp; Honey", StringComparison.Ordinal);
+            check(summaryIndex > published.IndexOf("Local development. Generation", StringComparison.Ordinal) &&
+                summaryIndex < published.IndexOf("Classic Crater</button>", StringComparison.Ordinal) &&
+                published.Contains("<strong>Pack size:</strong> 500 g") && published.Contains("<strong>Brand:</strong> Fixture Brand"),
+                "The selected product's encoded details appear under the development notice and above the controls");
+            check(published.Contains("aria-label=\"Main navigation\"") &&
+                published.Contains("href=\"previous\"") && published.Contains("href=\"products\"") &&
+                published.Contains("aria-label=\"Mobile navigation\"") &&
+                published.Contains("href=\"/customer/account?returnUrl=%2Fcustomer%2Fcrater%2F100\""),
+                "Customer Crater uses the shared navigation and the account link preserves the selected product");
+            check(published.Contains($">Classic Crater</button><div") &&
+                published.Contains($"href=\"{jpeg}\"") && published.Contains($"src=\"{jpeg}\"") &&
+                published.Contains("Classic Crater complete"), "The Classic control shows a thumbnail linked to the full JPEG");
+            check(published.Contains("this.nextElementSibling.showModal()") &&
+                published.Contains("<dialog ") &&
+                published.Contains("type=\"button\" class=\"btn-close p-3\" aria-label=\"Close image preview\"") &&
+                published.Contains("this.closest('dialog').close()"),
+                "The full-size Classic preview opens and closes on the same page without submitting the form");
+            transport.StatusUnavailable = true;
+            var refreshed = await (await Request(productId: 100)).Content.ReadAsStringAsync();
+            check(refreshed.Contains("Classic Crater complete") && refreshed.Contains($"src=\"{jpeg}\""),
+                "Classic artwork survives refresh when private attempt status is unavailable");
+            transport.StatusUnavailable = false;
             var classicField = Regex.Match(classicHtml, "name='([^']+)' value='([^']+)'");
             var classicCookie = classicPage.Headers.GetValues("Set-Cookie").First(v=>v.Contains("Antiforgery")).Split(';')[0];
             using var classicForm = new FormUrlEncodedContent(new Dictionary<string, string>
@@ -128,11 +160,35 @@ public class WebTokens:DispatchProxy
 }
 sealed class WebTransport:HttpMessageHandler
 {
-    public int Calls,Posts;public string State="Ready";public bool CanGenerate=true,Image,PreviewFails,CanClassic;
+    public int Calls,Posts;public string State="Ready";public bool CanGenerate=true,Image,PreviewFails,CanClassic,PublishedClassic,StatusUnavailable;
     public string? LastPostQuery, LastPath;
     public int? AttemptVersion;
     protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request,CancellationToken token)
     {
+        if (request.RequestUri?.AbsolutePath == "/api/products/100")
+        {
+            if (request.Method != HttpMethod.Get || request.Headers.Authorization is not null)
+                throw new Exception("Public product details must be read without customer credentials");
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = JsonContent.Create(new FlyerMonkey.Shared.Model.Product
+                    { ID = 100, Name = "Oats & Honey", PackSizeText = "500 g", Brand = "Fixture Brand" })
+            });
+        }
+        if (request.RequestUri?.AbsolutePath.StartsWith("/api/products/") == true &&
+            !request.RequestUri.AbsolutePath.EndsWith("/classic-crater-image"))
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotFound));
+        if (request.RequestUri?.AbsolutePath.EndsWith("/classic-crater-image") == true)
+        {
+            if (request.Method != HttpMethod.Get || request.Headers.Authorization is not null)
+                throw new Exception("Public artwork must be read without customer credentials");
+            Calls++;
+            if (!PublishedClassic || request.RequestUri.AbsolutePath != "/api/products/100/classic-crater-image")
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotFound));
+            var image = new ByteArrayContent([255, 216, 255]);
+            image.Headers.ContentType = new("image/jpeg");
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = image });
+        }
         if(request.RequestUri?.Scheme!="https"||request.RequestUri.Host!="localhost"||request.Headers.Authorization?.Parameter!="offline-customer-token")
             throw new Exception("Unsafe customer forwarding");
         Calls++;
@@ -143,6 +199,7 @@ sealed class WebTransport:HttpMessageHandler
             LastPostQuery = request.RequestUri.Query;
         }
         if(request.RequestUri.AbsolutePath.EndsWith("/image"))return Task.FromResult(new HttpResponseMessage(PreviewFails?HttpStatusCode.ServiceUnavailable:HttpStatusCode.OK));
+        if (StatusUnavailable) return Task.FromResult(new HttpResponseMessage(HttpStatusCode.Forbidden));
         return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK){Content=JsonContent.Create(new FlyerMonkey.Shared.Model.CustomerCraterAttempt(State,CanGenerate,Image,CanClassic,AttemptVersion))});
     }
 }

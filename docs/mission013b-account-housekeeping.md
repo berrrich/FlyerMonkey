@@ -1,5 +1,10 @@
 # Mission 013B proposal
 
+Follow-up: [Mission 013C](mission013c-user-accounts-and-roles.md) prepares guarded
+identity-based assignments (including an explicit Operator role) and implements
+offline-tested customer generation role enforcement. This document records the
+original 013B proposal; neither SQL script has been applied by 013C.
+
 The shared ProductDetail page displays Product.ID under the product name in both Web and Android. The model property is named ID. The line uses the loaded model value.
 
 ## Proposed SQL migration
@@ -46,6 +51,24 @@ Required later offline checks cover Reader-only with CraterEnabled=true receivin
 During Mission 013B, local API/Web CustomerCrater:Enabled, CraterIt:Enabled and CraterIt:LocalDevelopmentGenerationEnabled are set false, with explicit false overrides on running local profiles. The generated migration is never connected to SQL or executed by validation.
 
 ## Validation
+
+### SQL compilation correction after 013C preflight
+
+SSMS exposed Msg 207: the filtered index referenced Customers.UserId in the same
+batch that added it. The foreign key and filtered index now run through
+`sys.sp_executesql` after the column is added. This defers their compilation while
+retaining the enclosing transaction, guards and TRY/CATCH rollback. No `GO` splits
+the script, and `@Apply` remains 0. The earlier static preflight PASS did not verify
+SQL engine compilation and missed this defect.
+
+`tests/SqlAccountMigrations.Checks.ps1` passed 11 checks on a disposable LocalDB
+database: default refusal, rollback on an injected nested compilation error,
+successful schema creation, trusted non-cascading foreign key, unique filtered
+index, safe 013B repeat refusal, 013C application and repeat execution, exact
+assignment counts, Reader restrictions, and preservation of Customer values and
+fixture artwork. Only in-memory copies were enabled for this local fixture.
+All 245 authentication/customer generation checks also passed again. No Azure SQL
+connection or writes, paid generation or commit occurred during this fix.
 
 Web and Android x64 builds passed with zero errors and the two existing unused Offers fields as warnings. The existing ApprovedArtwork.Checks suite passed all 132 checks, including rendering the full ProductDetail component through its Web and Android branches for model IDs 139, 175 and 246. These checks verify rendered content with offline services. Interactive browser/device visual verification was not performed in this mission.
 

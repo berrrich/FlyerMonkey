@@ -47,10 +47,15 @@ BEGIN TRY
 
     -- Existing rows receive NULL. Existing CustomerIds and identity columns are untouched.
     ALTER TABLE dbo.Customers ADD UserId uniqueidentifier NULL;
-    ALTER TABLE dbo.Customers ADD CONSTRAINT FK_Customers_Users
-        FOREIGN KEY (UserId) REFERENCES dbo.Users(UserId);
-    CREATE UNIQUE INDEX UX_Customers_UserId ON dbo.Customers(UserId)
-        WHERE UserId IS NOT NULL;
+    -- Compile references to the new column only after ALTER TABLE has executed.
+    -- A nested batch keeps the same transaction and propagates errors to this CATCH.
+    -- Do not use GO here: it would split the guard, TRY/CATCH and transaction scope.
+    EXEC sys.sp_executesql N'
+        ALTER TABLE dbo.Customers ADD CONSTRAINT FK_Customers_Users
+            FOREIGN KEY (UserId) REFERENCES dbo.Users(UserId);
+        CREATE UNIQUE INDEX UX_Customers_UserId ON dbo.Customers(UserId)
+            WHERE UserId IS NOT NULL;
+    ';
 
     INSERT dbo.Roles (Name) VALUES
         (N'Reader'), (N'Customer'), (N'Crater Tester'),

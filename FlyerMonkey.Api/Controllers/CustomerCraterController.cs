@@ -67,8 +67,12 @@ public sealed class CustomerCraterController(IConfiguration configuration, IWebH
             if (!create)
             {
                 var status = generation.Status(access.Customer, access.Eligible, productId);
-                return Ok(status with { CanGenerateClassic = classicEnabled && access.Eligible &&
-                    status.State != "Generating" && store.HasDailyCapacity(DateOnly.FromDateTime(DateTime.UtcNow)) });
+                return Ok(status with
+                {
+                    CanGenerateClassic = classicEnabled && access.Eligible &&
+                        status.State != "Generating" && store.HasDailyCapacity(DateOnly.FromDateTime(DateTime.UtcNow)),
+                    HasClassicImage = HttpContext.RequestServices.GetRequiredService<ClassicCraterArtwork>().Exists(productId)
+                });
             }
             var product = await HttpContext.RequestServices.GetRequiredService<ProductService>().GetAsync(productId, token);
             if (product?.ID != productId) return NotFound();

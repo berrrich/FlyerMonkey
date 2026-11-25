@@ -9,6 +9,8 @@ public sealed class ClassicCraterArtwork(string root, ICustomerCraterStore quota
     private string Latest(int productId) =>
         Path.Combine(root, productId.ToString(CultureInfo.InvariantCulture) + ".jpg");
 
+    public bool Exists(int productId) => File.Exists(Latest(productId));
+
     public byte[]? Read(int productId)
     {
         var file = Latest(productId);
