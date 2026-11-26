@@ -15,7 +15,7 @@ using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
-using System.Text.Json;
+
 
 namespace FlyerMonkey.Reviewer.Windows
 {
@@ -27,7 +27,6 @@ namespace FlyerMonkey.Reviewer.Windows
         public string FileName { get; set; } = "";
 
         public string FullPath { get; set; } = "";
-
         public string DisplayName => $"Page {PageNumber}";
 
         public ImageSource? Thumbnail { get; set; }
@@ -54,19 +53,38 @@ namespace FlyerMonkey.Reviewer.Windows
         public string PageDescription { get; set; } = "";
         public string FileName { get; set; } = "";
         public string FullPath { get; set; } = "";
+        internal DateOnly? PublicationDateForSort { get; set; }
     }
     /// <summary>
     /// Interaction logic for MainWindow.xaml
     /// </summary>
     public partial class MainWindow : Window
     {
-        private readonly CancellationTokenSource _classicGenerationLifetime = new();
+        private readonly CancellationTokenSource _windowLifetime = new();
         private readonly OperationProgress _progress = new();
         private System.Windows.Threading.DispatcherTimer? _progressTimer;
         private bool _windowClosed;
         private readonly Func<string, CancellationToken, Task<byte[]>> _generateClassic;
         private readonly string _imageFolder;
         private readonly ArtworkArchive _artworkArchive;
+        private readonly string _themeSettingsPath;
+        private ReviewerThemeChoice _theme;
+
+        private void Theme_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is not RadioButton { Tag: ReviewerThemeChoice choice }) return;
+            _theme = choice;
+            ReviewerTheme.Apply(this, choice);
+            foreach (Window window in OwnedWindows)
+                ReviewerTheme.Apply(window, choice);
+            try { ReviewerTheme.Save(_themeSettingsPath, choice); }
+            catch (IOException) { ShowMessage("The theme is active for this session. The local preference could not be saved."); }
+            catch (UnauthorizedAccessException) { ShowMessage("The theme is active for this session. The local preference could not be saved."); }
+        }
+
+        private MessageBoxResult ShowMessage(string message, string title = "Flyer Monkey Reviewer",
+            MessageBoxButton buttons = MessageBoxButton.OK, MessageBoxImage icon = MessageBoxImage.None) =>
+            ReviewerTheme.ShowMessage(this, _theme, message, title, buttons, icon);
         public OperationProgress Progress => _progress;
         private void RefreshResponsiveLayout()
         {
@@ -86,8 +104,8 @@ namespace FlyerMonkey.Reviewer.Windows
         {
             _windowClosed = true; _processingCancellation?.Cancel(); _progressTimer?.Stop();
             SelectedPageReview.Dispose();
-            _classicGenerationLifetime.Cancel();
-            _classicGenerationLifetime.Dispose();
+            _windowLifetime.Cancel();
+            _windowLifetime.Dispose();
             base.OnClosed(e);
         }
         private bool _processing;
@@ -206,10 +224,12 @@ namespace FlyerMonkey.Reviewer.Windows
 
             return null;
         }
+        private bool _refreshingFlyerList;
         private async void FlyerList_SelectionChanged(
     object sender,
     SelectionChangedEventArgs e)
         {
+            if (_refreshingFlyerList) return;
             if (FlyerList.SelectedItem is not FlyerFile flyer)
             {
                 _selectedFlyer = null;
@@ -222,7 +242,7 @@ namespace FlyerMonkey.Reviewer.Windows
             // Temporary: use the existing flyer date.
             if (!DateTime.TryParse(flyer.FlyerDate, out DateTime startDate))
             {
-                MessageBox.Show(
+                ShowMessage(
                     $"Unable to determine the flyer date:\n{flyer.FlyerDate}",
                     "FlyerMonkey - Invalid Date",
                     MessageBoxButton.OK,
@@ -244,7 +264,7 @@ namespace FlyerMonkey.Reviewer.Windows
                 "YES = Confirm and proceed\n" +
                 "NO = Cancel";
 
-            var result = MessageBox.Show(
+            var result = ShowMessage(
                 message,
                 "FlyerMonkey - Confirm Flyer Dates",
                 MessageBoxButton.YesNo,
@@ -277,6 +297,8 @@ namespace FlyerMonkey.Reviewer.Windows
 
             _selectedPage = page;
             SavedExtractionList.SelectedItem = null;
+            FlyerValidFromInput.IsReadOnly = FlyerValidToInput.IsReadOnly = false;
+            ShowFlyerDates([]);
             _products.Clear();
             EditingContextText.Text = "";
             AddOfferButton.IsEnabled = !_processing;
@@ -403,7 +425,7 @@ namespace FlyerMonkey.Reviewer.Windows
         private void AddOfferButton_Click(object sender, RoutedEventArgs e)
         {
             if (!CanEditCurrentExtraction) return;
-            var result = MessageBox.Show(
+            var result = ShowMessage(
                 "Add a new offer?",
                 "Add Offer",
                 MessageBoxButton.YesNo,
@@ -431,7 +453,7 @@ namespace FlyerMonkey.Reviewer.Windows
                 button.Tag is not ExtractedProduct product)
                 return;
 
-            var result = MessageBox.Show(
+            var result = ShowMessage(
                 $"Delete '{product.ProductName}'?",
                 "Delete offer",
                 MessageBoxButton.YesNo,
@@ -443,7 +465,7 @@ namespace FlyerMonkey.Reviewer.Windows
             var targetId = (SavedExtractionList.SelectedItem as SavedExtraction)?.Id ?? _selectedPage?.ExtractionRunId;
             if (targetId == null)
             {
-                MessageBox.Show(
+                ShowMessage(
                     "This extraction has not been saved yet.",
                     "Delete offer",
                     MessageBoxButton.OK,
@@ -573,6 +595,7 @@ namespace FlyerMonkey.Reviewer.Windows
             editor.Left = this.Left - 150;
             editor.Top = this.Top + 100;
 
+            ReviewerTheme.Apply(editor, _theme);
             if (editor.ShowDialog() == true)
             {
                 product.PrimaryCategory = editor.PrimaryCategory;
@@ -657,6 +680,7 @@ namespace FlyerMonkey.Reviewer.Windows
             editor.Left = this.Left - 100;
             editor.Top = this.Top + 120;
 
+            ReviewerTheme.Apply(editor, _theme);
             if (editor.ShowDialog() == true)
             {
                 product.PromotionTypes =
@@ -704,27 +728,6 @@ namespace FlyerMonkey.Reviewer.Windows
             editor.Visibility = Visibility.Collapsed;
             display.Visibility = Visibility.Visible;
         }
-        private static decimal? ParseMoney(string? value)
-        {
-            if (string.IsNullOrWhiteSpace(value))
-                return null;
-
-            var cleaned = value
-                .Replace("$", "")
-                .Replace(",", "")
-                .Replace("SAVE", "", StringComparison.OrdinalIgnoreCase)
-                .Trim();
-
-            return decimal.TryParse(
-                cleaned,
-                System.Globalization.NumberStyles.Number,
-                System.Globalization.CultureInfo.InvariantCulture,
-                out var amount)
-                    ? amount
-                    : null;
-        }
-
-
         private async void CommitButton_Click(
             object sender,
             RoutedEventArgs e)
@@ -733,7 +736,7 @@ namespace FlyerMonkey.Reviewer.Windows
             if (processing == null) return;
             if (SavedExtractionList.SelectedItem is not SavedExtraction saved)
             {
-                MessageBox.Show(
+                ShowMessage(
                     "Select a locally saved extraction first.",
                     "Commit",
                     MessageBoxButton.OK,
@@ -745,7 +748,7 @@ namespace FlyerMonkey.Reviewer.Windows
             // Prevent an already committed batch being committed again
             if (saved.Status != "Saved")
             {
-                MessageBox.Show(
+                ShowMessage(
                     saved.Status == "Committing" ? "Recovery Required. This batch has an uncertain SQL outcome and cannot be retried." : "This extraction has already been committed.",
                     "Commit",
                     MessageBoxButton.OK,
@@ -756,10 +759,14 @@ namespace FlyerMonkey.Reviewer.Windows
 
             var currentProducts = _products.ToList();
             var errors = ProductValidationService.ValidateBatch(currentProducts);
+            if (!ReviewerOffer.TryDates(FlyerValidFromInput.Text, FlyerValidToInput.Text, out var validFrom, out var validTo))
+                errors.Add("Enter the printed flyer start and end dates as yyyy-MM-dd.");
+            if (OfferIdentity.Source(saved.FlyerFileName, saved.PageFileName).Length > 250)
+                errors.Add("Flyer and page names are too long to store the offer source.");
             if (string.IsNullOrWhiteSpace(saved.Retailer)) errors.Add("Retailer is required.");
             if (string.IsNullOrWhiteSpace(saved.PageFileName)) errors.Add("Source page is required.");
-            if (errors.Count > 0) { MessageBox.Show(string.Join("\n", errors), "Fix errors before Commit"); return; }
-            var confirm = MessageBox.Show(
+            if (errors.Count > 0) { ShowMessage(string.Join("\n", errors), "Fix errors before Commit"); return; }
+            var confirm = ShowMessage(
                 $"Commit {saved.ProductCount} products from {saved.PageFileName} to SQL?",
                 "Commit to SQL",
                 MessageBoxButton.YesNo,
@@ -781,6 +788,7 @@ namespace FlyerMonkey.Reviewer.Windows
                 var commitService =
                     new SqlCommitService(sqlitePath);
 
+                StoreFlyerDates(currentProducts);
                 await new ExtractionSaveService(sqlitePath).UpdateSavedExtractionAsync(saved.Id, currentProducts);
                 var products = await commitService.LoadProductsAsync(saved);
 
@@ -826,66 +834,57 @@ var blobConnectionString =
                 saved.IsCommitActive = true;
                 saved.Status = "Committing";
                 await using var sqlBatch = await ReviewerSqlBatch.OpenAsync(sqlConnectionString);
+                var catalogue = await sqlBatch.LoadCatalogueForMatchingAsync();
+                var identityReviews = new List<string>();
+                var reusedCount = 0;
                 var addedCount = 0;
+                var reusedOfferCount = 0;
 
                 foreach (var extractedProduct in products)
                 {
-                    string? imageBlobPath = null;
+                    var product = extractedProduct.ToCatalogueProduct();
 
-                    if (!string.IsNullOrWhiteSpace(
-                            extractedProduct.ImageFilePath))
+                    var offer = ReviewerOffer.Create(extractedProduct, retailerId.Value, retailerLocationId,
+                        saved.FlyerFileName, saved.PageFileName, saved.PageNumber, validFrom, validTo);
+                    var (productId, match, reusedOfferId) = await ReviewerOffer.CommitAsync(
+                        extractedProduct, product, offer, catalogue,
+                        id => sqlBatch.LoadOffersForMatchingAsync(id, retailerId.Value), async newProduct =>
+                        {
+                            if (!string.IsNullOrWhiteSpace(extractedProduct.ImageFilePath))
+                                newProduct.ImageBlobPath = await imageUploadService.UploadAsync(extractedProduct.ImageFilePath);
+
+                            var id = await sqlBatch.AddProductAsync(newProduct);
+                            await sqlBatch.SaveProductCategoriesAsync(id,
+                                extractedProduct.PrimaryCategory ?? extractedProduct.Category,
+                                extractedProduct.Categories);
+                            return id;
+                        }, sqlBatch.AddOfferAsync);
+
+                    if (reusedOfferId.HasValue)
                     {
-                        imageBlobPath =
-                            await imageUploadService.UploadAsync(
-                                extractedProduct.ImageFilePath);
+                        reusedOfferCount++;
+                        continue;
+                    }
+                    if (extractedProduct.OfferReview == OfferReviewChoice.ReuseExisting)
+                        identityReviews.Add($"{product.Name}: the confirmed offer could not be verified. A separate offer was saved.");
+                    else if (extractedProduct.OfferReview == OfferReviewChoice.ReviewLater)
+                        identityReviews.Add($"{product.Name}: a separate offer was saved for later review.");
+
+                    if (match.ReuseId.HasValue)
+                        reusedCount++;
+                    else
+                    {
+                        product.ID = productId;
+                        catalogue.Add(product);
                     }
 
-                    var product = new Product
-                    {
-                        Name = extractedProduct.ProductName,
-                        Brand = extractedProduct.Brand,
-                        Variant = extractedProduct.Variant,
-                        PackSizeText = extractedProduct.PackSizeText,
-                        Category = extractedProduct.Category,
-                        Barcode = extractedProduct.Barcode,
-                        ImageBlobPath = imageBlobPath
-                    };
-
-                    var productId =
-    await sqlBatch.AddProductAsync(product);
-
-                    await sqlBatch.SaveProductCategoriesAsync(
-                        productId,
-                        extractedProduct.PrimaryCategory
-                            ?? extractedProduct.Category,
-                        extractedProduct.Categories);
-
-                    var offer = new Offer
-                    {
-                        ProductID = productId,
-                        RetailerID = retailerId.Value,
-                        RetailerLocationID = retailerLocationId,
-
-                        AdvertisedPrice = ParseMoney(extractedProduct.Price),
-                        RegularPrice = ParseMoney(extractedProduct.RegularPrice),
-                        AdvertisedSaving = ParseMoney(extractedProduct.Saving),
-
-                        ValidFrom = DateTime.UtcNow,
-                        ValidTo = DateTime.UtcNow.AddDays(7),
-
-                        SourceType = "Flyer",
-                        SourceDescription = saved.PageFileName,
-                        FlyerPageNumber = saved.PageNumber,
-
-                        PromoText = extractedProduct.Promotion,
-
-                        PromotionTypes = JsonSerializer.Serialize(
-    extractedProduct.PromotionTypes ?? new List<string>()),
-
-                        UnitPriceText = extractedProduct.UnitPrice
-                    };
-
-                    await sqlBatch.AddOfferAsync(offer);
+                    var reviewChoice = extractedProduct.CatalogueReview?.Choice;
+                    if (reviewChoice == ProductReviewChoice.ReuseExisting && match.ReuseId is null)
+                        identityReviews.Add($"Product {productId} ({product.Name}) was saved separately. The confirmed catalogue match is no longer valid.");
+                    else if (reviewChoice == ProductReviewChoice.ReviewLater)
+                        identityReviews.Add($"Product {productId} ({product.Name}) was saved separately for later review.");
+                    else if (reviewChoice != ProductReviewChoice.KeepSeparate && match.NeedsReview)
+                        identityReviews.Add($"Product {productId} ({product.Name}) may match {string.Join(", ", match.CandidateIds)}.");
 
                     addedCount++;
                 }
@@ -893,7 +892,10 @@ var blobConnectionString =
                 sqlPersisted = true;
                 await commitService.MarkCommittedAsync(saved.Id);
                 saved.Status = "Committed";
-                acknowledged = true; completedSummary = $"SQL batch committed and SQLite acknowledged: {addedCount} offers.";
+                acknowledged = true;
+                completedSummary = $"Inserted {addedCount} offers. Reused {reusedOfferCount} existing offers and reused catalogue products for {reusedCount} new offers.";
+                if (identityReviews.Count > 0)
+                    completedSummary += $" Catalogue review needed for {identityReviews.Count} products.";
                 processing.Report("SQL and SQLite persisted; refreshing the Reviewer...");
 
                 if (_selectedFlyer is not null)
@@ -903,6 +905,9 @@ var blobConnectionString =
 
                 await LoadSavedExtractionsAsync();
                 processing.Success(completedSummary);
+                if (identityReviews.Count > 0)
+                    ShowMessage(string.Join(Environment.NewLine, identityReviews), "Catalogue matches to review",
+                        MessageBoxButton.OK, MessageBoxImage.Information);
 
 
 
@@ -927,7 +932,7 @@ var blobConnectionString =
         {
             if (_windowClosed || _processing || !CanEditCurrentExtraction || sender is not Button button || button.Tag is not ExtractedProduct product
                 || !_products.Contains(product) || _craterJobs.ContainsKey(product)) return;
-            using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(_classicGenerationLifetime.Token);
+            using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(_windowLifetime.Token);
             _craterJobs.Add(product, cancellation);
             product.IsCraterGenerating = true; product.CraterStatus = "Queued";
             var workflow = new ClassicArtworkWorkflow(product, _artworkArchive,
@@ -955,8 +960,9 @@ var blobConnectionString =
         private void EditImage_Click(object sender, RoutedEventArgs e)
         {
             if (!CanEditCurrentExtraction || _processing || sender is not Button button || button.Tag is not ExtractedProduct product) return;
-            var editor = new ClassicImageEditorWindow(product, _imageFolder, _classicGenerationLifetime.Token, (prompt,token) => GenerateLimitedAsync(prompt,token),
+            var editor = new ClassicImageEditorWindow(product, _imageFolder, _windowLifetime.Token, (prompt,token) => GenerateLimitedAsync(prompt,token),
                 (name, cancellable) => BeginProcessing(cancellable,name), () => _processingCancellation?.Token ?? CancellationToken.None, _artworkArchive) { Owner = this };
+            ReviewerTheme.Apply(editor, _theme);
             editor.ShowDialog();
         }
         private async void RemoveImage_Click(object sender, RoutedEventArgs e)
@@ -995,6 +1001,7 @@ var blobConnectionString =
                 WindowStartupLocation = WindowStartupLocation.Manual
             };
 
+            previewWindow.Owner = this;
             previewWindow.Left = this.Left + 80;
             previewWindow.Top = this.Top + 80;
 
@@ -1008,6 +1015,7 @@ var blobConnectionString =
                 }
             };
 
+            ReviewerTheme.Apply(previewWindow, _theme);
             previewWindow.Show();
         }
         private async void GetDataButton_Click(object sender, RoutedEventArgs e)
@@ -1017,12 +1025,15 @@ var blobConnectionString =
             var flyer = _selectedFlyer; var page = _selectedPage;
             try
             {
-                var savedProducts = await new ExtractionReadService(_databasePath).GetProductsAsync(flyer.FileName,page.FileName);
+                var reader = new ExtractionReadService(_databasePath);
+                var savedProducts = await reader.GetProductsAsync(flyer.FileName,page.FileName);
                 _processingCancellation!.Token.ThrowIfCancellationRequested();
                 if (_windowClosed) throw new OperationCanceledException();
                 if (savedProducts is { Count: > 0 })
                 {
                     _products.Clear(); foreach(var product in savedProducts) _products.Add(product);
+                    ShowFlyerDates(savedProducts);
+                    _ = RefreshCatalogueMatchesAsync(savedProducts);
                     processing.Success($"Restored {savedProducts.Count} products from SQLite."); return;
                 }
                 GetDataButton.Content = "Getting Data...";
@@ -1030,11 +1041,230 @@ var blobConnectionString =
                 if (_windowClosed) throw new OperationCanceledException();
                 foreach(var product in products) { ExtractionNormalizationService.NormalizeFresh(product); ProductValidationService.SanitizeProduct(product); }
                 _products.Clear();foreach(var product in products)_products.Add(product);
+                if (string.IsNullOrWhiteSpace(FlyerValidFromInput.Text) && string.IsNullOrWhiteSpace(FlyerValidToInput.Text))
+                {
+                    var coverDates = await Task.Run(() => ReadCoverDates(flyer.FullPath));
+                    if (_windowClosed) throw new OperationCanceledException();
+                    if (string.IsNullOrWhiteSpace(FlyerValidFromInput.Text) && string.IsNullOrWhiteSpace(FlyerValidToInput.Text))
+                    {
+                        if (coverDates is { } printed)
+                        {
+                            FlyerValidFromInput.Text = printed.From;
+                            FlyerValidToInput.Text = printed.To;
+                        }
+                        else
+                        {
+                            ShowFlyerDates(products);
+                            if (string.IsNullOrEmpty(FlyerValidFromInput.Text))
+                                try
+                                {
+                                    var savedDates = await reader.GetFlyerDatesAsync(flyer.Retailer, flyer.FileName);
+                                    if (savedDates is { } dates && !_windowClosed
+                                        && string.IsNullOrWhiteSpace(FlyerValidFromInput.Text)
+                                        && string.IsNullOrWhiteSpace(FlyerValidToInput.Text))
+                                    {
+                                        FlyerValidFromInput.Text = dates.From;
+                                        FlyerValidToInput.Text = dates.To;
+                                    }
+                                }
+                                catch (SqliteException) { /* The operator can enter the printed dates directly. */ }
+                        }
+                    }
+                }
+                _ = RefreshCatalogueMatchesAsync(products);
                 processing.Success($"Extracted {products.Count} products; review and Save the draft.");
             }
             catch(OperationCanceledException) { processing.Cancel("Extraction cancelled. Previous products preserved; provider processing may already have occurred."); }
             catch(Exception ex) { processing.Fail(ex.Message); }
             finally { if(!_windowClosed) GetDataButton.Content = "Get Data"; }
+        }
+
+        private async Task RefreshCatalogueMatchesAsync(IReadOnlyList<ExtractedProduct> products)
+        {
+            if (products.Count == 0) return;
+            foreach (var product in products)
+            {
+                product.CanCheckCatalogue = false;
+                product.InvalidateOfferMatches();
+                product.CatalogueCandidates = [];
+                product.CatalogueStatus = "Checking Azure SQL catalogue…";
+            }
+
+            try
+            {
+                var catalogue = await _readCatalogue(_windowLifetime.Token);
+                if (_windowClosed) return;
+                foreach (var product in products.Where(_products.Contains))
+                {
+                    var candidates = ProductIdentity.FindCandidates(product.ToCatalogueProduct(), catalogue);
+                    product.CatalogueCandidates = candidates;
+                    product.CatalogueStatus = candidates.Count == 0
+                        ? "No catalogue candidates found."
+                        : $"{candidates.Count} catalogue candidate(s). Select a result to inspect its details.";
+                }
+            }
+            catch (Exception) when (_windowClosed) { }
+            catch (Exception)
+            {
+                foreach (var product in products.Where(_products.Contains))
+                    product.CatalogueStatus = "Catalogue lookup unavailable. You can continue editing and Save.";
+            }
+            finally
+            {
+                foreach (var product in products)
+                    product.CanCheckCatalogue = true;
+            }
+
+            if (ReviewerOffer.TryDates(FlyerValidFromInput.Text, FlyerValidToInput.Text, out _, out _))
+                foreach (var product in products.Where(_products.Contains).ToArray())
+                    await RefreshOfferMatchesAsync(product);
+        }
+
+        private static Task<List<Product>> ReadCatalogueAsync(CancellationToken token)
+        {
+            var connection = Environment.GetEnvironmentVariable("FLYERMONKEY_SQL_CONNECTION");
+            if (string.IsNullOrWhiteSpace(connection))
+                throw new InvalidOperationException("The catalogue connection is missing.");
+
+            return ReviewerSqlBatch.ReadCatalogueAsync(connection, token);
+        }
+
+        private async void CheckCatalogue_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button { DataContext: ExtractedProduct product })
+                await RefreshCatalogueMatchesAsync([product]);
+        }
+
+        private void CatalogueDecision_Click(object sender, RoutedEventArgs e)
+        {
+            if (_processing || !CanEditCurrentExtraction || sender is not Button { DataContext: ExtractedProduct product } button)
+                return;
+            if (button.Tag is ComboBox { SelectedItem: CatalogueCandidate { CanReuse: true } candidate }
+                && product.CatalogueCandidates.Contains(candidate))
+            {
+                product.CatalogueReview = CatalogueReviewDecision.For(product, ProductReviewChoice.ReuseExisting, candidate);
+                _ = RefreshOfferMatchesAsync(product, candidate);
+            }
+            else if (button.Tag is ProductReviewChoice choice)
+                product.CatalogueReview = CatalogueReviewDecision.For(product, choice);
+        }
+
+        private void ShowFlyerDates(IEnumerable<ExtractedProduct> products)
+        {
+            var ranges = products.Select(product => (product.FlyerValidFrom, product.FlyerValidTo))
+                .Where(range => ReviewerOffer.TryDates(range.FlyerValidFrom, range.FlyerValidTo, out _, out _))
+                .Distinct().Take(2).ToArray();
+            FlyerValidFromInput.Text = ranges.Length == 1 ? ranges[0].FlyerValidFrom : "";
+            FlyerValidToInput.Text = ranges.Length == 1 ? ranges[0].FlyerValidTo : "";
+        }
+
+        private static (string From, string To)? ReadCoverDates(string path)
+        {
+            if (!File.Exists(path)) return null;
+            try
+            {
+                using var cover = new PdfLoadedDocument(path);
+                return ReviewerOffer.PrintedDates(cover.Pages[0].ExtractText());
+            }
+            catch (Exception) { return null; }
+        }
+
+        private void StoreFlyerDates(IEnumerable<ExtractedProduct> products)
+        {
+            foreach (var product in products)
+            {
+                product.FlyerValidFrom = FlyerValidFromInput.Text.Trim();
+                product.FlyerValidTo = FlyerValidToInput.Text.Trim();
+            }
+        }
+
+        private void FlyerDatesChanged(object sender, TextChangedEventArgs e)
+        {
+            foreach (var product in _products)
+                product.InvalidateOfferMatches();
+        }
+
+        private async void CheckOffers_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is not Button { DataContext: ExtractedProduct card } button) return;
+            var selected = (button.Tag as ComboBox)?.SelectedItem as CatalogueCandidate;
+            await RefreshOfferMatchesAsync(card, selected, showPrerequisites: true);
+        }
+
+        private async Task RefreshOfferMatchesAsync(ExtractedProduct card, CatalogueCandidate? selected = null,
+            bool showPrerequisites = false)
+        {
+            if (_windowClosed || !_products.Contains(card) || !card.CanCheckOffers) return;
+            card.SimilarOffers = [];
+            if (!ReviewerOffer.TryDates(FlyerValidFromInput.Text, FlyerValidToInput.Text, out var start, out var end))
+            {
+                if (showPrerequisites) card.OfferMatchStatus = "Enter the printed flyer dates in Page Review first.";
+                return;
+            }
+            var decision = card.CatalogueReview;
+            var duplicates = card.CatalogueCandidates.Where(candidate => candidate.CanReuse).Take(2).ToArray();
+            var productId = selected is { CanReuse: true } ? selected.ProductID
+                : decision is { Choice: ProductReviewChoice.ReuseExisting } && decision.AppliesTo(card)
+                    ? decision.Target?.ProductID
+                    : (decision is null or { Choice: ProductReviewChoice.Automatic })
+                        && duplicates is [{ Relationship: ProductRelationship.LikelyDuplicate } likely] ? likely.ProductID : null;
+            var draft = SavedExtractionList.SelectedItem as SavedExtraction;
+            var retailer = draft?.Retailer ?? _selectedFlyer?.Retailer;
+            var edition = draft?.FlyerFileName ?? _selectedFlyer?.FileName;
+            if (productId is null || string.IsNullOrWhiteSpace(retailer) || string.IsNullOrWhiteSpace(edition))
+            {
+                if (showPrerequisites) card.OfferMatchStatus = "Select a reusable product candidate in Catalogue matches first.";
+                return;
+            }
+
+            card.CanCheckOffers = false;
+            var previewVersion = card.OfferPreviewVersion;
+            card.OfferMatchStatus = $"Checking offers for ProductID {productId}…";
+            try
+            {
+                var (retailerId, location, offers) = await _readOffers(productId.Value, retailer, _windowLifetime.Token);
+                if (_windowClosed || !_products.Contains(card) || card.OfferPreviewVersion != previewVersion) return;
+                var proposed = ReviewerOffer.Create(card, retailerId, location, edition,
+                    draft?.PageFileName ?? _selectedPage?.FileName ?? "", draft?.PageNumber ?? _selectedPage?.PageNumber ?? 0, start, end);
+                proposed.ProductID = productId.Value;
+                card.SimilarOffers = OfferIdentity.Candidates(proposed, offers);
+                card.OfferMatchStatus = card.SimilarOffers.Count == 0 ? $"No similar offers for ProductID {productId}."
+                    : $"{card.SimilarOffers.Count} similar offer(s) for ProductID {productId}. Select an offer to compare.";
+            }
+            catch (Exception) when (_windowClosed) { }
+            catch (Exception)
+            {
+                if (card.OfferPreviewVersion == previewVersion)
+                    card.OfferMatchStatus = "Offer lookup unavailable. The draft can still be saved.";
+            }
+            finally { card.CanCheckOffers = true; }
+        }
+
+        private static async Task<(int RetailerId, int? Location, List<Offer> Offers)> ReadOffersForReviewAsync(
+            int productId, string retailer, CancellationToken token)
+        {
+            var connection = Environment.GetEnvironmentVariable("FLYERMONKEY_SQL_CONNECTION")
+                ?? throw new InvalidOperationException("Missing catalogue connection.");
+            var retailerId = await new RetailerRepository(connection).GetRetailerIdByNameAsync(retailer)
+                ?? throw new InvalidOperationException("Retailer was not found.");
+            var location = await new RetailerLocationRepository(connection).GetLocationIdAsync(retailerId, "Butler");
+            return (retailerId, location, await ReviewerSqlBatch.ReadOffersAsync(connection, productId, retailerId, token));
+        }
+
+        private void OfferDecision_Click(object sender, RoutedEventArgs e)
+        {
+            if (_processing || !CanEditCurrentExtraction || sender is not Button { DataContext: ExtractedProduct card } button) return;
+            if (button.Tag is ComboBox { SelectedItem: OfferCandidate { CanReuse: true } candidate }
+                && card.SimilarOffers.Contains(candidate))
+            {
+                card.ConfirmedOfferID = candidate.OfferID;
+                card.OfferReview = OfferReviewChoice.ReuseExisting;
+            }
+            else if (button.Tag is OfferReviewChoice choice)
+            {
+                card.ConfirmedOfferID = null;
+                card.OfferReview = choice;
+            }
         }
         private async void SplitFlyerButton_Click(object sender, RoutedEventArgs e)
         {
@@ -1043,7 +1273,7 @@ var blobConnectionString =
             if (_selectedFlyer == null)
                 return;
 
-            var result = MessageBox.Show(
+            var result = ShowMessage(
                 $"Split this flyer into individual pages?\n\n{_selectedFlyer.FileName}",
                 "Split Flyer",
                 MessageBoxButton.YesNo,
@@ -1119,20 +1349,24 @@ var blobConnectionString =
                     || current.Id != saved.Id)
                     return;
 
+                ShowFlyerDates(products);
+                FlyerValidFromInput.IsReadOnly = FlyerValidToInput.IsReadOnly = saved.Status != "Saved";
                 // Refresh the existing UI collection
                 _products.Clear();
 
                 foreach (var product in products)
                 {
+                    product.CanEditOffer = saved.Status == "Saved";
                     _products.Add(product);
                 }
                 CommitButton.IsEnabled = !_processing && saved.Status == "Saved";
                 SaveDataButton.IsEnabled = !_processing && saved.Status == "Saved";
                 AddOfferButton.IsEnabled = !_processing && saved.Status == "Saved";
+                if (saved.Status == "Saved") _ = RefreshCatalogueMatchesAsync(products);
             }
             catch (Exception ex)
             {
-                MessageBox.Show(
+                ShowMessage(
                     ex.Message,
                     "Could not restore extraction",
                     MessageBoxButton.OK,
@@ -1152,7 +1386,7 @@ var blobConnectionString =
 
             if (savedExtraction != null && savedExtraction.Status != "Saved")
             {
-                MessageBox.Show(savedExtraction.Status == "Committing" ? "Recovery Required. This batch cannot be saved or committed until its SQL outcome is reviewed." : "Committed extractions are inspection-only. SQL correction by ProductID/OfferID is not supported; no insertion or retry will be performed.");
+                ShowMessage(savedExtraction.Status == "Committing" ? "Recovery Required. This batch cannot be saved or committed until its SQL outcome is reviewed." : "Committed extractions are inspection-only. SQL correction by ProductID/OfferID is not supported; no insertion or retry will be performed.");
                 return;
             }
 
@@ -1163,7 +1397,7 @@ var blobConnectionString =
             if (!editingSavedExtraction &&
                 (_selectedFlyer == null || _selectedPage == null))
             {
-                MessageBox.Show(
+                ShowMessage(
                     "Select a flyer and page, or open a saved extraction.",
                     "Save",
                     MessageBoxButton.OK,
@@ -1175,7 +1409,7 @@ var blobConnectionString =
             if (ProductList.ItemsSource
                 is not IEnumerable<ExtractedProduct> products)
             {
-                MessageBox.Show(
+                ShowMessage(
                     "No product data is available to save.",
                     "Save",
                     MessageBoxButton.OK,
@@ -1188,11 +1422,12 @@ var blobConnectionString =
 
             if (productList.Count == 0)
             {
-                MessageBox.Show(
+                ShowMessage(
                     "There is no extracted data to save.");
                 return;
             }
 
+            StoreFlyerDates(productList);
             bool persisted = false;
             try
             {
@@ -1276,6 +1511,8 @@ var blobConnectionString =
             return DiscoverFlyer(flyer).Pages.FirstOrDefault(x => Path.GetFileName(x).Equals(saved.PageFileName, StringComparison.OrdinalIgnoreCase));
         }
         private readonly Func<string, CancellationToken, Task<List<ExtractedProduct>>> _extractProducts;
+        private readonly Func<CancellationToken, Task<List<Product>>> _readCatalogue;
+        private readonly Func<int, string, CancellationToken, Task<(int RetailerId, int? Location, List<Offer> Offers)>> _readOffers;
 
         public MainWindow() : this(DefaultDatabasePath) { }
 
@@ -1283,15 +1520,28 @@ var blobConnectionString =
         public MainWindow(string databasePath,
             Func<string, CancellationToken, Task<List<ExtractedProduct>>>? extractProducts = null,
             bool loadFlyers = true, string? splitRoot = null,
-            Func<string, CancellationToken, Task<byte[]>>? generateClassic = null, string? imageFolder = null)
+            Func<string, CancellationToken, Task<byte[]>>? generateClassic = null, string? imageFolder = null,
+            Func<CancellationToken, Task<List<Product>>>? readCatalogue = null, string? themeSettingsPath = null,
+            Func<int, string, CancellationToken, Task<(int RetailerId, int? Location, List<Offer> Offers)>>? readOffers = null)
         {
             _databasePath = databasePath;
             _generateClassic = generateClassic ?? ((prompt,token) => new ClassicImageGenerationService().GenerateImageAsync(prompt,token));
             _imageFolder = imageFolder ?? @"C:\Users\richa\source\repos\FlyerMonkey\DATA\ProductImages";
             _splitRoot = splitRoot ?? @"C:\Users\richa\source\repos\FlyerMonkey\DATA\Flyers\Split";
             _extractProducts = extractProducts ?? ((path, token) => new ProductExtractorService().ExtractProductsAsync(path, token));
+            _readCatalogue = readCatalogue ?? ReadCatalogueAsync;
+            _readOffers = readOffers ?? ReadOffersForReviewAsync;
+            _themeSettingsPath = themeSettingsPath ?? ReviewerTheme.SettingsPath;
+            _theme = ReviewerTheme.Load(_themeSettingsPath);
             _artworkArchive = new ArtworkArchive(_imageFolder, generateClassic == null ? "OpenAI / gpt-image-1.5" : "Injected provider");
             InitializeComponent();
+            ReviewerTheme.Apply(this, _theme);
+            (_theme switch
+            {
+                ReviewerThemeChoice.Dark => DarkThemeButton,
+                ReviewerThemeChoice.Light => LightThemeButton,
+                _ => MediumThemeButton
+            }).IsChecked = true;
             StatusSpace.DataContext = _progress;
             _progressTimer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(250) };
             _progressTimer.Tick += (_,_) => _progress.RefreshElapsed(); _progressTimer.Start();
@@ -1320,7 +1570,7 @@ var blobConnectionString =
             using var processing = BeginProcessing(false, "Updating flyer status");
             if (processing == null || _selectedFlyer is not { } flyer) return;
             if (!flyer.IsComplete && HasPotentialUnsavedOffers
-                && MessageBox.Show("There may be unsaved edits in the current review. Mark Complete does not save offers or commit them. Continue marking this flyer complete?", "Unsaved edits", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
+                && ShowMessage("There may be unsaved edits in the current review. Mark Complete does not save offers or commit them. Continue marking this flyer complete?", "Unsaved edits", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
             try
             {
                 var split = DiscoverFlyer(flyer);
@@ -1336,33 +1586,37 @@ var blobConnectionString =
         {
             LoadFlyers();
         }
-        private void LoadFlyers()
-        {
-            FlyerList.Items.Clear(); 
-            
-            string incomingFolder =
-                @"C:\Users\richa\source\repos\FlyerMonkey\DATA\Flyers\Incoming";
+        private void LoadFlyers() =>
+            LoadFlyersFrom(@"C:\Users\richa\source\repos\FlyerMonkey\DATA\Flyers\Incoming");
 
+        private void LoadFlyersFrom(string incomingFolder)
+        {
             if (!Directory.Exists(incomingFolder))
             {
-                MessageBox.Show($"Incoming folder not found:\n{incomingFolder}");
+                ShowMessage($"Incoming folder not found:\n{incomingFolder}");
                 return;
             }
 
-            var pdfFiles = Directory.GetFiles(
-    incomingFolder,
-    "*.pdf",
-    SearchOption.AllDirectories);
+            var flyers = Directory.EnumerateFiles(incomingFolder, "*.pdf", SearchOption.AllDirectories)
+                .Select(path => (Flyer: CreateFlyerFromFile(path), Modified: File.GetLastWriteTime(path)))
+                .OrderByDescending(item => item.Flyer.PublicationDateForSort ?? DateOnly.FromDateTime(item.Modified))
+                .ThenByDescending(item => item.Modified)
+                .ThenBy(item => item.Flyer.FileName, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(item => item.Flyer.FullPath, StringComparer.Ordinal)
+                .Select(item => item.Flyer).ToArray();
 
-            foreach (var pdfPath in pdfFiles.OrderByDescending(x => x))
+            var previous = FlyerList.SelectedItem as FlyerFile;
+            var selected = flyers.FirstOrDefault(flyer =>
+                string.Equals(flyer.FullPath, previous?.FullPath, StringComparison.OrdinalIgnoreCase));
+            _refreshingFlyerList = selected is not null;
+            try
             {
-                var flyer = CreateFlyerFromFile(pdfPath);
-
-                if (flyer != null)
-                {
-                    FlyerList.Items.Add(flyer);
-                }
+                FlyerList.Items.Clear();
+                foreach (var flyer in flyers)
+                    FlyerList.Items.Add(ReferenceEquals(flyer, selected) ? previous! : flyer);
+                if (selected is not null) FlyerList.SelectedItem = previous;
             }
+            finally { _refreshingFlyerList = false; }
             foreach (var flyer in FlyerList.Items.OfType<FlyerFile>()) RefreshFlyerStatus(flyer);
         }
 
@@ -1388,21 +1642,6 @@ var blobConnectionString =
                 FileName = fileName,
                 FullPath = pdfPath
             };
-            try
-            {
-                using var document = new PdfLoadedDocument(pdfPath);
-
-                int pageCount = document.Pages.Count;
-
-                flyer.PageDescription =
-                    pageCount == 1
-                        ? "1 page"
-                        : $"{pageCount} pages";
-            }
-            catch
-            {
-                flyer.PageDescription = "Pages unknown";
-            }
             string[] parts = nameWithoutExtension.Split('_');
 
             // Current retailer filenames both contain ddMMyy.
@@ -1422,6 +1661,26 @@ var blobConnectionString =
                     out DateTime flyerDate))
             {
                 flyer.FlyerDate = flyerDate.ToString("dd MMM yyyy");
+                var knownName = (retailerFolder.Equals("Coles", StringComparison.OrdinalIgnoreCase)
+                    && nameWithoutExtension.StartsWith("COLWAMETRO_", StringComparison.OrdinalIgnoreCase))
+                    || (retailerFolder.Equals("Woolworths", StringComparison.OrdinalIgnoreCase)
+                    && nameWithoutExtension.StartsWith("WW_", StringComparison.OrdinalIgnoreCase));
+                if (knownName) flyer.PublicationDateForSort = DateOnly.FromDateTime(flyerDate);
+            }
+
+            try
+            {
+                using var document = new PdfLoadedDocument(pdfPath);
+                var pageCount = document.Pages.Count;
+                flyer.PageDescription = pageCount == 1 ? "1 page" : $"{pageCount} pages";
+                if (flyer.PublicationDateForSort is null && pageCount > 0
+                    && ReviewerOffer.PrintedDates(document.Pages[0].ExtractText()) is { } printed
+                    && ReviewerOffer.TryDates(printed.From, printed.To, out var start, out _))
+                    flyer.PublicationDateForSort = start;
+            }
+            catch
+            {
+                // A missing or unreadable cover leaves file time as the sort fallback.
             }
 
             return flyer;

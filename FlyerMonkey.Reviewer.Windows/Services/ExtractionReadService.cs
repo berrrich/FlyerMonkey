@@ -148,6 +148,32 @@ public sealed class ExtractionReadService
 
         return JsonSerializer.Deserialize<List<ExtractedProduct>>(json);
     }
+
+    public async Task<(string From, string To)?> GetFlyerDatesAsync(string retailer, string flyerFileName)
+    {
+        await using var connection = new SqliteConnection(_connectionString);
+        await connection.OpenAsync();
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT DISTINCT json_extract(card.value, '$.FlyerValidFrom'), json_extract(card.value, '$.FlyerValidTo')
+            FROM ExtractionRuns run, json_each(run.ExtractedJson) card
+            WHERE run.Retailer = $retailer AND run.FlyerFileName = $flyer
+              AND run.Status IN ('Saved', 'Committed')
+              AND json_valid(run.ExtractedJson)
+            """;
+        command.Parameters.AddWithValue("$retailer", retailer);
+        command.Parameters.AddWithValue("$flyer", flyerFileName);
+        await using var reader = await command.ExecuteReaderAsync();
+        (string From, string To)? result = null;
+        while (await reader.ReadAsync())
+        {
+            if (!ReviewerOffer.TryDates(reader[0] as string, reader[1] as string, out var from, out var to)) continue;
+            if (result.HasValue) return null;
+            result = (from.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture),
+                to.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture));
+        }
+        return result;
+    }
     public async Task<List<SavedExtraction>> GetExtractionStatesAsync()
     {
         var results = new List<SavedExtraction>();

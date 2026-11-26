@@ -10,6 +10,11 @@ public static string? FieldError(ExtractedProduct p, string field) => field swit
         nameof(p.Price) when string.IsNullOrWhiteSpace(p.Price) => "Advertised price is required.",
         nameof(p.Price) when ParseMoney(p.Price) is not decimal amount || amount < 0 => "Advertised price must be a valid non-negative amount.",
         nameof(p.OfferQuantity) when p.OfferQuantity is <= 0 => "Offer quantity must be positive when supplied.",
+        nameof(p.MemberPrice) when !string.IsNullOrWhiteSpace(p.MemberPrice)
+            && (ParseMoney(p.MemberPrice) is not decimal member || member < 0) => "Member price must be a valid non-negative amount.",
+        nameof(p.MultiBuyPrice) when !string.IsNullOrWhiteSpace(p.MultiBuyPrice)
+            && (p.OfferQuantity is not > 1 || ParseMoney(p.MultiBuyPrice) is not decimal total || total < 0) =>
+            "Multi-buy total requires a valid price and an offer quantity greater than one.",
         _ => null
     };
     public static List<string> ValidateBatch(IEnumerable<ExtractedProduct> products)
@@ -18,7 +23,8 @@ public static string? FieldError(ExtractedProduct p, string field) => field swit
         int index = 0;
         foreach (var p in products) {
             index++;
-            foreach (var field in new[] { nameof(p.ProductName), nameof(p.Price), nameof(p.OfferQuantity) })
+            foreach (var field in new[] { nameof(p.ProductName), nameof(p.Price), nameof(p.OfferQuantity),
+                nameof(p.MemberPrice), nameof(p.MultiBuyPrice) })
                 if (FieldError(p, field) is string error) errors.Add($"Product {index} ({p.ProductName}): {error}");
         }
         if (index == 0) errors.Add("At least one product is required.");
@@ -47,7 +53,7 @@ public static string? FieldError(ExtractedProduct p, string field) => field swit
             product.CalculatedRegularPrice = null;
         }
     }
-    private static decimal? ParseMoney(string? value)
+    internal static decimal? ParseMoney(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
             return null;

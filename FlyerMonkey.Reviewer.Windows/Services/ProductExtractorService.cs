@@ -61,12 +61,19 @@ Return ONLY valid JSON in this exact shape:
     "saving": "string",
     "unitPrice": "string",
 "offerQuantity": null,
-    "promotion": "string"
+    "promotion": "exact printed promotion terms, including bonuses and eligibility",
+    "flyerValidFrom": "YYYY-MM-DD or empty",
+    "flyerValidTo": "YYYY-MM-DD or empty",
+    "memberOnly": false,
+    "memberPrice": "explicit member price or empty",
+    "multiBuyPrice": "explicit total multi-buy price or empty"
   }
 ]
 
 Rules:
 - Do not invent values.
+- Supply flyer dates only when an explicit start and end date with a year are printed on this page. Never infer the window from today's date.
+- Capture all applicable bonus credits, eligibility, membership, purchase limits and multi-buy conditions in promotion, including relevant footnote references. Put explicit member-only eligibility, member price and multi-buy total in their structured fields as well.
 - Use an empty string if a field is not visible.
 - Keep productName focused on the core product name, not the full advertisement sentence.
 - Prefer the printed flyer product description for productName when one is visible; use wording on the product packaging to supplement brand and variant.
@@ -125,15 +132,6 @@ When reference product packaging is visible:
     products ?? new List<ExtractedProduct>();
 
         foreach (var product in result) { product.PackSizeManuallyCorrected = false; ExtractionNormalizationService.NormalizeFresh(product); }
-
-        // 🐒 Strawberry operates here
-        string databasePath =
-            @"C:\Users\richa\source\repos\FlyerMonkey\DATA\FlyerMonkey.db";
-
-        var duplicateService =
-            new ProductDuplicateService(databasePath);
-
-        await duplicateService.CheckAsync(result);
 
         return result;
     }

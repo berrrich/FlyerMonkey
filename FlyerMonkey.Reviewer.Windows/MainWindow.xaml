@@ -1,11 +1,5 @@
-<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:local="clr-namespace:FlyerMonkey.Reviewer.Windows" x:Class="FlyerMonkey.Reviewer.Windows.MainWindow" Title="Flyer Monkey Reviewer" Height="800" Width="1400" WindowStartupLocation="CenterScreen" UseLayoutRounding="True" SnapsToDevicePixels="True">
-    <Window.Resources>
-        <!-- Shared extraction status colours -->
-        <SolidColorBrush x:Key="SavedStatusBrush" Color="#70B8F0"/>
-        <SolidColorBrush x:Key="CommittedStatusBrush" Color="#8BD49B"/>
-        <SolidColorBrush x:Key="CommittedBorderBrush" Color="#54AD69"/>
-    </Window.Resources>
-    <Grid Background="#F3F3F3" ClipToBounds="True">
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:services="clr-namespace:FlyerMonkey.Reviewer.Windows.Services" xmlns:identity="clr-namespace:SQLServerConnection.Data;assembly=SQLServerConnection" xmlns:local="clr-namespace:FlyerMonkey.Reviewer.Windows" x:Class="FlyerMonkey.Reviewer.Windows.MainWindow" Title="Flyer Monkey Reviewer" Height="800" Width="1400" WindowStartupLocation="CenterScreen" UseLayoutRounding="True" SnapsToDevicePixels="True">
+    <Grid Background="{DynamicResource ReviewerCanvas}" ClipToBounds="True">
         <Grid.ColumnDefinitions>
             <ColumnDefinition x:Name="FlyerColumn" Width="300"/>
             <ColumnDefinition x:Name="PagesColumn" Width="240"/>
@@ -15,9 +9,9 @@
             <!-- Saved -->
         </Grid.ColumnDefinitions>
         <!-- Left flyer column -->
-        <Border Grid.Column="0" Background="White" BorderBrush="#D0D0D0" BorderThickness="0,0,1,0">
+        <Border Grid.Column="0" Background="{DynamicResource ReviewerPanel}" BorderBrush="{DynamicResource ReviewerBorder}" BorderThickness="0,0,1,0">
             <DockPanel>
-                <Border DockPanel.Dock="Top" Padding="16" BorderBrush="#E0E0E0" BorderThickness="0,0,0,1">
+                <Border DockPanel.Dock="Top" Padding="16" BorderBrush="{DynamicResource ReviewerBorder}" BorderThickness="0,0,0,1">
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
@@ -28,14 +22,23 @@
                     </Grid>
                 </Border>
                 <ListBox x:Name="FlyerList" Margin="10" BorderThickness="0" Background="Transparent" SelectionChanged="FlyerList_SelectionChanged">
-                    <ListBox.ItemContainerStyle><Style TargetType="ListBoxItem"><Setter Property="HorizontalContentAlignment" Value="Stretch"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ListBoxItem"><Border x:Name="SelectionFrame" BorderThickness="3" BorderBrush="Transparent" Padding="2"><ContentPresenter/></Border><ControlTemplate.Triggers><Trigger Property="IsSelected" Value="True"><Setter TargetName="SelectionFrame" Property="BorderBrush" Value="#174EA6"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style></ListBox.ItemContainerStyle><ListBox.ItemTemplate>
+                    <ListBox.ItemContainerStyle><Style TargetType="ListBoxItem"><Setter Property="HorizontalContentAlignment" Value="Stretch"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ListBoxItem"><Border x:Name="SelectionFrame" BorderThickness="3" BorderBrush="Transparent" Padding="2"><ContentPresenter/></Border><ControlTemplate.Triggers><Trigger Property="IsSelected" Value="True"><Setter TargetName="SelectionFrame" Property="BorderBrush" Value="{DynamicResource ReviewerAccent}"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style></ListBox.ItemContainerStyle><ListBox.ItemTemplate>
                         <DataTemplate>
-                            <Border Margin="0,0,0,10" Padding="12" BorderBrush="#D8D8D8" BorderThickness="1" CornerRadius="6" Background="{Binding StatusColour}" ToolTip="{Binding StatusWarning}">
+                            <Border Margin="0,0,0,10" Padding="12" BorderBrush="{DynamicResource ReviewerBorder}" BorderThickness="1" CornerRadius="6" ToolTip="{Binding StatusWarning}">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Setter Property="Background" Value="{DynamicResource ReviewerPanel}"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding StatusColour}" Value="#70B8F0"><Setter Property="Background" Value="{DynamicResource ReviewerSaved}"/></DataTrigger>
+                                            <DataTrigger Binding="{Binding IsComplete}" Value="True"><Setter Property="Background" Value="{DynamicResource ReviewerCommitted}"/></DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
                                 <StackPanel>
                                     <TextBlock Text="{Binding Retailer}" FontSize="16" FontWeight="SemiBold"/>
-                                    <TextBlock Text="{Binding FlyerDate}" Margin="0,4,0,0" Foreground="#555555"/>
-                                    <TextBlock Text="{Binding PageDescription}" Margin="0,3,0,0" Foreground="#777777"/>
-                                    <TextBlock Text="{Binding FileName}" Margin="0,8,0,0" FontSize="11" Foreground="#000" TextWrapping="Wrap"/>
+                                    <TextBlock Text="{Binding FlyerDate}" Margin="0,4,0,0" Foreground="{DynamicResource ReviewerMuted}"/>
+                                    <TextBlock Text="{Binding PageDescription}" Margin="0,3,0,0" Foreground="{DynamicResource ReviewerMuted}"/>
+                                    <TextBlock Text="{Binding FileName}" Margin="0,8,0,0" FontSize="11" Foreground="{DynamicResource ReviewerText}" TextWrapping="Wrap"/>
                                 </StackPanel>
                             </Border>
                         </DataTemplate>
@@ -44,34 +47,34 @@
             </DockPanel>
         </Border>
         <!-- Selected flyer column pages -->
-        <Border Grid.Column="1" Background="White" BorderBrush="#D0D0D0" BorderThickness="0,0,1,0">
+        <Border Grid.Column="1" Background="{DynamicResource ReviewerPanel}" BorderBrush="{DynamicResource ReviewerBorder}" BorderThickness="0,0,1,0">
             <DockPanel>
-                <Border DockPanel.Dock="Top" Padding="20" BorderBrush="#E0E0E0" BorderThickness="0,0,0,1">
+                <Border DockPanel.Dock="Top" Padding="20" BorderBrush="{DynamicResource ReviewerBorder}" BorderThickness="0,0,0,1">
                     <TextBlock Text="PAGES" FontSize="18" FontWeight="SemiBold"/>
                 </Border>
                 <ListBox x:Name="PageList" Margin="10" BorderThickness="0" Background="Transparent" SelectionChanged="PageList_SelectionChanged">
                     <ListBox.ItemTemplate>
                         <DataTemplate>
-                            <Border Margin="0,0,0,8" Padding="12" BorderBrush="#D8D8D8" BorderThickness="1" CornerRadius="6">
+                            <Border Margin="0,0,0,8" Padding="12" BorderBrush="{DynamicResource ReviewerBorder}" BorderThickness="1" CornerRadius="6">
                                 <Border.Style>
                                     <Style TargetType="Border">
-                                        <Setter Property="Background" Value="White"/>
+                                        <Setter Property="Background" Value="{DynamicResource ReviewerPanel}"/>
                                         <Style.Triggers>
                                             <DataTrigger Binding="{Binding ExtractionStatus}" Value="Saved">
-                                                <Setter Property="Background" Value="{StaticResource SavedStatusBrush}"/>
+                                                <Setter Property="Background" Value="{DynamicResource ReviewerSaved}"/>
                                             </DataTrigger>
                                             <DataTrigger Binding="{Binding ExtractionStatus}" Value="Committed">
-                                                <Setter Property="Background" Value="{StaticResource CommittedStatusBrush}"/>
+                                                <Setter Property="Background" Value="{DynamicResource ReviewerCommitted}"/>
                                             </DataTrigger>
                                         </Style.Triggers>
                                     </Style>
                                 </Border.Style>
                                 <StackPanel>
-                                    <Border Width="160" Height="200" Margin="0,0,0,10" Background="#F2F2F2" BorderBrush="#DDDDDD" BorderThickness="1">
+                                    <Border Width="160" Height="200" Margin="0,0,0,10" Background="{DynamicResource ReviewerSurface}" BorderBrush="{DynamicResource ReviewerBorder}" BorderThickness="1">
                                         <Image Source="{Binding Thumbnail}" Stretch="Uniform"/>
                                     </Border>
                                     <TextBlock Text="{Binding DisplayName}" FontSize="16" FontWeight="SemiBold"/>
-                                    <TextBlock Text="{Binding FileName}" Margin="0,5,0,0" FontSize="11" Foreground="#000" TextWrapping="Wrap"/>
+                                    <TextBlock Text="{Binding FileName}" Margin="0,5,0,0" FontSize="11" Foreground="{DynamicResource ReviewerText}" TextWrapping="Wrap"/>
                                 </StackPanel>
                             </Border>
                         </DataTemplate>
@@ -80,12 +83,12 @@
             </DockPanel>
         </Border>
         <!-- Extracted product data -->
-        <Border Grid.Column="2" Background="White" BorderBrush="#D0D0D0" BorderThickness="0,0,1,0" Padding="0">
+        <Border Grid.Column="2" Background="{DynamicResource ReviewerPanel}" BorderBrush="{DynamicResource ReviewerBorder}" BorderThickness="0,0,1,0" Padding="0">
             <DockPanel>
                 <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,10,0,0">
                     <Button x:Name="SaveDataButton" Content="Save" Width="120" Height="38" Margin="5" Click="SaveDataButton_Click"/>
                 </StackPanel>
-                <Border DockPanel.Dock="Top" Padding="16" BorderBrush="#E0E0E0" BorderThickness="0,0,0,1">
+                <Border DockPanel.Dock="Top" Padding="16" BorderBrush="{DynamicResource ReviewerBorder}" BorderThickness="0,0,0,1">
                 <Grid DockPanel.Dock="Top" Margin="0,0,0,0">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
@@ -96,13 +99,13 @@
                 </Grid>
                 </Border>
                 <StackPanel DockPanel.Dock="Top" Margin="10,4">
-                    <TextBlock x:Name="EditingContextText" TextWrapping="Wrap" Foreground="#8A4100" FontSize="11"/>
+                    <TextBlock x:Name="EditingContextText" TextWrapping="Wrap" Foreground="{DynamicResource ReviewerWarningText}" FontSize="11"/>
                     <Border x:Name="StatusSpace" Padding="5" Margin="0,4,0,0" CornerRadius="3">
-                        <Border.Style><Style TargetType="Border"><Setter Property="Background" Value="#EFF3F7"/><Style.Triggers>
-                            <DataTrigger Binding="{Binding State}" Value="Running"><Setter Property="Background" Value="#FFF1BE"/></DataTrigger>
-                            <DataTrigger Binding="{Binding State}" Value="Success"><Setter Property="Background" Value="#E5F3E6"/></DataTrigger>
-                            <DataTrigger Binding="{Binding State}" Value="Failure"><Setter Property="Background" Value="#FCE5E5"/></DataTrigger>
-                            <DataTrigger Binding="{Binding State}" Value="Cancelled"><Setter Property="Background" Value="#FFF1D9"/></DataTrigger>
+                        <Border.Style><Style TargetType="Border"><Setter Property="Background" Value="{DynamicResource ReviewerSurface}"/><Style.Triggers>
+                            <DataTrigger Binding="{Binding State}" Value="Running"><Setter Property="Background" Value="{DynamicResource ReviewerRunning}"/></DataTrigger>
+                            <DataTrigger Binding="{Binding State}" Value="Success"><Setter Property="Background" Value="{DynamicResource ReviewerCommitted}"/></DataTrigger>
+                            <DataTrigger Binding="{Binding State}" Value="Failure"><Setter Property="Background" Value="{DynamicResource ReviewerError}"/></DataTrigger>
+                            <DataTrigger Binding="{Binding State}" Value="Cancelled"><Setter Property="Background" Value="{DynamicResource ReviewerWarning}"/></DataTrigger>
                         </Style.Triggers></Style></Border.Style>
                         <StackPanel>
                             <DockPanel><TextBlock DockPanel.Dock="Right" Text="{Binding Timing}" FontSize="10" Margin="4,0,0,0"/>
@@ -126,8 +129,8 @@ PreviewMouseWheel="ProductList_PreviewMouseWheel" BorderThickness="0" Background
 
                             <Style.Triggers>
                                 <Trigger Property="IsSelected" Value="True">
-                                    <Setter Property="Background" Value="#DCEBFF"/>
-                                    <Setter Property="BorderBrush" Value="#3478D4"/>
+                                    <Setter Property="Background" Value="{DynamicResource ReviewerSelection}"/>
+                                    <Setter Property="BorderBrush" Value="{DynamicResource ReviewerAccent}"/>
                                     <Setter Property="BorderThickness" Value="2"/>
                                 </Trigger>
                             </Style.Triggers>
@@ -137,15 +140,15 @@ PreviewMouseWheel="ProductList_PreviewMouseWheel" BorderThickness="0" Background
                     <ListBox.ItemTemplate>
                         <DataTemplate>
                             <Border BorderThickness="1" Padding="10" Margin="0,0,0,8" ToolTip="{Binding Error}">
-                                <Border.Style><Style TargetType="Border"><Setter Property="BorderBrush" Value="#DDD"/><Style.Triggers><DataTrigger Binding="{Binding HasErrors}" Value="True"><Setter Property="BorderBrush" Value="#C62828"/><Setter Property="Background" Value="#FFF3F3"/></DataTrigger></Style.Triggers></Style></Border.Style>
+                                <Border.Style><Style TargetType="Border"><Setter Property="BorderBrush" Value="{DynamicResource ReviewerBorder}"/><Style.Triggers><DataTrigger Binding="{Binding HasErrors}" Value="True"><Setter Property="BorderBrush" Value="{DynamicResource ReviewerErrorBorder}"/><Setter Property="Background" Value="{DynamicResource ReviewerError}"/></DataTrigger></Style.Triggers></Style></Border.Style>
                                 <StackPanel>
                                     <Grid Margin="0,0,0,8">
                                         <TextBlock x:Name="ProductNameDisplay" ToolTip="&#x270E; Click to edit product name" Text="{Binding ProductName}" FontWeight="Bold" FontSize="16" TextWrapping="Wrap" Cursor="Hand" MouseLeftButtonUp="EditableField_Click"><TextBlock.Style><Style TargetType="TextBlock"><Style.Triggers><DataTrigger Binding="{Binding [ProductName]}" Value=""><Setter Property="Background" Value="Transparent"/></DataTrigger><DataTrigger Binding="{Binding HasErrors}" Value="True"><Setter Property="ToolTip" Value="{Binding [ProductName]}"/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock>
                                         <Button Content="🗑" Width="32" Height="32" HorizontalAlignment="Right" VerticalAlignment="Top" ToolTip="Delete offer" Tag="{Binding}" Click="DeleteOfferButton_Click"/>
                                         <TextBox x:Name="ProductNameEditor" Text="{Binding ProductName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged, ValidatesOnDataErrors=True}" FontWeight="Bold" FontSize="16" TextWrapping="Wrap" Visibility="Collapsed" LostFocus="EditableField_LostFocus" KeyDown="EditableField_KeyDown"/>
                                     </Grid>
-                                    <Border Background="#F2F2F2" Padding="6" Margin="0,8,0,8">
-                                        <Grid Margin="0,8,0,8" Background="#ededed">
+                                    <Border Background="{DynamicResource ReviewerSurface}" Padding="6" Margin="0,8,0,8">
+                                        <Grid Margin="0,8,0,8" Background="{DynamicResource ReviewerSurface}">
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="Auto"/>
                                                 <ColumnDefinition Width="*"/>
@@ -260,23 +263,106 @@ PreviewMouseWheel="ProductList_PreviewMouseWheel" BorderThickness="0" Background
            Text="{Binding PromotionTypesDisplay}"
            TextWrapping="Wrap"
            FontWeight="Bold"
-           Foreground="#3478D4"/>
+           Foreground="{DynamicResource ReviewerAccent}"/>
 
 
                                         </Grid>
                                     </Border>
-                                    <TextBlock Text="ⓘ Existing product" FontWeight="Bold" Margin="0,6,0,8" Foreground="Blue">
-                                        <TextBlock.Style>
-                                            <Style TargetType="TextBlock">
-                                                <Setter Property="Visibility" Value="Collapsed"/>
-                                                <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding PossibleDuplicate}" Value="True">
-                                                        <Setter Property="Visibility" Value="Visible"/>
-                                                    </DataTrigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </TextBlock.Style>
-                                    </TextBlock>
+                                    <TextBlock Text="{Binding CatalogueStatus}" TextWrapping="Wrap" Margin="0,6,0,0"/>
+                                    <Expander Header="Catalogue matches and decision" Margin="0,4">
+                                        <StackPanel>
+                                            <Button Content="Check catalogue" Click="CheckCatalogue_Click"
+                                                    IsEnabled="{Binding CanCheckCatalogue}" Margin="0,2"/>
+                                            <ComboBox x:Name="CatalogueCandidateList" ItemsSource="{Binding CatalogueCandidates}"
+                                                      AutomationProperties.Name="Catalogue candidates" Margin="0,2">
+                                                <ComboBox.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <TextBlock>
+                                                            <Run Text="{Binding ProductID, Mode=OneWay}"/>
+                                                            <Run Text="{Binding Relationship, Mode=OneWay}"/>
+                                                        </TextBlock>
+                                                    </DataTemplate>
+                                                </ComboBox.ItemTemplate>
+                                            </ComboBox>
+                                            <ContentControl Content="{Binding SelectedItem, ElementName=CatalogueCandidateList}">
+                                                <ContentControl.ContentTemplate>
+                                                    <DataTemplate>
+                                                        <StackPanel Margin="0,3">
+                                                            <TextBlock Text="{Binding Name}" FontWeight="Bold" TextWrapping="Wrap"/>
+                                                            <TextBlock Text="{Binding Brand, StringFormat='Brand {0}'}" TextWrapping="Wrap"/>
+                                                            <TextBlock Text="{Binding Variant, StringFormat='Variant {0}'}" TextWrapping="Wrap"/>
+                                                            <TextBlock Text="{Binding PackSizeText, StringFormat='Pack {0}'}" TextWrapping="Wrap"/>
+                                                            <TextBlock Text="{Binding Barcode, StringFormat='Barcode {0}'}" TextWrapping="Wrap"/>
+                                                        </StackPanel>
+                                                    </DataTemplate>
+                                                </ContentControl.ContentTemplate>
+                                            </ContentControl>
+                                            <Button Content="Reuse selected ProductID" Click="CatalogueDecision_Click"
+                                                    Tag="{Binding ElementName=CatalogueCandidateList}" Margin="0,2">
+                                                <Button.Style>
+                                                    <Style TargetType="Button">
+                                                        <Setter Property="IsEnabled" Value="False"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding SelectedItem.CanReuse, ElementName=CatalogueCandidateList}" Value="True">
+                                                                <Setter Property="IsEnabled" Value="True"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Button.Style>
+                                            </Button>
+                                            <Button Content="Keep as separate product" Click="CatalogueDecision_Click"
+                                                    Tag="{x:Static identity:ProductReviewChoice.KeepSeparate}" Margin="0,2"/>
+                                            <Button Content="Review later" Click="CatalogueDecision_Click"
+                                                    Tag="{x:Static identity:ProductReviewChoice.ReviewLater}" Margin="0,2"/>
+                                            <Button Content="Use automatic matching" Click="CatalogueDecision_Click"
+                                                    Tag="{x:Static identity:ProductReviewChoice.Automatic}" Margin="0,2"/>
+                                        </StackPanel>
+                                    </Expander>
+                                    <TextBlock Text="{Binding CatalogueDecisionText}" TextWrapping="Wrap" Margin="0,0,0,6"/>
+                                    <TextBlock Text="{Binding OfferMatchStatus}" TextWrapping="Wrap"/>
+                                    <TextBlock Text="{Binding OfferDecisionText}" TextWrapping="Wrap"/>
+                                    <Expander Header="Similar offers" Margin="0,4" IsEnabled="{Binding CanEditOffer}">
+                                        <StackPanel>
+                                            <Button Content="Check existing offers" Click="CheckOffers_Click"
+                                                    IsEnabled="{Binding CanCheckOffers}" Tag="{Binding ElementName=CatalogueCandidateList}" Margin="0,3"/>
+                                            <ComboBox x:Name="SimilarOfferList" ItemsSource="{Binding SimilarOffers}"
+                                                      AutomationProperties.Name="Existing offers">
+                                                <ComboBox.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <TextBlock>
+                                                            <Run Text="{Binding OfferID, Mode=OneWay}"/>
+                                                            <Run Text="{Binding Relationship, Mode=OneWay}"/>
+                                                        </TextBlock>
+                                                    </DataTemplate>
+                                                </ComboBox.ItemTemplate>
+                                            </ComboBox>
+                                            <TextBlock Text="{Binding SelectedItem.Details, ElementName=SimilarOfferList}"
+                                                       TextWrapping="Wrap" Margin="0,4"/>
+                                            <Button Content="Reuse selected OfferID" Click="OfferDecision_Click"
+                                                    Tag="{Binding ElementName=SimilarOfferList}" Margin="0,2">
+                                                <Button.Style>
+                                                    <Style TargetType="Button">
+                                                        <Setter Property="IsEnabled" Value="False"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding SelectedItem.CanReuse, ElementName=SimilarOfferList}" Value="True">
+                                                                <Setter Property="IsEnabled" Value="True"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Button.Style>
+                                            </Button>
+                                            <Button Content="Keep as distinct offer" Click="OfferDecision_Click"
+                                                    Tag="{x:Static identity:OfferReviewChoice.KeepDistinct}" Margin="0,2"/>
+                                            <Button Content="Review offer later" Click="OfferDecision_Click"
+                                                    Tag="{x:Static identity:OfferReviewChoice.ReviewLater}" Margin="0,2"/>
+                                            <Separator/>
+                                            <CheckBox Content="Member only" IsChecked="{Binding MemberOnly}" Margin="0,3"/>
+                                            <Label Content="Member price" Target="{Binding ElementName=MemberPriceInput}"/>
+                                            <TextBox x:Name="MemberPriceInput" Text="{Binding MemberPrice, UpdateSourceTrigger=PropertyChanged, ValidatesOnDataErrors=True}"/>
+                                            <Label Content="Multi-buy total" Target="{Binding ElementName=MultiBuyPriceInput}"/>
+                                            <TextBox x:Name="MultiBuyPriceInput" Text="{Binding MultiBuyPrice, UpdateSourceTrigger=PropertyChanged, ValidatesOnDataErrors=True}"/>
+                                        </StackPanel>
+                                    </Expander>
                                     <Button x:Name="CraterItButton" Content="{Binding ImageActionText}" IsEnabled="{Binding CanCrater}" Width="140" Height="42" Margin="5" Tag="{Binding}" Click="CraterItButton_Click"/>
                                     <TextBlock Text="{Binding CraterStatus}" TextWrapping="Wrap" Margin="5,0"/>
                                     <Button Content="Cancel image" Tag="{Binding}" Click="CancelCrater_Click" Margin="5" Padding="8,4">
@@ -294,12 +380,61 @@ PreviewMouseWheel="ProductList_PreviewMouseWheel" BorderThickness="0" Background
         </Border>
         <!-- Generated product image -->
         <!-- Page preview -->
-        <Border Grid.Column="3" Margin="10" Padding="15" BorderBrush="#DDD" BorderThickness="1" CornerRadius="8">
+        <Border Grid.Column="3" Margin="10" Padding="15" BorderBrush="{DynamicResource ReviewerBorder}" BorderThickness="1" CornerRadius="8">
             <DockPanel>
-                <TextBlock DockPanel.Dock="Top" Text="PAGE REVIEW" FontSize="20" FontWeight="Bold" Margin="0,0,0,15"/>
+                <DockPanel DockPanel.Dock="Top" Margin="0,0,0,15">
+                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                        <StackPanel.Resources>
+                            <Style TargetType="RadioButton">
+                                <Setter Property="Width" Value="28"/>
+                                <Setter Property="Height" Value="28"/>
+                                <Setter Property="FontSize" Value="16"/>
+                                <Setter Property="Foreground" Value="{DynamicResource ReviewerText}"/>
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="RadioButton">
+                                            <Border x:Name="ThemeFrame" Background="Transparent" BorderBrush="Transparent"
+                                                    BorderThickness="1" CornerRadius="4">
+                                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="ThemeFrame" Property="Background" Value="{DynamicResource ReviewerSurface}"/>
+                                                </Trigger>
+                                                <Trigger Property="IsChecked" Value="True">
+                                                    <Setter TargetName="ThemeFrame" Property="Background" Value="{DynamicResource ReviewerSelection}"/>
+                                                    <Setter TargetName="ThemeFrame" Property="BorderBrush" Value="{DynamicResource ReviewerBorder}"/>
+                                                </Trigger>
+                                                <Trigger Property="IsKeyboardFocused" Value="True">
+                                                    <Setter TargetName="ThemeFrame" Property="BorderBrush" Value="{DynamicResource ReviewerAccent}"/>
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </StackPanel.Resources>
+                        <RadioButton x:Name="DarkThemeButton" GroupName="ReviewerTheme" Content="&#x263E;" ToolTip="Dark theme"
+                                     AutomationProperties.Name="Dark theme" Tag="{x:Static services:ReviewerThemeChoice.Dark}" Click="Theme_Click" Margin="4,0"/>
+                        <RadioButton x:Name="MediumThemeButton" GroupName="ReviewerTheme" Content="&#x25D0;" ToolTip="Medium theme"
+                                     AutomationProperties.Name="Medium theme" Tag="{x:Static services:ReviewerThemeChoice.Medium}" Click="Theme_Click" Margin="4,0"/>
+                        <RadioButton x:Name="LightThemeButton" GroupName="ReviewerTheme" Content="&#x2600;" ToolTip="Light theme"
+                                     AutomationProperties.Name="Light theme" Tag="{x:Static services:ReviewerThemeChoice.Light}" Click="Theme_Click" Margin="4,0"/>
+                    </StackPanel>
+                    <TextBlock Text="PAGE REVIEW" FontSize="20" FontWeight="Bold" TextWrapping="Wrap"/>
+                </DockPanel>
                 <StackPanel x:Name="PageActions" DockPanel.Dock="Bottom" Margin="0,15,0,0">
+                    <Expander Header="Flyer validity" Margin="0,0,0,6">
+                        <StackPanel>
+                            <TextBlock Text="Confirm the printed dates (yyyy-MM-dd) before Commit." TextWrapping="Wrap"/>
+                            <Label Content="First day" Target="{Binding ElementName=FlyerValidFromInput}"/>
+                            <TextBox x:Name="FlyerValidFromInput" TextChanged="FlyerDatesChanged"/>
+                            <Label Content="Last day" Target="{Binding ElementName=FlyerValidToInput}"/>
+                            <TextBox x:Name="FlyerValidToInput" TextChanged="FlyerDatesChanged"/>
+                        </StackPanel>
+                    </Expander>
                     <Button x:Name="CancelProcessingButton" Content="Cancel extraction" IsEnabled="False" Height="38" Margin="0,0,0,6" Click="CancelProcessing_Click" ToolTip="Cancel local image generation or extraction. Provider processing may already have occurred. Save, Split and Commit cannot be cancelled."/>
-                    <TextBlock x:Name="FlyerStatusWarning" TextWrapping="Wrap" Foreground="#8A4100" Margin="0,0,0,6"/>
+                    <TextBlock x:Name="FlyerStatusWarning" TextWrapping="Wrap" Foreground="{DynamicResource ReviewerWarningText}" Margin="0,0,0,6"/>
                     <Button x:Name="FlyerCompletionButton" Content="Mark Complete" Height="38" Margin="0,0,0,6" Click="FlyerCompletion_Click"/>
                     <Button x:Name="SplitFlyerButton" Content="Split Flyer" Height="38" Margin="0,0,0,6" Click="SplitFlyerButton_Click"/>
                     <Button x:Name="GetDataButton" Content="Get Data" Height="38" Visibility="Collapsed" Click="GetDataButton_Click"/>
@@ -310,7 +445,7 @@ PreviewMouseWheel="ProductList_PreviewMouseWheel" BorderThickness="0" Background
             </DockPanel>
         </Border>
         <!-- Saved Extraction Runs -->
-        <Border Grid.Column="4" Background="White" BorderBrush="#D0D0D0" BorderThickness="1,0,0,0">
+        <Border Grid.Column="4" Background="{DynamicResource ReviewerPanel}" BorderBrush="{DynamicResource ReviewerBorder}" BorderThickness="1,0,0,0">
             <DockPanel>
                 <!-- Commit button stays at bottom -->
                 <StackPanel DockPanel.Dock="Bottom" Margin="10">
@@ -322,17 +457,17 @@ PreviewMouseWheel="ProductList_PreviewMouseWheel" BorderThickness="0" Background
                 <ListBox x:Name="SavedExtractionList" BorderThickness="0" Background="Transparent" HorizontalContentAlignment="Stretch" SelectionMode="Single" SelectionChanged="SavedExtractionList_SelectionChanged">
                     <ListBox.ItemTemplate>
                         <DataTemplate>
-                            <Border BorderBrush="#DDD" BorderThickness="1" Padding="10" Margin="0,0,0,8">
+                            <Border BorderBrush="{DynamicResource ReviewerBorder}" BorderThickness="1" Padding="10" Margin="0,0,0,8">
                                 <Border.Style>
                                     <Style TargetType="Border">
-                                        <Setter Property="Background" Value="{StaticResource SavedStatusBrush}"/>
+                                        <Setter Property="Background" Value="{DynamicResource ReviewerSaved}"/>
                                         <Style.Triggers>
                                             <DataTrigger Binding="{Binding Status}" Value="Committed">
-                                                <Setter Property="Background" Value="{StaticResource CommittedStatusBrush}"/>
-                                                <Setter Property="BorderBrush" Value="{StaticResource CommittedBorderBrush}"/>
+                                                <Setter Property="Background" Value="{DynamicResource ReviewerCommitted}"/>
+                                                <Setter Property="BorderBrush" Value="{DynamicResource ReviewerCommittedBorder}"/>
                                             </DataTrigger>
                                             <DataTrigger Binding="{Binding RecoveryRequired}" Value="True">
-                                                <Setter Property="Background" Value="#FFF3CD"/>
+                                                <Setter Property="Background" Value="{DynamicResource ReviewerWarning}"/>
                                             </DataTrigger>
                                         </Style.Triggers>
                                     </Style>
@@ -345,14 +480,14 @@ PreviewMouseWheel="ProductList_PreviewMouseWheel" BorderThickness="0" Background
                                             <Style TargetType="TextBlock">
                                                 <Style.Triggers>
                                                     <DataTrigger Binding="{Binding RecoveryRequired}" Value="True">
-                                                        <Setter Property="Foreground" Value="#8A4100"/>
+                                                        <Setter Property="Foreground" Value="{DynamicResource ReviewerWarningText}"/>
                                                     </DataTrigger>
                                                 </Style.Triggers>
                                             </Style>
                                         </TextBlock.Style>
                                     </TextBlock>
-                                    <TextBlock Text="{Binding ProductCount,                                      StringFormat={}{0} products}" Foreground="Black"/>
-                                    <TextBlock Text="{Binding SavedUtc}" FontSize="11" Foreground="#000" Margin="0,8,0,0"/>
+                                    <TextBlock Text="{Binding ProductCount,                                      StringFormat={}{0} products}" Foreground="{DynamicResource ReviewerText}"/>
+                                    <TextBlock Text="{Binding SavedUtc}" FontSize="11" Foreground="{DynamicResource ReviewerText}" Margin="0,8,0,0"/>
                                 </StackPanel>
                             </Border>
                         </DataTemplate>

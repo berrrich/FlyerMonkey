@@ -54,7 +54,7 @@ namespace FlyerMonkey.Reviewer.Windows
             if (PrimaryCategoryCombo.SelectedItem
                 is not CategoryChoice primary)
             {
-                MessageBox.Show(
+                Services.ReviewerTheme.ShowMessage(this, Services.ReviewerTheme.ChoiceFor(this),
                     "Please select a primary category.");
                 return;
             }
